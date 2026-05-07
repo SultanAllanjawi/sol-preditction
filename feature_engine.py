@@ -1,6 +1,6 @@
 """
-feature_engine.py — builds all 60+ features used by the ML models.
-Same logic as the Colab notebook so predictions are consistent.
+feature_engine.py — builds 60+ technical features for any OHLCV asset.
+Works for crypto, stocks, forex — any daily OHLCV data.
 """
 
 import numpy as np
@@ -9,18 +9,11 @@ from scipy import signal as scipy_signal
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Input : raw OHLCV DataFrame (index = Date)
-    Output: feature-rich DataFrame with Target column
-    """
     d = df.copy()
 
     # ── Savitzky-Golay denoising ───────────────────────────────────────────────
-    if len(d) >= 11:
-        d["Smooth"] = scipy_signal.savgol_filter(d["Close"].values, 11, 3)
-    else:
-        d["Smooth"] = d["Close"]
-
+    d["Smooth"] = (scipy_signal.savgol_filter(d["Close"].values, 11, 3)
+                   if len(d) >= 11 else d["Close"].values)
     P = d["Smooth"]
     C = d["Close"]
 
@@ -43,25 +36,26 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     d["MACD_div"]   = d["MACD_hist"] - d["MACD_hist"].shift(1)
 
     # ── RSI (14) ───────────────────────────────────────────────────────────────
-    delta = P.diff()
-    gain  = delta.clip(lower=0).rolling(14).mean()
-    loss  = (-delta.clip(upper=0)).rolling(14).mean()
+    delta       = P.diff()
+    gain        = delta.clip(lower=0).rolling(14).mean()
+    loss        = (-delta.clip(upper=0)).rolling(14).mean()
     d["RSI"]    = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
     d["RSI_OB"] = (d["RSI"] > 70).astype(int)
     d["RSI_OS"] = (d["RSI"] < 30).astype(int)
     d["RSI_mid"]= ((d["RSI"] >= 45) & (d["RSI"] <= 55)).astype(int)
 
-    r_min, r_max   = d["RSI"].rolling(14).min(), d["RSI"].rolling(14).max()
-    d["StochRSI"]  = (d["RSI"] - r_min) / (r_max - r_min + 1e-9)
-    d["StRSI_K"]   = d["StochRSI"].rolling(3).mean()
-    d["StRSI_D"]   = d["StRSI_K"].rolling(3).mean()
+    r_min = d["RSI"].rolling(14).min()
+    r_max = d["RSI"].rolling(14).max()
+    d["StochRSI"] = (d["RSI"] - r_min) / (r_max - r_min + 1e-9)
+    d["StRSI_K"]  = d["StochRSI"].rolling(3).mean()
+    d["StRSI_D"]  = d["StRSI_K"].rolling(3).mean()
 
     # ── Bollinger Bands ────────────────────────────────────────────────────────
-    bb_std   = P.rolling(20).std()
-    d["BB_U"]= d["SMA20"] + 2 * bb_std
-    d["BB_L"]= d["SMA20"] - 2 * bb_std
-    d["BB_W"]= (d["BB_U"] - d["BB_L"]) / (d["SMA20"] + 1e-9)
-    d["BB_P"]= (P - d["BB_L"]) / (d["BB_U"] - d["BB_L"] + 1e-9)
+    bb_std    = P.rolling(20).std()
+    d["BB_U"] = d["SMA20"] + 2 * bb_std
+    d["BB_L"] = d["SMA20"] - 2 * bb_std
+    d["BB_W"] = (d["BB_U"] - d["BB_L"]) / (d["SMA20"] + 1e-9)
+    d["BB_P"] = (P - d["BB_L"]) / (d["BB_U"] - d["BB_L"] + 1e-9)
     d["BB_SQ"]= (d["BB_W"] < d["BB_W"].rolling(20).mean()).astype(int)
 
     # ── ATR ────────────────────────────────────────────────────────────────────
@@ -70,9 +64,9 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         (d["High"] - C.shift()).abs(),
         (d["Low"]  - C.shift()).abs(),
     ], axis=1).max(axis=1)
-    d["ATR"]      = tr.rolling(14).mean()
-    d["ATR_pct"]  = d["ATR"] / (P + 1e-9)
-    d["ATR_trend"]= d["ATR"] - d["ATR"].rolling(5).mean()
+    d["ATR"]       = tr.rolling(14).mean()
+    d["ATR_pct"]   = d["ATR"] / (P + 1e-9)
+    d["ATR_trend"] = d["ATR"] - d["ATR"].rolling(5).mean()
 
     # ── Returns & lags ─────────────────────────────────────────────────────────
     for n in [1, 2, 3, 5, 7, 10, 14, 20]:
@@ -84,17 +78,17 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         d[f"LagR{lag}"] = d["Ret1"].shift(lag)
 
     # ── Volatility ─────────────────────────────────────────────────────────────
-    d["HV5"]    = d["Ret1"].rolling(5).std()
-    d["HV20"]   = d["Ret1"].rolling(20).std()
+    d["HV5"]     = d["Ret1"].rolling(5).std()
+    d["HV20"]    = d["Ret1"].rolling(20).std()
     d["VIX_like"]= d["HV20"] / (d["HV5"] + 1e-9)
 
-    # ── Candle ─────────────────────────────────────────────────────────────────
+    # ── Candle body / wick ─────────────────────────────────────────────────────
     d["Body"]      = (C - d["Open"]).abs() / (d["ATR"] + 1e-9)
     d["HL_span"]   = (d["High"] - d["Low"]) / (C + 1e-9)
     d["Gap"]       = (d["Open"] - C.shift()) / (C.shift() + 1e-9)
     d["Bull_bar"]  = (C > d["Open"]).astype(int)
     d["Up_wick"]   = (d["High"] - d[["Close","Open"]].max(axis=1)) / (d["ATR"] + 1e-9)
-    d["Down_wick"] = (d[["Close","Open"]].min(axis=1) - d["Low"])  / (d["ATR"] + 1e-9)
+    d["Down_wick"] = (d[["Close","Open"]].min(axis=1) - d["Low"]) / (d["ATR"] + 1e-9)
 
     # ── Volume ─────────────────────────────────────────────────────────────────
     d["VolMA5"]   = d["Volume"].rolling(5).mean()
@@ -115,7 +109,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     d["Mo_trend"]  = d["Ret20"].rolling(5).mean()
     d["Trend_str"] = d["P_SMA20"] - d["P_SMA50"]
 
-    # ── Noise feature ──────────────────────────────────────────────────────────
+    # ── Noise ──────────────────────────────────────────────────────────────────
     d["Noise"]  = C - d["Smooth"]
     d["Noise_z"]= (d["Noise"] - d["Noise"].rolling(20).mean()) / (d["Noise"].rolling(20).std() + 1e-9)
 
@@ -127,9 +121,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-# Feature columns used for training (keep in sync with model_engine.py)
 FEATURE_COLS = [
-    "Close","Open","High","Low","Volume","Change_Pct","Smooth",
+    "Close","Open","High","Low","Volume","Smooth",
     "SMA5","SMA10","SMA20","SMA50","SMA100",
     "EMA5","EMA10","EMA20","EMA50","EMA100",
     "X_5_20","X_20_50","X_E12_26",
