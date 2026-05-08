@@ -237,11 +237,28 @@ with st.sidebar:
         save_settings({**_saved_settings, "last_ticker": ticker})
 
     # Show source badge
+    _UAE_LIST = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                 "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
     if ticker in st.session_state.uploaded_assets:
-        st.success(f"📂 Using your uploaded CSV for **{ticker}** (+ daily API top-up)")
+        st.success(f"📂 Using uploaded CSV for **{ticker}**")
+    elif ticker in _UAE_LIST:
+        st.info(f"📡 Auto-fetching from **Yahoo Finance (.AE)** · Updates every 30 min")
+        # Quick chart link for UAE stocks
+        _tv_sym_side = {
+            "EMAAR.DFM":"DFM:EMAAR","ENBD.DFM":"DFM:ENBD","DIB.DFM":"DFM:DIB",
+            "DU.DFM":"DFM:DU","DEWA.DFM":"DFM:DEWA","SALIK.DFM":"DFM:SALIK",
+            "FAB.ADX":"ADX:FAB","ALDAR.ADX":"ADX:ALDAR",
+            "ADCB.ADX":"ADX:ADCB","MASQ.DFM":"DFM:MASQ",
+        }.get(ticker, ticker)
+        st.markdown(
+            f'<a href="https://www.tradingview.com/chart/?symbol={_tv_sym_side}" '
+            f'target="_blank" style="color:#58A6FF;font-size:0.82rem">'
+            f'📈 Open {ticker} live chart on TradingView ↗</a>',
+            unsafe_allow_html=True
+        )
     else:
         src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","MATIC","LINK","XRP","LTC"] else "Yahoo Finance"
-        st.info(f"📡 Auto-fetching from **{src}** · Updates every 6h")
+        st.info(f"📡 Auto-fetching from **{src}** · Updates every 30 min")
 
     st.divider()
     st.subheader("⚙️ Signal Settings")
@@ -305,19 +322,37 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
         st.session_state[_prev_sig_key] = _cur_sig
 
     except Exception as e:
+        _uae_tickers = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                         "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+        _is_uae = ticker in _uae_tickers
         st.markdown(f"""
 <div style="background:#2D1B1B;border:2px solid #F85149;border-radius:10px;padding:20px 24px;margin:20px 0">
-  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">❌ Error Loading Data</div>
-  <div style="color:#F0F6FC;font-size:0.9rem;font-family:monospace">{str(e)}</div>
+  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">❌ Could not load data for {ticker}</div>
+  <div style="color:#F0F6FC;font-size:0.9rem">{str(e).split(chr(10))[0]}</div>
 </div>""", unsafe_allow_html=True)
-        st.markdown("""
+        if _is_uae:
+            st.markdown("""
+<div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
+  <div style="color:#E3B341;font-weight:bold;margin-bottom:8px">📊 UAE / DFM Stock Data</div>
+  <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.8">
+    UAE stocks load automatically from <b>Yahoo Finance</b> — this usually works on Streamlit Cloud.<br><br>
+    If it fails, you can download historical data manually:<br>
+    1. Go to <a href="https://finance.yahoo.com" target="_blank" style="color:#58A6FF">finance.yahoo.com</a>
+       and search e.g. <b>EMAAR.AE</b> (use .AE not .DFM)<br>
+    2. Or <a href="https://www.investing.com" target="_blank" style="color:#58A6FF">investing.com</a>
+       → search stock → Historical Data → Download CSV<br>
+    3. Upload the CSV via <b>📁 Uploaded</b> category in the sidebar
+  </div>
+</div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
 <div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
   <div style="color:#E3B341;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
   <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.8">
-    1. Make sure ALL 4 files are updated on GitHub: <code>app.py</code>, <code>data_manager.py</code>, <code>model_engine.py</code>, <code>requirements.txt</code><br>
-    2. For crypto (SOL, BTC, ETH): data auto-loads from Binance — no action needed<br>
-    3. For stocks or Dubai assets: upload a CSV using the sidebar uploader<br>
-    4. Try clicking <b>Force Refresh Data</b> in the sidebar
+    1. For crypto (SOL, BTC, ETH): data auto-loads from Binance<br>
+    2. For US stocks: data auto-loads from Yahoo Finance<br>
+    3. Try clicking <b>Force Refresh Data</b> in the sidebar<br>
+    4. Make sure all files (app.py, data_manager.py, persistence.py) are on GitHub
   </div>
 </div>""", unsafe_allow_html=True)
         st.stop()
