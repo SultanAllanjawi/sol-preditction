@@ -303,6 +303,114 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False):
 # Get uploaded bytes for the selected ticker (if any)
 _uploaded_bytes = st.session_state.uploaded_assets.get(ticker, None)
 
+# ── UAE/DFM stocks: redirect to DFM tab, skip ML pipeline ───────
+_UAE_TICKERS = {"EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"}
+
+if ticker in _UAE_TICKERS and ticker not in st.session_state.get("uploaded_assets",{}):
+    # No CSV uploaded for this UAE stock — show DFM live charts directly
+    _dfm_names_map = {
+        "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
+        "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
+        "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
+        "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
+        "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
+    }
+    _dfm_tv_map = {
+        "EMAAR.DFM":"DFM:EMAAR","ENBD.DFM":"DFM:ENBD","DIB.DFM":"DFM:DIB",
+        "DU.DFM":"DFM:DU","DEWA.DFM":"DFM:DEWA","SALIK.DFM":"DFM:SALIK",
+        "FAB.ADX":"ADX:FAB","ALDAR.ADX":"ADX:ALDAR",
+        "ADCB.ADX":"ADX:ADCB","MASQ.DFM":"DFM:MASQ",
+    }
+    _dfm_inv_map = {
+        "EMAAR.DFM":"emaar-properties","ENBD.DFM":"emirates-nbd",
+        "DIB.DFM":"dubai-islamic-bank","DU.DFM":"emirates-integrated-telecom",
+        "DEWA.DFM":"dubai-electricity-water","SALIK.DFM":"salik-pjsc",
+        "FAB.ADX":"first-abu-dhabi-bank","ALDAR.ADX":"aldar-properties",
+        "ADCB.ADX":"abu-dhabi-commercial-bank","MASQ.DFM":"mashreqbank",
+    }
+    _stk_name   = _dfm_names_map.get(ticker, ticker)
+    _stk_tv     = _dfm_tv_map.get(ticker, ticker)
+    _stk_inv    = _dfm_inv_map.get(ticker, ticker)
+    _stk_live_p = DataManager.get_live_price(ticker)
+
+    # ── Live price and info bar ────────────────────────────────────
+    st.markdown(f"## 🇦🇪 {_stk_name} `({ticker})`")
+    _pi1, _pi2, _pi3 = st.columns(3)
+    _pi1.metric("Live Price",
+                f"AED {_stk_live_p:,.4f}" if _stk_live_p else "—",
+                delta="DFM/ADX")
+    _pi2.metric("Market Hours", "10:00–14:50 GST", delta="Sun–Thu")
+    _pi3.metric("ML Signals", "Upload CSV for predictions", delta="")
+
+    st.info(
+        f"**{_stk_name}** is a UAE stock. The live chart is shown below. "
+        f"To get ML buy/sell signals, upload a CSV from "
+        f"[Investing.com](https://www.investing.com/equities/{_stk_inv}) "
+        f"via the sidebar (📁 Uploaded category).",
+        icon="ℹ️"
+    )
+
+    # ── Timeframe selector ─────────────────────────────────────────
+    _dtf_map = {"5m":"5","15m":"15","1h":"60","4h":"240","1D":"D","1W":"W","1M":"M"}
+    _cur_dtf = st.session_state.get("dfm_inline_tf","D")
+    _tfc = st.columns(len(_dtf_map))
+    for _tfi, (_lbl, _val) in enumerate(_dtf_map.items()):
+        if _tfc[_tfi].button(_lbl, key=f"dtfi_{_val}",
+                              use_container_width=True,
+                              type="primary" if _cur_dtf==_val else "secondary"):
+            st.session_state["dfm_inline_tf"] = _val
+            st.rerun()
+    _cur_dtf = st.session_state.get("dfm_inline_tf","D")
+
+    # ── Chart source toggle ────────────────────────────────────────
+    _csrc = st.radio("Chart source",
+                     ["📊 TradingView","🌐 Investing.com"],
+                     horizontal=True, key="dfm_inline_src")
+
+    if _csrc == "📊 TradingView":
+        _tv_inline = f"""<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>*{{margin:0;padding:0;box-sizing:border-box;}}body{{background:#0D1117;}}</style>
+</head><body>
+<div id="dfm_inline" style="width:100%;height:600px"></div>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+var _oa=window.alert;window.alert=function(m){{if(m&&m.indexOf('available')>-1)return;_oa(m);}};
+new TradingView.widget({{
+  "container_id":"dfm_inline","width":"100%","height":600,
+  "symbol":"{_stk_tv}","interval":"{_cur_dtf}",
+  "timezone":"Asia/Dubai","theme":"dark","style":"1","locale":"en",
+  "hide_side_toolbar":false,"allow_symbol_change":true,"save_image":false,
+  "studies":["Volume@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies"],
+  "overrides":{{
+    "paneProperties.background":"#0D1117","paneProperties.backgroundType":"solid",
+    "paneProperties.vertGridProperties.color":"#1C2128",
+    "paneProperties.horzGridProperties.color":"#1C2128",
+    "mainSeriesProperties.candleStyle.upColor":"#3FB950",
+    "mainSeriesProperties.candleStyle.downColor":"#F85149",
+    "mainSeriesProperties.candleStyle.borderUpColor":"#3FB950",
+    "mainSeriesProperties.candleStyle.borderDownColor":"#F85149",
+    "mainSeriesProperties.candleStyle.wickUpColor":"#3FB950",
+    "mainSeriesProperties.candleStyle.wickDownColor":"#F85149"
+  }}
+}});
+</script></body></html>"""
+        st.components.v1.html(_tv_inline, height=615, scrolling=False)
+    else:
+        _inv_inline = f"""<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>*{{margin:0;padding:0;box-sizing:border-box;}}body{{background:#0D1117;}}</style>
+</head><body>
+<iframe src="https://www.investing.com/equities/{_stk_inv}-chart"
+  style="width:100%;height:600px;border:none;"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  referrerpolicy="no-referrer-when-downgrade" loading="lazy"></iframe>
+</body></html>"""
+        st.components.v1.html(_inv_inline, height=615, scrolling=False)
+
+    st.stop()   # ← Don't run ML pipeline for UAE stocks without CSV
+
 with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 min after..."):
     try:
         df_raw, df_feat, results = load_and_train(
@@ -664,7 +772,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -673,6 +781,7 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📰 News & Sentiment",
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
+    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1855,236 +1964,204 @@ with tab7:
 # TAB 8: UAE DFM Market
 # ════════════════════════════════════════════════════════════════════
 with tab8:
-    st.subheader("🇦🇪 UAE Market — DFM & ADX Top Stocks")
-    st.caption(
-        "Top 10 most traded UAE stocks · Live TradingView charts · "
-        "Click any stock to see its full chart · Data from Dubai Financial Market & ADX"
-    )
-
-    # DFM / ADX stock list
+    # ════════════════════════════════════════════════════════════════
+    # DFM Market — Standalone live charts, NO data loading required
+    # ════════════════════════════════════════════════════════════════
     DFM_STOCKS = [
-        {"ticker":"EMAAR.DFM",  "name":"Emaar Properties",    "tv":"DFM:EMAAR",  "sector":"Real Estate"},
-        {"ticker":"FAB.ADX",    "name":"First Abu Dhabi Bank", "tv":"ADX:FAB",    "sector":"Banking"},
-        {"ticker":"DIB.DFM",    "name":"Dubai Islamic Bank",   "tv":"DFM:DIB",    "sector":"Banking"},
-        {"ticker":"DU.DFM",     "name":"du Telecom",           "tv":"DFM:DU",     "sector":"Telecom"},
-        {"ticker":"DEWA.DFM",   "name":"Dubai Electricity",    "tv":"DFM:DEWA",   "sector":"Utilities"},
-        {"ticker":"ALDAR.ADX",  "name":"Aldar Properties",     "tv":"ADX:ALDAR",  "sector":"Real Estate"},
-        {"ticker":"MASQ.DFM",   "name":"Mashreq Bank",         "tv":"DFM:MASQ",   "sector":"Banking"},
-        {"ticker":"ENBD.DFM",   "name":"Emirates NBD",         "tv":"DFM:ENBD",   "sector":"Banking"},
-        {"ticker":"ADCB.ADX",   "name":"ADCB Bank",            "tv":"ADX:ADCB",   "sector":"Banking"},
-        {"ticker":"SALIK.DFM",  "name":"Salik",                "tv":"DFM:SALIK",  "sector":"Transport"},
+        {"ticker":"EMAAR.DFM",  "name":"Emaar Properties",    "tv":"DFM:EMAAR",  "sector":"Real Estate",  "inv":"emaar-properties"},
+        {"ticker":"ENBD.DFM",   "name":"Emirates NBD",         "tv":"DFM:ENBD",   "sector":"Banking",      "inv":"emirates-nbd"},
+        {"ticker":"DIB.DFM",    "name":"Dubai Islamic Bank",   "tv":"DFM:DIB",    "sector":"Banking",      "inv":"dubai-islamic-bank"},
+        {"ticker":"DU.DFM",     "name":"du Telecom",           "tv":"DFM:DU",     "sector":"Telecom",      "inv":"emirates-integrated-telecom"},
+        {"ticker":"DEWA.DFM",   "name":"Dubai Electricity",    "tv":"DFM:DEWA",   "sector":"Utilities",    "inv":"dubai-electricity-water"},
+        {"ticker":"SALIK.DFM",  "name":"Salik",                "tv":"DFM:SALIK",  "sector":"Transport",    "inv":"salik-pjsc"},
+        {"ticker":"FAB.ADX",    "name":"First Abu Dhabi Bank", "tv":"ADX:FAB",    "sector":"Banking",      "inv":"first-abu-dhabi-bank"},
+        {"ticker":"ALDAR.ADX",  "name":"Aldar Properties",     "tv":"ADX:ALDAR",  "sector":"Real Estate",  "inv":"aldar-properties"},
+        {"ticker":"ADCB.ADX",   "name":"ADCB Bank",            "tv":"ADX:ADCB",   "sector":"Banking",      "inv":"abu-dhabi-commercial-bank"},
+        {"ticker":"MASQ.DFM",   "name":"Mashreq Bank",         "tv":"DFM:MASQ",   "sector":"Banking",      "inv":"mashreqbank"},
     ]
 
-    # ── Stock selector ─────────────────────────────────────────────
-    _dfm_names = [f"{s['name']} ({s['ticker']})" for s in DFM_STOCKS]
-    _dfm_sel_idx = st.session_state.get("dfm_selected", 0)
+    st.markdown("## 🇦🇪 UAE Market — DFM & ADX Live Charts")
+    st.caption(
+        "Top 10 UAE stocks · Live charts from TradingView & Investing.com · "
+        "Select a stock → see live chart instantly · "
+        "For ML signals: upload CSV from Investing.com via sidebar"
+    )
 
-    # Quick-select buttons in a grid
-    st.markdown("**Select a stock:**")
-    _dcols = st.columns(5)
+    # ── Stock selector buttons ─────────────────────────────────────
+    _d_cols = st.columns(5)
     for _di, _ds in enumerate(DFM_STOCKS):
-        _col_idx = _di % 5
-        _is_active = st.session_state.get("dfm_selected", 0) == _di
-        _btn_type = "primary" if _is_active else "secondary"
-        if _dcols[_col_idx].button(
-            _ds["name"].split()[0],   # short name
-            key=f"dfm_btn_{_di}",
+        _active = st.session_state.get("dfm_sel",0) == _di
+        if _d_cols[_di % 5].button(
+            _ds["name"].split()[0],
+            key=f"dfm8_{_di}",
             use_container_width=True,
-            type=_btn_type,
+            type="primary" if _active else "secondary"
         ):
-            st.session_state["dfm_selected"] = _di
+            st.session_state["dfm_sel"] = _di
             st.rerun()
 
     st.divider()
-    _sel_idx  = st.session_state.get("dfm_selected", 0)
-    _sel_stk  = DFM_STOCKS[_sel_idx]
 
-    # ── Two columns: chart + signal ────────────────────────────────
-    _dfm_chart_col, _dfm_info_col = st.columns([3, 1])
+    _si   = st.session_state.get("dfm_sel", 0)
+    _stk  = DFM_STOCKS[_si]
 
-    with _dfm_chart_col:
-        st.markdown(f"**{_sel_stk['name']} ({_sel_stk['ticker']})** — {_sel_stk['sector']}")
+    # ── Layout: chart left, info right ────────────────────────────
+    _dc1, _dc2 = st.columns([4, 1])
 
-        # Timeframe selector for DFM chart
-        _dfm_tf_map = {"1D":"D","1W":"W","1M":"M","3M":"3M","1h":"60","4h":"240","15m":"15"}
-        _dfm_cur_tf = st.session_state.get("dfm_tf","D")
-        _dfm_tf_cols = st.columns(len(_dfm_tf_map))
-        for _tfi, (_lbl, _val) in enumerate(_dfm_tf_map.items()):
-            _active = _dfm_cur_tf == _val
-            if _dfm_tf_cols[_tfi].button(
-                _lbl, key=f"dfm_tf_{_val}",
-                use_container_width=True,
-                type="primary" if _active else "secondary"
-            ):
-                st.session_state["dfm_tf"] = _val
+    with _dc1:
+        st.markdown(f"**{_stk['name']} ({_stk['ticker']})** — {_stk['sector']}")
+
+        # Timeframe buttons
+        _dtf_opts = {"1D":"D","1W":"W","1M":"M","3M":"3M","1h":"60","4h":"240","15m":"15","5m":"5"}
+        _cur_dtf  = st.session_state.get("dfm_tf2","D")
+        _dtf_cols = st.columns(len(_dtf_opts))
+        for _ti, (_lbl, _val) in enumerate(_dtf_opts.items()):
+            if _dtf_cols[_ti].button(_lbl, key=f"dtf2_{_val}_{_si}",
+                                      use_container_width=True,
+                                      type="primary" if _cur_dtf==_val else "secondary"):
+                st.session_state["dfm_tf2"] = _val
                 st.rerun()
-        _dfm_cur_tf = st.session_state.get("dfm_tf","D")
+        _cur_dtf = st.session_state.get("dfm_tf2","D")
 
-        # Chart source selector
-        _chart_src = st.radio(
-            "Chart source",
-            ["📊 TradingView", "🌐 Investing.com"],
-            horizontal=True, key="dfm_chart_src"
-        )
+        # Chart source toggle
+        _csrc = st.radio("Chart source", ["📊 TradingView","🌐 Investing.com"],
+                          horizontal=True, key=f"dfm_csrc_{_si}")
 
-        if _chart_src == "📊 TradingView":
-            # TradingView with allow_symbol_change so user can fix if needed
-            _dfm_tv_html = f"""<!DOCTYPE html><html><head>
+        if _csrc == "📊 TradingView":
+            # TradingView with popup suppressed via JS
+            _tv_html = f"""<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <style>*{{margin:0;padding:0;box-sizing:border-box;}}body{{background:#0D1117;}}</style>
 </head><body>
-<div id="dfm_tv_{_sel_idx}" style="width:100%;height:520px"></div>
+<div id="dfm_c_{_si}" style="width:100%;height:560px"></div>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <script>
-  // Suppress the notification popup
-  var _origAlert = window.alert;
-  window.alert = function(msg) {{
-    if (msg && msg.indexOf('available') !== -1) return;
-    _origAlert(msg);
-  }};
+// Suppress the 'only available on TradingView' notification
+var _oa = window.alert; window.alert = function(m){{if(m&&m.indexOf('available')>-1)return;_oa(m);}};
+var _oc = window.confirm; window.confirm = function(m){{if(m&&m.indexOf('available')>-1)return false;return _oc(m);}};
 
-  new TradingView.widget({{
-    "container_id"      : "dfm_tv_{_sel_idx}",
-    "width"             : "100%",
-    "height"            : 520,
-    "symbol"            : "{_sel_stk['tv']}",
-    "interval"          : "{_dfm_cur_tf}",
-    "timezone"          : "Asia/Dubai",
-    "theme"             : "dark",
-    "style"             : "1",
-    "locale"            : "en",
-    "hide_side_toolbar" : false,
-    "allow_symbol_change": true,
-    "save_image"        : false,
-    "hide_volume"       : false,
-    "support_host"      : "https://www.tradingview.com",
-    "studies"           : ["Volume@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies"],
-    "overrides"         : {{
-      "paneProperties.background"                       : "#0D1117",
-      "paneProperties.backgroundType"                   : "solid",
-      "paneProperties.vertGridProperties.color"         : "#1C2128",
-      "paneProperties.horzGridProperties.color"         : "#1C2128",
-      "mainSeriesProperties.candleStyle.upColor"        : "#3FB950",
-      "mainSeriesProperties.candleStyle.downColor"      : "#F85149",
-      "mainSeriesProperties.candleStyle.borderUpColor"  : "#3FB950",
-      "mainSeriesProperties.candleStyle.borderDownColor": "#F85149",
-      "mainSeriesProperties.candleStyle.wickUpColor"    : "#3FB950",
-      "mainSeriesProperties.candleStyle.wickDownColor"  : "#F85149"
-    }}
-  }});
+new TradingView.widget({{
+  "container_id"     : "dfm_c_{_si}",
+  "width"            : "100%",
+  "height"           : 560,
+  "symbol"           : "{_stk['tv']}",
+  "interval"         : "{_cur_dtf}",
+  "timezone"         : "Asia/Dubai",
+  "theme"            : "dark",
+  "style"            : "1",
+  "locale"           : "en",
+  "hide_side_toolbar": false,
+  "allow_symbol_change": true,
+  "save_image"       : false,
+  "studies"          : ["Volume@tv-basicstudies","RSI@tv-basicstudies"],
+  "overrides"        : {{
+    "paneProperties.background"                        : "#0D1117",
+    "paneProperties.backgroundType"                    : "solid",
+    "paneProperties.vertGridProperties.color"          : "#1C2128",
+    "paneProperties.horzGridProperties.color"          : "#1C2128",
+    "mainSeriesProperties.candleStyle.upColor"         : "#3FB950",
+    "mainSeriesProperties.candleStyle.downColor"       : "#F85149",
+    "mainSeriesProperties.candleStyle.borderUpColor"   : "#3FB950",
+    "mainSeriesProperties.candleStyle.borderDownColor" : "#F85149",
+    "mainSeriesProperties.candleStyle.wickUpColor"     : "#3FB950",
+    "mainSeriesProperties.candleStyle.wickDownColor"   : "#F85149"
+  }}
+}});
 </script>
 </body></html>"""
-            st.components.v1.html(_dfm_tv_html, height=535, scrolling=False)
+            st.components.v1.html(_tv_html, height=575, scrolling=False)
             st.caption(
-                f"TradingView chart for **{_sel_stk['tv']}** · "
-                "If you see 'only available on TradingView' — dismiss and use "
-                "the Investing.com tab instead"
+                f"TradingView · {_stk['tv']} · "
+                "If notification appears, click OK to dismiss — chart loads fine after"
             )
 
         else:
-            # Investing.com iframe — works for all DFM/ADX stocks
-            _inv_names = {{
-                "EMAAR.DFM":"emaar-properties","ENBD.DFM":"emirates-nbd",
-                "DIB.DFM":"dubai-islamic-bank","DU.DFM":"emirates-integrated-telecom",
-                "DEWA.DFM":"dubai-electricity-water","SALIK.DFM":"salik-pjsc",
-                "FAB.ADX":"first-abu-dhabi-bank","ALDAR.ADX":"aldar-properties",
-                "ADCB.ADX":"abu-dhabi-commercial-bank","MASQ.DFM":"mashreqbank",
-            }}
-            _inv_slug = _inv_names.get(_sel_stk['ticker'], _sel_stk['name'].lower().replace(' ','-'))
+            # Investing.com chart iframe
             _inv_html = f"""<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <style>
   *{{margin:0;padding:0;box-sizing:border-box;}}
-  body{{background:#0D1117;}}
-  .btn-bar{{background:#161B22;padding:8px 16px;border-bottom:1px solid #30363D;
-            display:flex;gap:8px;align-items:center;}}
-  .btn{{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;
-        padding:4px 12px;cursor:pointer;font-size:0.80rem;text-decoration:none;}}
+  body{{background:#0D1117;font-family:sans-serif;}}
+  .toolbar{{background:#161B22;border-bottom:1px solid #30363D;
+            padding:8px 14px;display:flex;gap:10px;align-items:center;}}
+  .btn{{background:#21262D;color:#C9D1D9;border:1px solid #30363D;
+        border-radius:5px;padding:5px 12px;text-decoration:none;font-size:0.80rem;}}
   .btn:hover{{background:#1F6FEB;color:white;}}
-</style>
-</head><body>
-<div class="btn-bar">
-  <a class="btn" href="https://www.investing.com/equities/{_inv_slug}-chart"
-     target="_blank">🌐 Open Full Chart on Investing.com</a>
-  <a class="btn" href="https://www.dfm.ae/the-exchange/market-data/equities-prices"
-     target="_blank">📊 DFM Official Prices</a>
-  <span style="color:#8B949E;font-size:0.75rem;margin-left:8px">
-    {_sel_stk['name']} · {_sel_stk['ticker']}
-  </span>
+</style></head><body>
+<div class="toolbar">
+  <a class="btn" href="https://www.investing.com/equities/{_stk['inv']}-chart" target="_blank">
+    🌐 Investing.com — {_stk['name']}
+  </a>
+  <a class="btn" href="https://www.dfm.ae/the-exchange/market-data/equities-prices" target="_blank">
+    📊 DFM Official
+  </a>
+  <span style="color:#8B949E;font-size:0.75rem">{_stk['ticker']} · {_stk['sector']}</span>
 </div>
 <iframe
-  src="https://www.investing.com/equities/{_inv_slug}-chart"
-  style="width:100%;height:500px;border:none;"
+  src="https://www.investing.com/equities/{_stk['inv']}-chart"
+  style="width:100%;height:540px;border:none;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   referrerpolicy="no-referrer-when-downgrade"
   loading="lazy">
 </iframe>
 </body></html>"""
-            st.components.v1.html(_inv_html, height=545, scrolling=False)
-            st.caption("Chart from Investing.com · If it doesn't load, try TradingView tab")
+            st.components.v1.html(_inv_html, height=580, scrolling=False)
 
-    with _dfm_info_col:
-        st.markdown("**Stock Info**")
+    with _dc2:
+        # Stock info card
+        _live_p = DataManager.get_live_price(_stk["ticker"])
         st.markdown(f"""
-<div style="background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px">
-  <div style="color:#8B949E;font-size:0.75rem">Name</div>
-  <div style="color:#F0F6FC;font-weight:600;margin-bottom:10px">{_sel_stk['name']}</div>
-  <div style="color:#8B949E;font-size:0.75rem">Ticker</div>
-  <div style="color:#58A6FF;font-weight:600;margin-bottom:10px">{_sel_stk['ticker']}</div>
-  <div style="color:#8B949E;font-size:0.75rem">Sector</div>
-  <div style="color:#E3B341;font-weight:600;margin-bottom:10px">{_sel_stk['sector']}</div>
-  <div style="color:#8B949E;font-size:0.75rem">Exchange</div>
-  <div style="color:#F0F6FC;font-weight:600;margin-bottom:10px">
-    {"DFM 🇦🇪" if "DFM" in _sel_stk['ticker'] else "ADX 🇦🇪"}
+<div style="background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px;margin-bottom:12px">
+  <div style="color:#8B949E;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Live Price</div>
+  <div style="color:#F0F6FC;font-size:1.4rem;font-weight:bold;margin:4px 0">
+    {"AED " + f"{_live_p:,.4f}" if _live_p else "—"}
   </div>
-  <div style="color:#8B949E;font-size:0.75rem">Market Hours</div>
-  <div style="color:#F0F6FC;font-size:0.82rem">Sun–Thu<br>10:00–14:50 Dubai</div>
+  <div style="color:#8B949E;font-size:0.72rem;margin-top:8px">Company</div>
+  <div style="color:#F0F6FC;font-weight:600;font-size:0.85rem">{_stk['name']}</div>
+  <div style="color:#8B949E;font-size:0.72rem;margin-top:6px">Ticker</div>
+  <div style="color:#58A6FF;font-weight:600">{_stk['ticker']}</div>
+  <div style="color:#8B949E;font-size:0.72rem;margin-top:6px">Sector</div>
+  <div style="color:#E3B341">{_stk['sector']}</div>
+  <div style="color:#8B949E;font-size:0.72rem;margin-top:6px">Exchange</div>
+  <div style="color:#F0F6FC;font-size:0.82rem">{"DFM 🇦🇪" if "DFM" in _stk['ticker'] else "ADX 🇦🇪"}</div>
+  <div style="color:#8B949E;font-size:0.72rem;margin-top:6px">Market Hours</div>
+  <div style="color:#F0F6FC;font-size:0.80rem">Sun–Thu<br>10:00–14:50 GST</div>
 </div>""", unsafe_allow_html=True)
 
-        st.markdown("**Add to Watchlist**")
-        if st.button(f"📊 Analyse {_sel_stk['ticker']}", use_container_width=True, type="primary"):
-            st.session_state.selected_ticker = _sel_stk['ticker']
-            st.session_state.uploaded_assets  = st.session_state.get('uploaded_assets',{})
-            st.toast(f"Switched to {_sel_stk['name']} — go to Price & Signals tab", icon="📊")
+        # Get ML signals button
+        st.markdown("**📊 ML Signals**")
+        if st.button(f"Analyse {_stk['name'].split()[0]}", use_container_width=True, type="primary", key=f"ana_{_si}"):
+            st.session_state.selected_ticker = _stk["ticker"]
+            st.toast(f"Switched to {_stk['name']} — check Price & Signals tab", icon="📊")
             st.rerun()
 
-        st.markdown("**⚠️ Note**")
         st.caption(
-            "DFM/ADX stocks need a CSV upload for ML predictions. "
-            "Download from Investing.com → search ticker → Historical Data → CSV. "
-            "Then upload via the sidebar."
+            "For ML predictions, upload a CSV:\n"
+            "1. Go to investing.com\n"
+            "2. Search the stock\n"
+            "3. Historical Data → Download\n"
+            "4. Upload via sidebar → 📁 Uploaded"
         )
 
     st.divider()
 
-    # ── All 10 stocks overview ──────────────────────────────────────
-    st.markdown("**📊 All UAE Stocks Overview**")
-    st.caption("Click 'Analyse' on any stock to run ML predictions on it")
-
-    _ov_rows = []
-    for _ds in DFM_STOCKS:
-        # Try to get live price
-        _lp = DataManager.get_live_price(_ds['ticker'])
-        _ov_rows.append({
-            "Stock"   : f"{_ds['name']}",
-            "Ticker"  : _ds['ticker'],
-            "Sector"  : _ds['sector'],
-            "Exchange": "DFM" if "DFM" in _ds['ticker'] else "ADX",
-            "Live Price": f"AED {_lp:,.4f}" if _lp else "Upload CSV",
-        })
-
-    _ov_df = pd.DataFrame(_ov_rows)
-    st.dataframe(_ov_df, use_container_width=True, hide_index=True)
-
-    st.info(
-        "**How to get ML signals for DFM stocks:**\n\n"
-        "1. Go to [Investing.com](https://www.investing.com)\n"
-        "2. Search for e.g. 'Emaar Properties'\n"
-        "3. Click 'Historical Data' → Download CSV\n"
-        "4. Upload via **Upload CSV Data** in the sidebar\n"
-        "5. Name it `EMAAR.DFM` and click ➕ Add\n"
-        "6. Select it from the asset dropdown → you'll see full ML predictions"
-    )
+    # ── All stocks overview grid ───────────────────────────────────
+    st.markdown("**📋 All UAE Stocks**")
+    _ov_cols = st.columns(5)
+    for _oi, _os in enumerate(DFM_STOCKS):
+        _op = DataManager.get_live_price(_os["ticker"])
+        with _ov_cols[_oi % 5]:
+            st.markdown(
+                f'<div style="background:#161B22;border:1px solid #30363D;'
+                f'border-radius:8px;padding:10px;text-align:center;margin-bottom:8px">'
+                f'<div style="color:#8B949E;font-size:0.70rem">{_os["ticker"]}</div>'
+                f'<div style="color:#F0F6FC;font-weight:600;font-size:0.82rem">{_os["name"].split()[0]}</div>'
+                f'<div style="color:#E3B341;font-size:0.85rem;margin-top:4px">'
+                f'{"AED "+f"{_op:,.3f}" if _op else "—"}</div>'
+                f'<div style="color:#8B949E;font-size:0.68rem">{_os["sector"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
 
 # ── Auto-refresh every 60s for live price ──────────────────────────────────
