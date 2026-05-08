@@ -450,3 +450,80 @@ def _get_fallback_news(currency: str) -> list:
     except Exception:
         pass
     return []
+
+
+def get_forexfactory_calendar() -> list:
+    """
+    Fetch ForexFactory economic calendar for this week.
+    Returns list of events sorted by impact (High first).
+    Works on Streamlit Cloud with the correct Referer header.
+    """
+    headers = {
+        "User-Agent"  : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer"     : "https://www.forexfactory.com/",
+        "Accept"      : "application/json, text/plain, */*",
+    }
+    urls = [
+        "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+        "https://nfs.faireconomy.media/ff_calendar_nextweek.json",
+    ]
+    events = []
+    for url in urls:
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            for item in data:
+                impact = item.get("impact","")
+                # Map impact to emoji + color class
+                if impact == "High":
+                    impact_icon = "🔴 High"
+                elif impact == "Medium":
+                    impact_icon = "🟡 Medium"
+                elif impact == "Low":
+                    impact_icon = "⚪ Low"
+                else:
+                    impact_icon = "⚫ Holiday"
+
+                events.append({
+                    "date"       : item.get("date","")[:10],
+                    "time"       : item.get("date","")[11:16] if len(item.get("date","")) > 10 else "",
+                    "currency"   : item.get("country",""),
+                    "event"      : item.get("title",""),
+                    "impact"     : impact_icon,
+                    "impact_raw" : impact,
+                    "forecast"   : item.get("forecast","—") or "—",
+                    "previous"   : item.get("previous","—") or "—",
+                    "actual"     : item.get("actual","—") or "—",
+                })
+        except Exception:
+            continue
+
+    # Sort: High impact first, then by date
+    order = {"High":0,"Medium":1,"Low":2,"Holiday":3}
+    events.sort(key=lambda x: (order.get(x["impact_raw"],4), x["date"], x["time"]))
+    return events
+
+
+def get_combined_news(ticker: str) -> dict:
+    """
+    Returns combined news from CryptoPanic + ForexFactory.
+    {
+        "crypto_news": [...],      # from CryptoPanic
+        "forex_calendar": [...],   # from ForexFactory
+        "sentiment_score": float,  # -1 to +1
+    }
+    """
+    crypto_news  = DataManager.get_news_sentiment(ticker, limit=20)
+    forex_cal    = get_forexfactory_calendar()
+
+    # Overall sentiment
+    scores = [n.get("score", 0) for n in crypto_news]
+    avg_score = sum(scores) / max(len(scores), 1)
+
+    return {
+        "crypto_news"    : crypto_news,
+        "forex_calendar" : forex_cal,
+        "sentiment_score": avg_score,
+    }
