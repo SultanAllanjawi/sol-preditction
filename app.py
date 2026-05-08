@@ -496,75 +496,176 @@ with tab0:
 
 # ── TAB 1: Price & Signals ─────────────────────────────────────────
 with tab1:
+    # ── Detect if crypto (trades 24/7) or stock (weekdays only) ────
+    _CRYPTO_BASES = {"SOL","BTC","ETH","ADA","BNB","XRP","DOGE","AVAX",
+                     "MATIC","LINK","DOT","LTC","UNI","ATOM","FIL"}
+    _is_crypto = (
+        ticker.upper().replace("-USD","") in _CRYPTO_BASES or
+        ticker.upper().endswith("-USD")
+    )
+
+    # ── Next session label ──────────────────────────────────────────
+    from datetime import datetime as _DT, timezone as _TZ, timedelta as _TD, date as _DATE
+    _now_dubai  = _DT.now(_TZ.utc) + _TD(hours=4)
+    _today_date = _now_dubai.date()
+    if _is_crypto:
+        # Crypto trades every day — tomorrow is always tomorrow
+        _next_date = _today_date + _TD(days=1)
+    else:
+        # Stocks skip weekends
+        _next_date = _today_date + _TD(days=1)
+        while _next_date.weekday() >= 5:
+            _next_date += _TD(days=1)
+    next_str = _next_date.strftime('%A %d %b %Y')
+
     st.markdown(f"**📈 {name} (`{ticker}`) — Price & Signals**")
+    st.caption(
+        f"Live price: **${display_price:,.4f}** · "
+        f"Next session: **{next_str}** · "
+        f"Signal: **{emoji} {last_sig}** ({last_conf:.1f}% confidence)"
+    )
 
-    # ── Sub-tabs: Live chart vs Historical signals ────────────────────
-    live_sub, hist_sub = st.tabs(["📡 Live Price & Signals", "📊 Historical Signal Chart"])
+    # ── Two sub-tabs ────────────────────────────────────────────────
+    live_sub, hist_sub = st.tabs(["📡 Live Chart", "📊 Signal Analysis Chart"])
 
-    # ── SUB-TAB A: Live TradingView + signals overlay ─────────────────
+    # ════════════════════════════════════════════════════════════════
+    # SUB-TAB A: Professional TradingView live candlestick chart
+    # ════════════════════════════════════════════════════════════════
     with live_sub:
         tv_sym = get_tv_symbol(ticker)
 
-        # Build signal markers from history for annotation
-        _buy_dates  = [r["Date"] for _, r in sig_hist.iterrows() if "BUY"  in str(r.get("Signal",""))] if not sig_hist.empty else []
-        _sell_dates = [r["Date"] for _, r in sig_hist.iterrows() if "SELL" in str(r.get("Signal",""))] if not sig_hist.empty else []
+        # Signal markers: last 10 BUY/SELL signals formatted for display
+        _recent_buys  = []
+        _recent_sells = []
+        if not sig_hist.empty:
+            for _, _row in sig_hist.head(20).iterrows():
+                if "BUY"  in str(_row.get("Signal","")):
+                    _recent_buys.append(_row["Date"])
+                elif "SELL" in str(_row.get("Signal","")):
+                    _recent_sells.append(_row["Date"])
 
-        # TradingView Advanced Chart with volume + indicators
-        tv_advanced = f"""
-<div style="background:#0D1117;padding:0;border-radius:8px;overflow:hidden">
-<div class="tradingview-widget-container" style="height:600px;width:100%">
-  <div id="tv_advanced_main"></div>
-  <script src="https://s3.tradingview.com/tv.js"></script>
-  <script>
+        _buy_label  = "  |  ".join(_recent_buys[:5])  if _recent_buys  else "None recently"
+        _sell_label = "  |  ".join(_recent_sells[:5]) if _recent_sells else "None recently"
+
+        # Professional TradingView Advanced Real-time chart
+        tv_html = f"""
+<style>
+  .tv-wrap {{ background:#0D1117; border-radius:10px; overflow:hidden; }}
+  .tv-signal-bar {{
+    background:#161B22; border:1px solid #30363D; border-radius:8px;
+    padding:12px 20px; margin-top:10px; display:flex;
+    justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  }}
+  .tv-sig-item {{ text-align:center; }}
+  .tv-sig-label {{ color:#8B949E; font-size:0.75rem; font-family:sans-serif; }}
+  .tv-sig-value {{ font-size:1.1rem; font-weight:bold; font-family:sans-serif; }}
+  .tv-green {{ color:#3FB950; }} .tv-red {{ color:#F85149; }}
+  .tv-gold  {{ color:#E3B341; }} .tv-grey  {{ color:#6E7681; }}
+  .tv-white {{ color:#F0F6FC; }}
+</style>
+
+<div class="tv-wrap">
+  <div class="tradingview-widget-container" style="height:550px;width:100%">
+    <div id="tv_candle_main" style="height:550px;width:100%"></div>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <script>
     new TradingView.widget({{
-      "container_id"     : "tv_advanced_main",
-      "width"            : "100%",
-      "height"           : 600,
-      "symbol"           : "{tv_sym}",
-      "interval"         : "D",
-      "timezone"         : "Asia/Dubai",
-      "theme"            : "dark",
-      "style"            : "1",
-      "locale"           : "en",
-      "hide_side_toolbar": false,
+      "container_id"      : "tv_candle_main",
+      "width"             : "100%",
+      "height"            : 550,
+      "symbol"            : "{tv_sym}",
+      "interval"          : "D",
+      "timezone"          : "Asia/Dubai",
+      "theme"             : "dark",
+      "style"             : "1",
+      "locale"            : "en",
+      "toolbar_bg"        : "#161B22",
+      "hide_side_toolbar" : false,
+      "hide_top_toolbar"  : false,
       "allow_symbol_change": false,
-      "save_image"       : false,
-      "studies"          : [
+      "save_image"        : false,
+      "backgroundColor"   : "#0D1117",
+      "studies": [
         "Volume@tv-basicstudies",
         "RSI@tv-basicstudies",
-        "MACD@tv-basicstudies"
+        "MACD@tv-basicstudies",
+        "BB@tv-basicstudies"
       ],
-      "show_popup_button": false,
-      "popup_width"      : "1000",
-      "popup_height"     : "650"
+      "overrides": {{
+        "paneProperties.background"          : "#0D1117",
+        "paneProperties.backgroundGradientStartColor": "#0D1117",
+        "paneProperties.backgroundGradientEndColor"  : "#0D1117",
+        "paneProperties.vertGridProperties.color"    : "#21262D",
+        "paneProperties.horzGridProperties.color"    : "#21262D",
+        "symbolWatermarkProperties.color"   : "rgba(0,0,0,0)",
+        "scalesProperties.textColor"        : "#8B949E",
+        "mainSeriesProperties.candleStyle.upColor"       : "#3FB950",
+        "mainSeriesProperties.candleStyle.downColor"     : "#F85149",
+        "mainSeriesProperties.candleStyle.borderUpColor" : "#3FB950",
+        "mainSeriesProperties.candleStyle.borderDownColor": "#F85149",
+        "mainSeriesProperties.candleStyle.wickUpColor"   : "#3FB950",
+        "mainSeriesProperties.candleStyle.wickDownColor" : "#F85149"
+      }}
     }});
-  </script>
+    </script>
+  </div>
 </div>
-</div>"""
-        st.components.v1.html(tv_advanced, height=615, scrolling=False)
 
-        # ── Live 1-minute price ticker ─────────────────────────────────
-        st.divider()
-        st.markdown("**⚡ Live Price (updates every 60 seconds)**")
-        _live_cols = st.columns(4)
-        _live_cols[0].metric("Live Price",   f"${display_price:,.4f}", delta=f"{day_chg:+.2f}%")
-        _live_cols[1].metric("Today Signal", f"{emoji} {last_sig}",    delta=f"Confidence: {last_conf:.1f}%")
-        if last_sig != "HOLD" and tp_price and sl_price:
-            _live_cols[2].metric("Take Profit", f"${tp_price:,.4f}", delta=f"+{tp_pct:+.2f}%")
-            _live_cols[3].metric("Stop Loss",   f"${sl_price:,.4f}", delta=f"{sl_pct:+.2f}%", delta_color="inverse")
-        else:
-            _live_cols[2].metric("Signal", "⚪ HOLD", delta="No trade")
-            _live_cols[3].metric("Next Signal", "Wait for ≥60% confidence", delta="")
+<div class="tv-signal-bar">
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">LIVE PRICE</div>
+    <div class="tv-sig-value tv-white">${display_price:,.4f}</div>
+    <div class="tv-sig-label" style="color:{'#3FB950' if day_chg>=0 else '#F85149'}">{day_chg:+.2f}% today</div>
+  </div>
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">NEXT SESSION SIGNAL</div>
+    <div class="tv-sig-value" style="color:{'#3FB950' if last_sig=='BUY' else '#F85149' if last_sig=='SELL' else '#6E7681'}">
+      {'🟢' if last_sig=='BUY' else '🔴' if last_sig=='SELL' else '⚪'} {last_sig}
+    </div>
+    <div class="tv-sig-label">{next_str} · Conf: {last_conf:.1f}%</div>
+  </div>
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">🎯 TAKE PROFIT</div>
+    <div class="tv-sig-value tv-green">${f'{tp_price:,.4f}' if tp_price else '—'}</div>
+    <div class="tv-sig-label">{f'{tp_pct:+.2f}%' if tp_price else 'No signal'}</div>
+  </div>
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">🛑 STOP LOSS</div>
+    <div class="tv-sig-value tv-red">${f'{sl_price:,.4f}' if sl_price else '—'}</div>
+    <div class="tv-sig-label">{f'{sl_pct:+.2f}%' if sl_price else 'No signal'}</div>
+  </div>
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">RISK / REWARD</div>
+    <div class="tv-sig-value tv-gold">1 : {rr:.2f}</div>
+    <div class="tv-sig-label">ATR: ${last_atr:.4f} ({atr_pct*100:.2f}%)</div>
+  </div>
+  <div class="tv-sig-item">
+    <div class="tv-sig-label">MODEL ACCURACY</div>
+    <div class="tv-sig-value tv-gold">{ens_filt*100:.1f}%</div>
+    <div class="tv-sig-label">when confidence ≥60%</div>
+  </div>
+</div>
 
-        # Auto-refresh every 60 seconds
-        st.caption("🔄 Page auto-refreshes every 60 seconds for live price")
-        st.markdown("""
-        <script>
-            setTimeout(function() {{ window.location.reload(); }}, 60000);
-        </script>
-        """, unsafe_allow_html=True)
+<div style="background:#161B22;border:1px solid #30363D;border-radius:8px;padding:10px 20px;margin-top:8px;font-family:sans-serif;font-size:0.8rem;color:#8B949E">
+  ⚡ Recent BUY signals: <span style="color:#3FB950">{_buy_label}</span>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  Recent SELL signals: <span style="color:#F85149">{_sell_label}</span>
+</div>
+"""
+        st.components.v1.html(tv_html, height=720, scrolling=False)
+        st.caption(
+            "💡 Inside the chart: switch timeframes (1m · 5m · 1h · 4h · 1D · 1W) "
+            "using the toolbar. Bollinger Bands, RSI, MACD and Volume are pre-loaded. "
+            "Page auto-refreshes every 60 seconds."
+        )
+        st.markdown(
+            '<script>setTimeout(function(){window.location.reload();},60000);</script>',
+            unsafe_allow_html=True
+        )
 
-    # ── SUB-TAB B: Historical matplotlib signal chart ─────────────────
+    # ════════════════════════════════════════════════════════════════
+    # SUB-TAB B: Professional historical candlestick + signals chart
+    # ════════════════════════════════════════════════════════════════
     with hist_sub:
         dark_fig()
         n_show  = min(lookback_days, len(te_df))
@@ -574,132 +675,217 @@ with tab1:
         b_show  = sg_show ==  1
         s_show  = sg_show == -1
         D       = np.array(te_show.index)
-        cl      = te_show['Close'].values.astype(float)
-        hi      = te_show['High'].values.astype(float)
-        lo      = te_show['Low'].values.astype(float)
-        vol     = te_show['Volume'].values.astype(float) if 'Volume' in te_show.columns else np.ones(n_show)
-        reg     = te_show['Regime'].values if 'Regime' in te_show.columns else np.ones(n_show)
+        close_  = te_show['Close'].values.astype(float)
+        open_   = te_show['Open'].values.astype(float)  if 'Open'   in te_show.columns else close_
+        high_   = te_show['High'].values.astype(float)  if 'High'   in te_show.columns else close_*1.01
+        low_    = te_show['Low'].values.astype(float)   if 'Low'    in te_show.columns else close_*0.99
+        vol_    = te_show['Volume'].values.astype(float) if 'Volume' in te_show.columns else np.ones(n_show)
+        reg_    = te_show['Regime'].values if 'Regime' in te_show.columns else np.ones(n_show)
 
-        fig = plt.figure(figsize=(16,14))
+        # 5-panel professional chart
+        fig = plt.figure(figsize=(16, 15))
         fig.patch.set_facecolor('#0D1117')
-        gs  = gridspec.GridSpec(5,1,figure=fig,
-            height_ratios=[4.5,1.0,0.8,0.8,0.8],hspace=0.04)
+        gs  = gridspec.GridSpec(5, 1, figure=fig,
+            height_ratios=[5, 1.2, 1.0, 0.9, 0.9], hspace=0.03)
 
-        # ── Panel 1: Price + BUY/SELL signals ────────────────────────
+        # ── PANEL 1: Candlestick + BUY/SELL ──────────────────────────
         ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#161B22')
+
+        # Regime background shading
         for i in range(len(D)-1):
-            ax1.axvspan(D[i],D[i+1],alpha=1,
-                color='#1C2A1C' if reg[i]==1 else '#2A1C1C',linewidth=0,zorder=0)
-        ax1.plot(D,cl,color=C_BLUE,lw=1.5,label='Close',zorder=4)
-        if 'SMA20' in te_show.columns:
-            ax1.plot(D,te_show['SMA20'].values,color=C_GOLD,lw=1.0,ls='--',alpha=0.8,label='SMA20')
-        if 'SMA50' in te_show.columns:
-            ax1.plot(D,te_show['SMA50'].values,color='#A371F7',lw=1.0,ls='-.',alpha=0.8,label='SMA50')
+            ax1.axvspan(D[i], D[i+1], alpha=1,
+                color='#1C2A1C' if reg_[i]==1 else '#2A1C1C',
+                linewidth=0, zorder=0)
+
+        # Bollinger Bands
         if 'BB_U' in te_show.columns and 'BB_L' in te_show.columns:
-            ax1.fill_between(D,te_show['BB_L'].values,te_show['BB_U'].values,
-                alpha=0.06,color=C_BLUE)
-            ax1.plot(D,te_show['BB_U'].values,color=C_BLUE,lw=0.5,alpha=0.4)
-            ax1.plot(D,te_show['BB_L'].values,color=C_BLUE,lw=0.5,alpha=0.4)
+            ax1.fill_between(D, te_show['BB_L'].values, te_show['BB_U'].values,
+                alpha=0.07, color=C_BLUE, zorder=1)
+            ax1.plot(D, te_show['BB_U'].values, color=C_BLUE, lw=0.6, alpha=0.45, zorder=2)
+            ax1.plot(D, te_show['BB_L'].values, color=C_BLUE, lw=0.6, alpha=0.45, zorder=2)
 
-        # BUY signals — clean, no crowded labels
-        if b_show.sum()>0:
-            ax1.scatter(D[b_show],lo[b_show]*0.952,marker='^',s=120,
-                color=C_UP,edgecolors='#196127',lw=0.8,zorder=7,
-                label=f'BUY ({int(b_show.sum())} signals)')
-        # SELL signals
-        if s_show.sum()>0:
-            ax1.scatter(D[s_show],hi[s_show]*1.048,marker='v',s=120,
-                color=C_DOWN,edgecolors='#8B0000',lw=0.8,zorder=7,
-                label=f'SELL ({int(s_show.sum())} signals)')
+        # OHLC Candlesticks
+        _bar_width = max(0.4, min(0.8, n_show / 200))
+        for i, (dt, o, h, l, c) in enumerate(zip(D, open_, high_, low_, close_)):
+            _col = C_UP if c >= o else C_DOWN
+            ax1.plot([dt, dt], [l, h], color=_col, lw=0.7, alpha=0.7, zorder=3)
+            ax1.plot([dt, dt], [min(o,c), max(o,c)], color=_col, lw=2.2, alpha=0.9, zorder=4)
 
-        # Tomorrow arrow (from last data point, direction = model probability)
-        _next_dt = D[-1]+pd.Timedelta(days=1)
-        _tgt     = float(cl[-1])*(1+(float(pr_show[-1])-0.5)*0.05)
-        _arrc    = C_UP if pr_show[-1]>0.5 else C_DOWN
-        ax1.annotate('',xy=(_next_dt,_tgt),xytext=(D[-1],float(cl[-1])),
-            arrowprops=dict(arrowstyle='-|>',color=_arrc,lw=2.5,mutation_scale=18))
-        ax1.scatter([_next_dt],[_tgt],marker='*',s=260,color=C_GOLD,zorder=9,label='Next signal')
-        _tp_txt = f"TP:${tp_price:,.2f}" if tp_price is not None else "HOLD"
-        _sl_txt = f"SL:${sl_price:,.2f}" if sl_price is not None else "No trade"
-        ax1.annotate(f'  {next_str[:3].upper()}\n  {last_sig}\n  {_tp_txt}\n  {_sl_txt}',
-            (_next_dt,_tgt),fontsize=8.5,color=_arrc,fontweight='bold',
-            xytext=(10,0),textcoords='offset points',
-            bbox=dict(boxstyle='round,pad=0.4',fc='#161B22',ec='#30363D',alpha=0.96))
+        # Moving averages
+        if 'SMA20' in te_show.columns:
+            ax1.plot(D, te_show['SMA20'].values, color=C_GOLD, lw=1.1, ls='--',
+                alpha=0.85, label='SMA 20', zorder=5)
+        if 'SMA50' in te_show.columns:
+            ax1.plot(D, te_show['SMA50'].values, color='#A371F7', lw=1.1, ls='-.',
+                alpha=0.85, label='SMA 50', zorder=5)
 
-        bull_p=mpatches.Patch(color='#1C2A1C',label='Bull Regime')
-        bear_p=mpatches.Patch(color='#2A1C1C',label='Bear Regime')
-        h,l2=ax1.get_legend_handles_labels()
-        ax1.legend(h+[bull_p,bear_p],l2+['Bull','Bear'],
-            loc='upper left',ncol=4,framealpha=0.85,fontsize=8)
-        ax1.set_ylabel('Price (USD)',fontsize=10)
+        # BUY signals — large triangle below low, with price + TP label
+        if b_show.sum() > 0:
+            _by = low_[b_show] * 0.948
+            ax1.scatter(D[b_show], _by, marker='^', s=140,
+                color=C_UP, edgecolors='#196127', lw=1.0, zorder=7,
+                label=f'🟢 BUY  ({int(b_show.sum())})')
+            for _d, _p, _lo in zip(D[b_show], close_[b_show], _by):
+                _tp_val = _p + 2.0 * last_atr
+                _sl_val = _p - 1.5 * last_atr
+                ax1.annotate(
+                    f'B ${_p:.1f}\nTP ${_tp_val:.1f}',
+                    (_d, _lo * 0.988), fontsize=6.2, color=C_UP,
+                    ha='center', va='top',
+                    bbox=dict(boxstyle='round,pad=0.15', fc='#0D1117',
+                              ec='#196127', alpha=0.85, lw=0.5))
+
+        # SELL signals — large triangle above high, with price + TP label
+        if s_show.sum() > 0:
+            _sy = high_[s_show] * 1.052
+            ax1.scatter(D[s_show], _sy, marker='v', s=140,
+                color=C_DOWN, edgecolors='#8B0000', lw=1.0, zorder=7,
+                label=f'🔴 SELL ({int(s_show.sum())})')
+            for _d, _p, _hi in zip(D[s_show], close_[s_show], _sy):
+                _tp_val = _p - 2.0 * last_atr
+                _sl_val = _p + 1.5 * last_atr
+                ax1.annotate(
+                    f'S ${_p:.1f}\nTP ${_tp_val:.1f}',
+                    (_d, _hi * 1.012), fontsize=6.2, color=C_DOWN,
+                    ha='center', va='bottom',
+                    bbox=dict(boxstyle='round,pad=0.15', fc='#0D1117',
+                              ec='#8B0000', alpha=0.85, lw=0.5))
+
+        # TP / SL horizontal lines for latest signal
+        if last_sig == "BUY" and tp_price and sl_price:
+            ax1.axhline(tp_price, color=C_UP,   ls='--', lw=1.0, alpha=0.6,
+                label=f'TP ${tp_price:.2f}')
+            ax1.axhline(sl_price, color=C_DOWN, ls='--', lw=1.0, alpha=0.6,
+                label=f'SL ${sl_price:.2f}')
+            ax1.axhline(display_price, color=C_BLUE, ls=':', lw=1.0, alpha=0.8,
+                label=f'Live ${display_price:.2f}')
+        elif last_sig == "SELL" and tp_price and sl_price:
+            ax1.axhline(tp_price, color=C_DOWN, ls='--', lw=1.0, alpha=0.6,
+                label=f'TP ${tp_price:.2f}')
+            ax1.axhline(sl_price, color=C_UP,   ls='--', lw=1.0, alpha=0.6,
+                label=f'SL ${sl_price:.2f}')
+            ax1.axhline(display_price, color=C_BLUE, ls=':', lw=1.0, alpha=0.8,
+                label=f'Live ${display_price:.2f}')
+
+        # Next signal arrow from last candle
+        _next_dt = D[-1] + pd.Timedelta(days=1)
+        _tgt     = float(close_[-1]) * (1 + (float(pr_show[-1]) - 0.5) * 0.05)
+        _arrc    = C_UP if pr_show[-1] > 0.5 else C_DOWN
+        ax1.annotate('', xy=(_next_dt, _tgt), xytext=(D[-1], float(close_[-1])),
+            arrowprops=dict(arrowstyle='-|>', color=_arrc, lw=2.5, mutation_scale=18))
+        ax1.scatter([_next_dt], [_tgt], marker='*', s=280, color=C_GOLD, zorder=9)
+        _tp_txt = f"TP ${tp_price:,.2f}" if tp_price else "HOLD"
+        _sl_txt = f"SL ${sl_price:,.2f}" if sl_price else "No trade"
+        ax1.annotate(
+            f'  {next_str[:3].upper()} {_next_date.day} {_next_date.strftime("%b")}\n'
+            f'  {last_sig}  {last_conf:.0f}%\n'
+            f'  {_tp_txt}\n'
+            f'  {_sl_txt}',
+            (_next_dt, _tgt), fontsize=8.5, color=_arrc, fontweight='bold',
+            xytext=(12, 0), textcoords='offset points',
+            bbox=dict(boxstyle='round,pad=0.45', fc='#161B22',
+                      ec=_arrc, alpha=0.96, lw=1.2))
+
+        # Legend & formatting
+        _bull = mpatches.Patch(color='#1C2A1C', label='Bull regime')
+        _bear = mpatches.Patch(color='#2A1C1C', label='Bear regime')
+        _bb   = mpatches.Patch(color=C_BLUE, alpha=0.3, label='Bollinger Bands')
+        _h, _l2 = ax1.get_legend_handles_labels()
+        ax1.legend(_h + [_bull, _bear, _bb], _l2 + ['Bull', 'Bear', 'BB'],
+            loc='upper left', ncol=5, framealpha=0.88, fontsize=7.5)
+        ax1.set_ylabel('Price', fontsize=10, color=C_WHITE)
         ax1.xaxis.set_ticklabels([])
         ax1.spines[['top','right']].set_visible(False)
-        ax1.grid(axis='y',alpha=0.2)
+        ax1.grid(axis='y', alpha=0.18, color='#21262D')
         ax1.set_title(
-            f'{name} ({ticker}) — Historical Signals  |  Last {n_show} days  |  '
-            f'Acc:{ens_acc*100:.1f}%  |  {int(b_show.sum())} BUY  {int(s_show.sum())} SELL',
-            color=C_WHITE,fontsize=11,pad=8)
+            f'{name} ({ticker})  ·  Candlestick + Signals  ·  {n_show} days  ·  '
+            f'Acc {ens_acc*100:.1f}%  ·  {int(b_show.sum())} BUY  {int(s_show.sum())} SELL',
+            color=C_WHITE, fontsize=11, pad=10, fontweight='bold')
 
-        # ── Panel 2: Volume ────────────────────────────────────────────
-        ax_vol = fig.add_subplot(gs[1],sharex=ax1); ax_vol.set_facecolor('#161B22')
-        vol_colors = np.where(cl >= np.concatenate([[cl[0]],cl[:-1]]), C_UP, C_DOWN)
-        ax_vol.bar(D,vol,color=vol_colors,width=0.8,alpha=0.7)
-        vol_ma = pd.Series(vol).rolling(10,min_periods=1).mean().values
-        ax_vol.plot(D,vol_ma,color=C_GOLD,lw=1.0,alpha=0.9,label='Vol MA10')
-        ax_vol.set_ylabel('Volume (M)',fontsize=8)
-        ax_vol.legend(loc='upper right',fontsize=7)
-        ax_vol.xaxis.set_ticklabels([])
-        ax_vol.spines[['top','right']].set_visible(False)
-        ax_vol.grid(axis='y',alpha=0.15)
+        # ── PANEL 2: Volume ─────────────────────────────────────────
+        ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#161B22')
+        _prev_close = np.concatenate([[close_[0]], close_[:-1]])
+        _vc = np.where(close_ >= _prev_close, C_UP, C_DOWN)
+        ax_v.bar(D, vol_, color=_vc, width=0.8, alpha=0.75, zorder=3)
+        _vma = pd.Series(vol_).rolling(10, min_periods=1).mean().values
+        ax_v.plot(D, _vma, color=C_GOLD, lw=1.1, alpha=0.9, label='Vol MA10', zorder=4)
+        ax_v.set_ylabel('Volume', fontsize=8, color=C_WHITE)
+        ax_v.legend(loc='upper right', fontsize=7)
+        ax_v.xaxis.set_ticklabels([])
+        ax_v.spines[['top','right']].set_visible(False)
+        ax_v.grid(axis='y', alpha=0.15)
 
-        # ── Panel 3: Ensemble probability ──────────────────────────────
-        ax2=fig.add_subplot(gs[2],sharex=ax1); ax2.set_facecolor('#161B22')
-        bc=np.where(pr_show>=HIGH,C_UP,np.where(pr_show<=LOW,C_DOWN,C_GREY))
-        ax2.bar(D,pr_show,color=bc,width=1.0,alpha=0.85)
-        ax2.fill_between(D,HIGH,pr_show,where=(pr_show>=HIGH),alpha=0.15,color=C_UP)
-        ax2.fill_between(D,LOW,pr_show,where=(pr_show<=LOW),alpha=0.15,color=C_DOWN)
-        ax2.axhline(HIGH,color=C_UP,ls='--',lw=1.0,label=f'Buy≥{HIGH:.0%}')
-        ax2.axhline(LOW,color=C_DOWN,ls='--',lw=1.0,label=f'Sell≤{LOW:.0%}')
-        ax2.axhline(0.5,color=C_DIM,ls=':',lw=0.7)
-        ax2.set_ylabel('P(UP)',fontsize=8); ax2.set_ylim(0,1)
-        ax2.legend(loc='upper right',ncol=2,fontsize=7)
+        # ── PANEL 3: Model probability ──────────────────────────────
+        ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#161B22')
+        _bc = np.where(pr_show>=HIGH, C_UP, np.where(pr_show<=LOW, C_DOWN, C_GREY))
+        ax2.bar(D, pr_show, color=_bc, width=1.0, alpha=0.85, zorder=3)
+        ax2.fill_between(D, HIGH, pr_show, where=(pr_show>=HIGH), alpha=0.15, color=C_UP)
+        ax2.fill_between(D, LOW,  pr_show, where=(pr_show<=LOW),  alpha=0.15, color=C_DOWN)
+        ax2.axhline(HIGH, color=C_UP,   ls='--', lw=1.0, label=f'Buy ≥{HIGH:.0%}', zorder=4)
+        ax2.axhline(LOW,  color=C_DOWN, ls='--', lw=1.0, label=f'Sell ≤{LOW:.0%}', zorder=4)
+        ax2.axhline(0.5,  color=C_DIM,  ls=':',  lw=0.7)
+        ax2.set_ylabel('P(UP)', fontsize=8); ax2.set_ylim(0, 1)
+        ax2.legend(loc='upper right', ncol=2, fontsize=7)
         ax2.xaxis.set_ticklabels([])
-        ax2.spines[['top','right']].set_visible(False); ax2.grid(axis='y',alpha=0.15)
+        ax2.spines[['top','right']].set_visible(False)
+        ax2.grid(axis='y', alpha=0.15)
 
-        # ── Panel 4: RSI ───────────────────────────────────────────────
-        ax3=fig.add_subplot(gs[3],sharex=ax1); ax3.set_facecolor('#161B22')
+        # ── PANEL 4: RSI ────────────────────────────────────────────
+        ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#161B22')
         if 'RSI' in te_show.columns:
-            rsi=te_show['RSI'].values
-            ax3.plot(D,rsi,color='#D29922',lw=1.0)
-            ax3.fill_between(D,70,rsi,where=(rsi>70),alpha=0.25,color=C_DOWN)
-            ax3.fill_between(D,30,rsi,where=(rsi<30),alpha=0.25,color=C_UP)
-            ax3.axhline(70,color=C_DOWN,ls='--',lw=0.8,alpha=0.7,label='OB 70')
-            ax3.axhline(30,color=C_UP,  ls='--',lw=0.8,alpha=0.7,label='OS 30')
-            ax3.axhline(50,color=C_DIM, ls=':',lw=0.6)
-            ax3.scatter(D[b_show],rsi[b_show],marker='^',s=30,color=C_UP,zorder=5)
-            ax3.scatter(D[s_show],rsi[s_show],marker='v',s=30,color=C_DOWN,zorder=5)
-            ax3.legend(loc='upper right',ncol=2,fontsize=7)
-        ax3.set_ylabel('RSI',fontsize=8); ax3.set_ylim(10,90)
+            _rsi = te_show['RSI'].values
+            ax3.plot(D, _rsi, color='#D29922', lw=1.1, zorder=4)
+            ax3.fill_between(D, 70, _rsi, where=(_rsi > 70), alpha=0.25, color=C_DOWN)
+            ax3.fill_between(D, 30, _rsi, where=(_rsi < 30), alpha=0.25, color=C_UP)
+            ax3.axhline(70, color=C_DOWN, ls='--', lw=0.8, alpha=0.8, label='OB 70')
+            ax3.axhline(50, color=C_DIM,  ls=':',  lw=0.6)
+            ax3.axhline(30, color=C_UP,   ls='--', lw=0.8, alpha=0.8, label='OS 30')
+            ax3.scatter(D[b_show], _rsi[b_show], marker='^', s=25, color=C_UP,   zorder=6)
+            ax3.scatter(D[s_show], _rsi[s_show], marker='v', s=25, color=C_DOWN, zorder=6)
+            ax3.legend(loc='upper right', ncol=2, fontsize=7)
+        ax3.set_ylabel('RSI', fontsize=8); ax3.set_ylim(10, 90)
         ax3.xaxis.set_ticklabels([])
-        ax3.spines[['top','right']].set_visible(False); ax3.grid(axis='y',alpha=0.15)
+        ax3.spines[['top','right']].set_visible(False)
+        ax3.grid(axis='y', alpha=0.15)
 
-        # ── Panel 5: MACD ──────────────────────────────────────────────
-        ax4=fig.add_subplot(gs[4],sharex=ax1); ax4.set_facecolor('#161B22')
+        # ── PANEL 5: MACD ───────────────────────────────────────────
+        ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#161B22')
         if 'MACD' in te_show.columns and 'MACD_sig' in te_show.columns:
-            mc=te_show['MACD'].values; ms=te_show['MACD_sig'].values; mh=mc-ms
-            ax4.plot(D,mc,color=C_BLUE,lw=1.0,label='MACD')
-            ax4.plot(D,ms,color='#F78166',lw=1.0,ls='--',label='Signal')
-            ax4.bar(D,mh,color=np.where(mh>=0,C_UP,C_DOWN),width=1.0,alpha=0.6)
-            ax4.axhline(0,color=C_DIM,lw=0.7)
-            ax4.legend(loc='upper left',ncol=2,fontsize=7)
-        ax4.set_ylabel('MACD',fontsize=8); ax4.set_xlabel('Date',fontsize=9)
+            _mc  = te_show['MACD'].values
+            _ms  = te_show['MACD_sig'].values
+            _mh  = _mc - _ms
+            ax4.bar(D, _mh, color=np.where(_mh>=0, C_UP, C_DOWN),
+                width=1.0, alpha=0.65, zorder=3)
+            ax4.plot(D, _mc, color=C_BLUE,    lw=1.1, label='MACD',   zorder=4)
+            ax4.plot(D, _ms, color='#F78166', lw=1.1, ls='--', label='Signal', zorder=4)
+            ax4.axhline(0, color=C_DIM, lw=0.7)
+            ax4.legend(loc='upper left', ncol=2, fontsize=7)
+        ax4.set_ylabel('MACD', fontsize=8)
+        ax4.set_xlabel('Date', fontsize=9)
         ax4.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
-        plt.setp(ax4.xaxis.get_majorticklabels(),rotation=30,ha='right',fontsize=8)
-        ax4.spines[['top','right']].set_visible(False); ax4.grid(axis='y',alpha=0.15)
+        plt.setp(ax4.xaxis.get_majorticklabels(), rotation=30, ha='right', fontsize=8)
+        ax4.spines[['top','right']].set_visible(False)
+        ax4.grid(axis='y', alpha=0.15)
 
         plt.tight_layout()
-        st.pyplot(fig,use_container_width=True)
+        st.pyplot(fig, use_container_width=True)
         plt.close()
+
+        # Signal summary below chart
+        _sc1, _sc2, _sc3, _sc4 = st.columns(4)
+        _sc1.metric("Model Accuracy (filtered)", f"{ens_filt*100:.1f}%")
+        _sc2.metric("Next Session",  next_str)
+        _sc3.metric("Signal",        f"{emoji} {last_sig}",
+                    delta=f"Conf: {last_conf:.1f}%")
+        if last_sig != "HOLD" and tp_price and sl_price:
+            _sc4.metric("TP / SL",
+                f"${tp_price:,.4f}",
+                delta=f"SL ${sl_price:,.4f}",
+                delta_color="inverse")
+        else:
+            _sc4.metric("Signal", "⚪ HOLD — No trade today",
+                        delta="Wait for ≥60% confidence")
+
 
 # ── TAB 2: Predicted vs Actual ─────────────────────────────────────
 with tab2:
