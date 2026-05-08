@@ -126,7 +126,7 @@ if "chart_lookback" not in st.session_state:
 
 with st.sidebar:
     st.markdown("## 🔮 Prediction Dashboard")
-    st.caption("Auto-updates every 6 hours")
+    st.caption("Auto-updates every 30 minutes")
     st.divider()
 
     # ── Upload CSV FIRST (so it adds to list before selection) ────
@@ -216,6 +216,24 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
     st.caption("Data auto-refreshes every 5 min · Force refresh clears all cache")
+    st.divider()
+
+    # ── DFM Quick Access ───────────────────────────────────────────
+    st.subheader("🇦🇪 UAE Market")
+    st.caption("Quick-switch to DFM/ADX stocks")
+    _SIDEBAR_DFM = [
+        ("EMAAR.DFM","Emaar"),("ENBD.DFM","ENBD"),("DIB.DFM","DIB"),
+        ("DU.DFM","du"),("DEWA.DFM","DEWA"),("SALIK.DFM","Salik"),
+        ("FAB.ADX","FAB"),("ALDAR.ADX","Aldar"),("ADCB.ADX","ADCB"),("MASQ.DFM","Mashreq"),
+    ]
+    _sdfm_cols = st.columns(2)
+    for _sdi, (_sticker, _sname) in enumerate(_SIDEBAR_DFM):
+        if _sdfm_cols[_sdi % 2].button(_sname, key=f"sdfm_{_sticker}",
+                                        use_container_width=True):
+            st.session_state.selected_ticker = _sticker
+            st.session_state.uploaded_assets = st.session_state.get("uploaded_assets", {})
+            st.rerun()
+
     st.divider()
     st.caption("⚠️ Research only · Not financial advice")
 
@@ -474,13 +492,13 @@ with col_sig:
     )
     _ss = _sig_status["status"]
 
-    _status_styles = {{
+    _status_styles = {
         "ACTIVE"  : ("🟡", "#E3B341", "#2A2400", "Signal is ACTIVE"),
         "HIT_TP"  : ("🎯", "#3FB950", "#1C2A1C", "TARGET HIT — Signal succeeded!"),
         "HIT_SL"  : ("🛑", "#F85149", "#2A1C1C", "STOP LOSS HIT — Signal failed"),
         "EXPIRED" : ("⏰", "#6E7681", "#161B22", "Signal EXPIRED — Do not enter"),
         "NONE"    : ("⚪", "#6E7681", "#161B22", "Waiting for signal"),
-    }}
+    }
     _sicon, _scol, _sbg, _slabel = _status_styles.get(_ss, _status_styles["NONE"])
 
     if _ss not in ("NONE",):
