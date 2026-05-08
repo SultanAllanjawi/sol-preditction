@@ -615,226 +615,283 @@ body{{background:#0D1117}}
 
 # ── TAB 1: Signal Analysis Chart ──────────────────────────────────
 with tab1:
-    st.markdown(f"**📊 {name} (`{ticker}`) — Candlestick + Signal Analysis**")
 
-    # Signal summary bar
+    # ── Signal metrics bar ─────────────────────────────────────────
     _s1, _s2, _s3, _s4 = st.columns(4)
-    _s1.metric("Live Price",     f"${display_price:,.4f}", delta=f"{day_chg:+.2f}% today")
-    _s2.metric("Next Session",   next_str_short)
-    _s3.metric("Signal",         f"{emoji} {last_sig}",  delta=f"{last_conf:.1f}% confidence")
+    _s1.metric("Live Price",   f"${display_price:,.4f}", delta=f"{day_chg:+.2f}% today")
+    _s2.metric("Next Session", next_str_short)
+    _s3.metric("Signal",       f"{emoji} {last_sig}",   delta=f"{last_conf:.1f}% confidence")
     if last_sig != "HOLD" and tp_price and sl_price:
-        _s4.metric("TP / SL",    f"${tp_price:,.4f}", delta=f"SL ${sl_price:,.4f}", delta_color="inverse")
+        _s4.metric("TP / SL", f"${tp_price:,.4f}",
+                   delta=f"SL ${sl_price:,.4f}", delta_color="inverse")
     else:
         _s4.metric("Signal", "⚪ HOLD — No trade", delta="Confidence < 60%")
 
-    # Lookback selector
-    _lb_cols = st.columns(6)
-    _lb_opts = [30, 60, 90, 120, 180, 365]
-    _lb_labels = ["30d","60d","90d","120d","180d","1Y"]
-    _cur_lb = st.session_state.get("chart_lookback", lookback_days)
-    for _i, (_lb_v, _lb_l) in enumerate(zip(_lb_opts, _lb_labels)):
-        _btn_s = "primary" if _cur_lb == _lb_v else "secondary"
-        if _lb_cols[_i].button(_lb_l, key=f"lb_{_lb_v}", use_container_width=True, type=_btn_s):
-            st.session_state["chart_lookback"] = _lb_v
+    # ── Timeframe + lookback selector ────────────────────────────
+    st.markdown("**Timeframe**")
+    _tf_row1, _tf_row2 = st.columns([3,1])
+    with _tf_row1:
+        _TF_MAP = {
+            "1m":"1","5m":"5","10m":"10","15m":"15","25m":"25","35m":"35",
+            "1h":"60","4h":"240","1D":"D","1W":"W",
+        }
+        _tf_keys   = list(_TF_MAP.keys())
+        _tf_vals   = list(_TF_MAP.values())
+        _cur_tf    = st.session_state.get("chart_tf","D")
+        _tf_cols   = st.columns(len(_TF_MAP))
+        for _i, (_lbl, _val) in enumerate(_TF_MAP.items()):
+            _active = _cur_tf == _val
+            _style  = ("background:#1F6FEB;color:#fff;border:1px solid #1F6FEB;border-radius:4px;"
+                       "padding:3px 0;font-size:0.78rem;width:100%;cursor:pointer;"
+                       if _active else
+                       "background:#161B22;color:#8B949E;border:1px solid #30363D;border-radius:4px;"
+                       "padding:3px 0;font-size:0.78rem;width:100%;cursor:pointer;")
+            if _tf_cols[_i].button(_lbl, key=f"tf2_{_val}", use_container_width=True):
+                st.session_state["chart_tf"] = _val
+                st.rerun()
+
+    with _tf_row2:
+        _lb_map  = {"30d":30,"60d":60,"90d":90,"120d":120,"180d":180,"1Y":365}
+        _cur_lb  = st.session_state.get("chart_lookback", 90)
+        _lb_sel  = st.selectbox("Lookback", list(_lb_map.keys()),
+                                index=list(_lb_map.values()).index(_cur_lb)
+                                if _cur_lb in _lb_map.values() else 2,
+                                key="lb_select")
+        if _lb_map[_lb_sel] != _cur_lb:
+            st.session_state["chart_lookback"] = _lb_map[_lb_sel]
             st.rerun()
-    lookback_days = st.session_state.get("chart_lookback", lookback_days)
+        lookback_days = _lb_map[_lb_sel]
 
+    _tf_val = st.session_state.get("chart_tf","D")
+
+    # ── Build signal JSON for overlay ────────────────────────────
+    # Collect recent buy/sell from sig_hist
+    _buy_signals  = []
+    _sell_signals = []
+    if not sig_hist.empty:
+        for _, _row in sig_hist.head(50).iterrows():
+            try:
+                _price_val = float(str(_row.get("Price","0")).replace("$","").replace(",",""))
+                _conf_val  = float(str(_row.get("Confidence","0")).replace("%",""))
+                _date_val  = str(_row.get("Date",""))
+                if "BUY" in str(_row.get("Signal","")):
+                    _buy_signals.append({"date": _date_val, "price": _price_val, "conf": _conf_val})
+                elif "SELL" in str(_row.get("Signal","")):
+                    _sell_signals.append({"date": _date_val, "price": _price_val, "conf": _conf_val})
+            except Exception:
+                pass
+
+    import json as _json
+    _buy_json  = _json.dumps(_buy_signals[:30])
+    _sell_json = _json.dumps(_sell_signals[:30])
+
+    # ── TradingView chart HTML ────────────────────────────────────
+    _tv_sym      = get_tv_symbol(ticker)
+    _sig_color   = "#3FB950" if last_sig=="BUY" else "#F85149" if last_sig=="SELL" else "#6E7681"
+    _tp_disp     = f"${tp_price:,.4f}"  if tp_price  else "—"
+    _sl_disp     = f"${sl_price:,.4f}"  if sl_price  else "—"
+    _tp_pct_disp = f"{tp_pct:+.2f}%"   if tp_price  else "No signal"
+    _sl_pct_disp = f"{sl_pct:+.2f}%"   if sl_price  else "No signal"
+
+    _chart_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#0D1117; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }}
+
+  #chart-wrap {{
+    background:#0D1117; border-radius:10px; overflow:hidden;
+    border:1px solid #30363D;
+  }}
+
+  /* Signal overlay panel */
+  #signal-panel {{
+    background:#0D1117; border-top:1px solid #21262D;
+    padding:10px 20px; display:flex; align-items:center;
+    gap:24px; flex-wrap:wrap;
+  }}
+  .sp-item {{ text-align:center; min-width:90px; }}
+  .sp-label {{ color:#8B949E; font-size:0.68rem; text-transform:uppercase;
+               letter-spacing:0.05em; margin-bottom:3px; }}
+  .sp-val   {{ font-size:1.05rem; font-weight:700; }}
+  .sp-sub   {{ font-size:0.70rem; margin-top:1px; }}
+  .divider  {{ width:1px; height:36px; background:#30363D; }}
+
+  /* BUY/SELL marker table */
+  #markers-wrap {{
+    background:#0D1117; border-top:1px solid #21262D;
+    padding:8px 20px;
+  }}
+  .mktable {{ width:100%; border-collapse:collapse; font-size:0.78rem; }}
+  .mktable th {{ color:#6E7681; font-weight:500; padding:4px 8px;
+                 text-align:left; border-bottom:1px solid #21262D; }}
+  .mktable td {{ padding:5px 8px; border-bottom:1px solid #161B22; }}
+  .mktable tr:last-child td {{ border-bottom:none; }}
+  .buy-row {{ color:#3FB950; }} .sell-row {{ color:#F85149; }}
+</style>
+</head>
+<body>
+
+<div id="chart-wrap">
+  <!-- TradingView Chart -->
+  <div id="tv_signal_chart" style="height:520px;width:100%"></div>
+
+  <!-- Signal panel below chart -->
+  <div id="signal-panel">
+    <div class="sp-item">
+      <div class="sp-label">Live Price</div>
+      <div class="sp-val" style="color:#F0F6FC">${display_price:,.4f}</div>
+      <div class="sp-sub" style="color:{'#3FB950' if day_chg>=0 else '#F85149'}">{day_chg:+.2f}%</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">Next Session</div>
+      <div class="sp-val" style="color:#F0F6FC">{next_str_short}</div>
+      <div class="sp-sub" style="color:#8B949E">{'Crypto 24/7' if _is_crypto else 'Market hours'}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">Signal</div>
+      <div class="sp-val" style="color:{_sig_color}">
+        {'🟢' if last_sig=='BUY' else '🔴' if last_sig=='SELL' else '⚪'} {last_sig}
+      </div>
+      <div class="sp-sub" style="color:#E3B341">{last_conf:.1f}% confidence</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">🎯 Take Profit</div>
+      <div class="sp-val" style="color:#3FB950">{_tp_disp}</div>
+      <div class="sp-sub" style="color:#3FB950">{_tp_pct_disp}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">🛑 Stop Loss</div>
+      <div class="sp-val" style="color:#F85149">{_sl_disp}</div>
+      <div class="sp-sub" style="color:#F85149">{_sl_pct_disp}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">Risk / Reward</div>
+      <div class="sp-val" style="color:#E3B341">1 : {rr:.2f}</div>
+      <div class="sp-sub" style="color:#8B949E">ATR {atr_pct*100:.2f}%</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">Accuracy</div>
+      <div class="sp-val" style="color:#E3B341">{ens_filt*100:.1f}%</div>
+      <div class="sp-sub" style="color:#8B949E">≥60% conf filter</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sp-item">
+      <div class="sp-label">Ensemble</div>
+      <div class="sp-val" style="color:#58A6FF">{ens_acc*100:.1f}%</div>
+      <div class="sp-sub" style="color:#8B949E">RF+GB models</div>
+    </div>
+  </div>
+
+  <!-- Recent signals table -->
+  <div id="markers-wrap">
+    <table class="mktable">
+      <thead>
+        <tr>
+          <th>Date</th><th>Signal</th><th>Price</th>
+          <th>Take Profit</th><th>Stop Loss</th><th>Confidence</th>
+        </tr>
+      </thead>
+      <tbody id="sig-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+// ── TradingView Widget ─────────────────────────────────────────────
+var tvWidget = new TradingView.widget({{
+  container_id       : "tv_signal_chart",
+  width              : "100%",
+  height             : 520,
+  symbol             : "{_tv_sym}",
+  interval           : "{_tf_val}",
+  timezone           : "Asia/Dubai",
+  theme              : "dark",
+  style              : "1",
+  locale             : "en",
+  toolbar_bg         : "#161B22",
+  hide_side_toolbar  : false,
+  allow_symbol_change: false,
+  save_image         : false,
+  studies: [
+    "Volume@tv-basicstudies",
+    "RSI@tv-basicstudies",
+    "MACD@tv-basicstudies",
+    "BB@tv-basicstudies"
+  ],
+  overrides: {{
+    "paneProperties.background"                      : "#0D1117",
+    "paneProperties.backgroundType"                  : "solid",
+    "paneProperties.vertGridProperties.color"        : "#1C2128",
+    "paneProperties.horzGridProperties.color"        : "#1C2128",
+    "symbolWatermarkProperties.color"                : "rgba(0,0,0,0)",
+    "scalesProperties.textColor"                     : "#8B949E",
+    "mainSeriesProperties.candleStyle.upColor"       : "#3FB950",
+    "mainSeriesProperties.candleStyle.downColor"     : "#F85149",
+    "mainSeriesProperties.candleStyle.borderUpColor" : "#3FB950",
+    "mainSeriesProperties.candleStyle.borderDownColor": "#F85149",
+    "mainSeriesProperties.candleStyle.wickUpColor"   : "#3FB950",
+    "mainSeriesProperties.candleStyle.wickDownColor" : "#F85149"
+  }}
+}});
+
+// ── Populate signal table ──────────────────────────────────────────
+var buySignals  = {_buy_json};
+var sellSignals = {_sell_json};
+
+// Combine and sort by date descending
+var allSignals = [];
+buySignals.forEach(function(s)  {{ allSignals.push({{...s, type:"BUY"}}); }});
+sellSignals.forEach(function(s) {{ allSignals.push({{...s, type:"SELL"}}); }});
+allSignals.sort(function(a,b) {{ return b.date.localeCompare(a.date); }});
+
+var tbody = document.getElementById("sig-tbody");
+var lastAtr = {last_atr:.4f};
+
+allSignals.slice(0, 20).forEach(function(s) {{
+  var isBuy = s.type === "BUY";
+  var tp    = isBuy  ? (s.price + 2.0 * lastAtr).toFixed(4)
+                     : (s.price - 2.0 * lastAtr).toFixed(4);
+  var sl    = isBuy  ? (s.price - 1.5 * lastAtr).toFixed(4)
+                     : (s.price + 1.5 * lastAtr).toFixed(4);
+  var cls   = isBuy  ? "buy-row" : "sell-row";
+  var icon  = isBuy  ? "🟢" : "🔴";
+
+  var row   = "<tr class='" + cls + "'>" +
+    "<td>" + s.date + "</td>" +
+    "<td>" + icon + " " + s.type + "</td>" +
+    "<td>$" + s.price.toFixed(4) + "</td>" +
+    "<td style='color:#3FB950'>$" + tp + "</td>" +
+    "<td style='color:#F85149'>$" + sl + "</td>" +
+    "<td style='color:#E3B341'>" + s.conf.toFixed(1) + "%</td>" +
+    "</tr>";
+  tbody.innerHTML += row;
+}});
+
+if (allSignals.length === 0) {{
+  tbody.innerHTML = "<tr><td colspan='6' style='color:#6E7681;padding:10px'>No signals yet</td></tr>";
+}}
+</script>
+</body>
+</html>
+"""
+
+    st.components.v1.html(_chart_html, height=950, scrolling=True)
     st.caption(
-        f"Candlestick chart · Last **{lookback_days}** days shown · "
-        f"Model accuracy: **{ens_acc*100:.1f}%** raw / **{ens_filt*100:.1f}%** filtered · "
-        f"{int(b_show.sum()) if 'b_show' in dir() else '?'} BUY + {int(s_show.sum()) if 's_show' in dir() else '?'} SELL signals"
+        "📌 Chart shows live data from TradingView · Use timeframe buttons above to switch intervals · "
+        "Signal table shows last 20 historical signals with ATR-based TP/SL · "
+        "Page auto-refreshes every 60 seconds"
     )
-
-    dark_fig()
-    n_show  = min(lookback_days, len(te_df))
-    te_show = te_df.iloc[-n_show:].copy()
-    pr_show = np.array(ens_proba[-n_show:])
-    sg_show = np.array(signals[-n_show:])
-    b_show  = sg_show ==  1
-    s_show  = sg_show == -1
-    D       = np.array(te_show.index)
-    close_  = te_show['Close'].values.astype(float)
-    open_   = te_show['Open'].values.astype(float)   if 'Open'   in te_show.columns else close_
-    high_   = te_show['High'].values.astype(float)   if 'High'   in te_show.columns else close_*1.01
-    low_    = te_show['Low'].values.astype(float)    if 'Low'    in te_show.columns else close_*0.99
-    vol_    = te_show['Volume'].values.astype(float) if 'Volume' in te_show.columns else np.ones(n_show)
-    reg_    = te_show['Regime'].values if 'Regime' in te_show.columns else np.ones(n_show)
-
-    fig = plt.figure(figsize=(16, 16))
-    fig.patch.set_facecolor('#0D1117')
-    gs  = gridspec.GridSpec(5, 1, figure=fig,
-        height_ratios=[5, 1.1, 1.0, 0.9, 0.9], hspace=0.03)
-
-    # ── PANEL 1: Candlestick + signals ─────────────────────────────
-    ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#161B22')
-
-    # Regime background
-    for i in range(len(D)-1):
-        ax1.axvspan(D[i], D[i+1], alpha=1,
-            color='#1C2A1C' if reg_[i]==1 else '#2A1C1C',
-            linewidth=0, zorder=0)
-
-    # Bollinger Bands
-    if 'BB_U' in te_show.columns and 'BB_L' in te_show.columns:
-        ax1.fill_between(D, te_show['BB_L'].values, te_show['BB_U'].values,
-            alpha=0.07, color=C_BLUE, zorder=1)
-        ax1.plot(D, te_show['BB_U'].values, color=C_BLUE, lw=0.6, alpha=0.4, zorder=2)
-        ax1.plot(D, te_show['BB_L'].values, color=C_BLUE, lw=0.6, alpha=0.4, zorder=2)
-
-    # OHLC Candlesticks
-    for i, (dt, o, h, l, c) in enumerate(zip(D, open_, high_, low_, close_)):
-        _col = C_UP if c >= o else C_DOWN
-        ax1.plot([dt, dt], [l, h],            color=_col, lw=0.7, alpha=0.65, zorder=3)
-        ax1.plot([dt, dt], [min(o,c), max(o,c)], color=_col, lw=2.0, alpha=0.90, zorder=4)
-
-    # Moving averages
-    if 'SMA20' in te_show.columns:
-        ax1.plot(D, te_show['SMA20'].values, color=C_GOLD,    lw=1.1, ls='--', alpha=0.85, label='SMA 20', zorder=5)
-    if 'SMA50' in te_show.columns:
-        ax1.plot(D, te_show['SMA50'].values, color='#A371F7', lw=1.1, ls='-.', alpha=0.85, label='SMA 50', zorder=5)
-
-    # BUY signals
-    if b_show.sum() > 0:
-        ax1.scatter(D[b_show], low_[b_show]*0.948, marker='^', s=130,
-            color=C_UP, edgecolors='#196127', lw=0.9, zorder=7,
-            label=f'🟢 BUY ({int(b_show.sum())})')
-        for _d, _p, _lo in zip(D[b_show], close_[b_show], low_[b_show]*0.948):
-            ax1.annotate(
-                f'B ${_p:.1f}\nTP ${_p+2*last_atr:.1f}',
-                (_d, _lo*0.990), fontsize=5.8, color=C_UP, ha='center', va='top',
-                bbox=dict(boxstyle='round,pad=0.15',fc='#0D1117',ec='#196127',alpha=0.88,lw=0.5))
-
-    # SELL signals
-    if s_show.sum() > 0:
-        ax1.scatter(D[s_show], high_[s_show]*1.052, marker='v', s=130,
-            color=C_DOWN, edgecolors='#8B0000', lw=0.9, zorder=7,
-            label=f'🔴 SELL ({int(s_show.sum())})')
-        for _d, _p, _hi in zip(D[s_show], close_[s_show], high_[s_show]*1.052):
-            ax1.annotate(
-                f'S ${_p:.1f}\nTP ${_p-2*last_atr:.1f}',
-                (_d, _hi*1.010), fontsize=5.8, color=C_DOWN, ha='center', va='bottom',
-                bbox=dict(boxstyle='round,pad=0.15',fc='#0D1117',ec='#8B0000',alpha=0.88,lw=0.5))
-
-    # TP / SL horizontal lines for current open signal
-    if last_sig == "BUY" and tp_price and sl_price:
-        ax1.axhline(tp_price,       color=C_UP,   ls='--', lw=1.2, alpha=0.7, label=f'TP ${tp_price:.2f}')
-        ax1.axhline(sl_price,       color=C_DOWN, ls='--', lw=1.2, alpha=0.7, label=f'SL ${sl_price:.2f}')
-        ax1.axhline(display_price,  color=C_BLUE, ls=':',  lw=1.1, alpha=0.8, label=f'Live ${display_price:.2f}')
-    elif last_sig == "SELL" and tp_price and sl_price:
-        ax1.axhline(tp_price,       color=C_DOWN, ls='--', lw=1.2, alpha=0.7, label=f'TP ${tp_price:.2f}')
-        ax1.axhline(sl_price,       color=C_UP,   ls='--', lw=1.2, alpha=0.7, label=f'SL ${sl_price:.2f}')
-        ax1.axhline(display_price,  color=C_BLUE, ls=':',  lw=1.1, alpha=0.8, label=f'Live ${display_price:.2f}')
-
-    # Next signal arrow
-    _next_dt = D[-1] + pd.Timedelta(days=1)
-    _tgt     = float(close_[-1]) * (1 + (float(pr_show[-1]) - 0.5) * 0.05)
-    _arrc    = C_UP if pr_show[-1] > 0.5 else C_DOWN
-    ax1.annotate('', xy=(_next_dt, _tgt), xytext=(D[-1], float(close_[-1])),
-        arrowprops=dict(arrowstyle='-|>', color=_arrc, lw=2.5, mutation_scale=18))
-    ax1.scatter([_next_dt], [_tgt], marker='*', s=280, color=C_GOLD, zorder=9)
-    _tp_txt = f"TP  ${tp_price:,.2f}" if tp_price else "HOLD"
-    _sl_txt = f"SL  ${sl_price:,.2f}" if sl_price else "No trade"
-    ax1.annotate(
-        f'  {_next_date.strftime("%a %d %b")}\n'
-        f'  {last_sig}  {last_conf:.0f}%\n'
-        f'  {_tp_txt}\n'
-        f'  {_sl_txt}',
-        (_next_dt, _tgt), fontsize=9, color=_arrc, fontweight='bold',
-        xytext=(12, 0), textcoords='offset points',
-        bbox=dict(boxstyle='round,pad=0.5', fc='#161B22',
-                  ec=_arrc, alpha=0.97, lw=1.3))
-
-    # Legend
-    _bul = mpatches.Patch(color='#1C2A1C', label='Bull')
-    _ber = mpatches.Patch(color='#2A1C1C', label='Bear')
-    _bb  = mpatches.Patch(color=C_BLUE, alpha=0.3, label='Bollinger')
-    _h, _l2 = ax1.get_legend_handles_labels()
-    ax1.legend(_h+[_bul,_ber,_bb], _l2+['Bull','Bear','BB'],
-        loc='upper left', ncol=5, framealpha=0.88, fontsize=7.5)
-    ax1.set_ylabel('Price (USD)', fontsize=10, color=C_WHITE)
-    ax1.xaxis.set_ticklabels([])
-    ax1.spines[['top','right']].set_visible(False)
-    ax1.grid(axis='y', alpha=0.15, color='#21262D')
-    ax1.set_title(
-        f'{name} ({ticker})  ·  Candlestick + Signals  ·  {n_show} days  ·  '
-        f'Acc {ens_acc*100:.1f}%  ·  {int(b_show.sum())} BUY  {int(s_show.sum())} SELL',
-        color=C_WHITE, fontsize=11, pad=10, fontweight='bold')
-
-    # ── PANEL 2: Volume ────────────────────────────────────────────
-    ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#161B22')
-    _prev_c = np.concatenate([[close_[0]], close_[:-1]])
-    _vc     = np.where(close_ >= _prev_c, C_UP, C_DOWN)
-    ax_v.bar(D, vol_, color=_vc, width=0.8, alpha=0.75, zorder=3)
-    _vma = pd.Series(vol_).rolling(10, min_periods=1).mean().values
-    ax_v.plot(D, _vma, color=C_GOLD, lw=1.1, alpha=0.9, label='Vol MA10', zorder=4)
-    ax_v.set_ylabel('Volume', fontsize=8, color=C_WHITE)
-    ax_v.legend(loc='upper right', fontsize=7)
-    ax_v.xaxis.set_ticklabels([])
-    ax_v.spines[['top','right']].set_visible(False)
-    ax_v.grid(axis='y', alpha=0.15)
-
-    # ── PANEL 3: Model probability ─────────────────────────────────
-    ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#161B22')
-    _bc = np.where(pr_show>=HIGH, C_UP, np.where(pr_show<=LOW, C_DOWN, C_GREY))
-    ax2.bar(D, pr_show, color=_bc, width=1.0, alpha=0.85, zorder=3)
-    ax2.fill_between(D, HIGH, pr_show, where=(pr_show>=HIGH), alpha=0.15, color=C_UP)
-    ax2.fill_between(D, LOW,  pr_show, where=(pr_show<=LOW),  alpha=0.15, color=C_DOWN)
-    ax2.axhline(HIGH, color=C_UP,   ls='--', lw=1.0, label=f'Buy ≥{HIGH:.0%}', zorder=4)
-    ax2.axhline(LOW,  color=C_DOWN, ls='--', lw=1.0, label=f'Sell ≤{LOW:.0%}', zorder=4)
-    ax2.axhline(0.5,  color=C_DIM,  ls=':',  lw=0.7)
-    ax2.set_ylabel('P(UP)', fontsize=8); ax2.set_ylim(0, 1)
-    ax2.legend(loc='upper right', ncol=2, fontsize=7)
-    ax2.xaxis.set_ticklabels([])
-    ax2.spines[['top','right']].set_visible(False); ax2.grid(axis='y', alpha=0.15)
-
-    # ── PANEL 4: RSI ───────────────────────────────────────────────
-    ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#161B22')
-    if 'RSI' in te_show.columns:
-        _rsi = te_show['RSI'].values
-        ax3.plot(D, _rsi, color='#D29922', lw=1.1, zorder=4)
-        ax3.fill_between(D, 70, _rsi, where=(_rsi>70), alpha=0.25, color=C_DOWN)
-        ax3.fill_between(D, 30, _rsi, where=(_rsi<30), alpha=0.25, color=C_UP)
-        ax3.axhline(70, color=C_DOWN, ls='--', lw=0.8, alpha=0.8, label='OB 70')
-        ax3.axhline(50, color=C_DIM,  ls=':',  lw=0.6)
-        ax3.axhline(30, color=C_UP,   ls='--', lw=0.8, alpha=0.8, label='OS 30')
-        ax3.scatter(D[b_show], _rsi[b_show], marker='^', s=25, color=C_UP,   zorder=6)
-        ax3.scatter(D[s_show], _rsi[s_show], marker='v', s=25, color=C_DOWN, zorder=6)
-        ax3.legend(loc='upper right', ncol=2, fontsize=7)
-    ax3.set_ylabel('RSI', fontsize=8); ax3.set_ylim(10, 90)
-    ax3.xaxis.set_ticklabels([])
-    ax3.spines[['top','right']].set_visible(False); ax3.grid(axis='y', alpha=0.15)
-
-    # ── PANEL 5: MACD ──────────────────────────────────────────────
-    ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#161B22')
-    if 'MACD' in te_show.columns and 'MACD_sig' in te_show.columns:
-        _mc = te_show['MACD'].values; _ms = te_show['MACD_sig'].values; _mh = _mc - _ms
-        ax4.bar(D, _mh, color=np.where(_mh>=0, C_UP, C_DOWN), width=1.0, alpha=0.65, zorder=3)
-        ax4.plot(D, _mc, color=C_BLUE,    lw=1.1, label='MACD',   zorder=4)
-        ax4.plot(D, _ms, color='#F78166', lw=1.1, ls='--', label='Signal', zorder=4)
-        ax4.axhline(0, color=C_DIM, lw=0.7)
-        ax4.legend(loc='upper left', ncol=2, fontsize=7)
-    ax4.set_ylabel('MACD', fontsize=8); ax4.set_xlabel('Date', fontsize=9)
-    ax4.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
-    plt.setp(ax4.xaxis.get_majorticklabels(), rotation=30, ha='right', fontsize=8)
-    ax4.spines[['top','right']].set_visible(False); ax4.grid(axis='y', alpha=0.15)
-
-    plt.tight_layout()
-    st.pyplot(fig, use_container_width=True)
-    plt.close()
-
-    # Metrics below chart
-    _mc1, _mc2, _mc3, _mc4 = st.columns(4)
-    _mc1.metric("Accuracy (filtered)", f"{ens_filt*100:.1f}%",
-                help="Accuracy when model confidence ≥60%")
-    _mc2.metric("Next Session", next_str)
-    _mc3.metric("Signal", f"{emoji} {last_sig}", delta=f"Conf: {last_conf:.1f}%")
-    if last_sig != "HOLD" and tp_price and sl_price:
-        _mc4.metric("TP / SL",
-            f"${tp_price:,.4f}",
-            delta=f"SL ${sl_price:,.4f}",
-            delta_color="inverse")
-    else:
-        _mc4.metric("Signal", "⚪ HOLD", delta="Wait for ≥60% confidence")
 
 
 # ── TAB 2: Predicted vs Actual ─────────────────────────────────────
