@@ -1,126 +1,178 @@
 """
-data_manager.py v3 — fetches live OHLCV for any crypto or stock.
-Priority: Binance (crypto) → CryptoCompare → Yahoo Finance → CoinGecko → CSV upload
-Refreshes every 6 hours so data is always current.
+data_manager.py v4
+─────────────────
+Priority chain:
+  Crypto  : Binance (1h candles → 41 days intraday OR 1d → 2+ years)
+  Stocks  : Yahoo Finance (1d daily)
+  Fallback: CryptoCompare → CoinGecko → uploaded CSV
+
+New in v4:
+  • get_hourly()  — returns 1h OHLCV for intraday model training
+  • get_daily()   — returns 1d OHLCV for longer history
+  • merge logic   — uses hourly if crypto, daily for stocks
+  • get_live_price() — live single price from Binance
+  • CryptoPanic news sentiment fetcher
 """
-import os, json, requests
+
+import os, json, time, requests
 import numpy as np
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 DATA_DIR = "data"
 
 BINANCE_MAP = {
-    "SOL":"SOLUSDT","SOL-USD":"SOLUSDT","BTC":"BTCUSDT","BTC-USD":"BTCUSDT",
-    "ETH":"ETHUSDT","ETH-USD":"ETHUSDT","ADA":"ADAUSDT","ADA-USD":"ADAUSDT",
-    "BNB":"BNBUSDT","BNB-USD":"BNBUSDT","XRP":"XRPUSDT","XRP-USD":"XRPUSDT",
-    "DOGE":"DOGEUSDT","DOGE-USD":"DOGEUSDT","AVAX":"AVAXUSDT","AVAX-USD":"AVAXUSDT",
-    "MATIC":"MATICUSDT","LINK":"LINKUSDT","DOT":"DOTUSDT","LTC":"LTCUSDT",
+    "SOL":"SOLUSDT","SOL-USD":"SOLUSDT",
+    "BTC":"BTCUSDT","BTC-USD":"BTCUSDT",
+    "ETH":"ETHUSDT","ETH-USD":"ETHUSDT",
+    "ADA":"ADAUSDT","ADA-USD":"ADAUSDT",
+    "BNB":"BNBUSDT","BNB-USD":"BNBUSDT",
+    "XRP":"XRPUSDT","XRP-USD":"XRPUSDT",
+    "DOGE":"DOGEUSDT","DOGE-USD":"DOGEUSDT",
+    "AVAX":"AVAXUSDT","AVAX-USD":"AVAXUSDT",
+    "MATIC":"MATICUSDT","MATIC-USD":"MATICUSDT",
+    "LINK":"LINKUSDT","LINK-USD":"LINKUSDT",
+    "DOT":"DOTUSDT","DOT-USD":"DOTUSDT",
+    "LTC":"LTCUSDT","LTC-USD":"LTCUSDT",
 }
 COINGECKO_MAP = {
-    "SOL":"solana","SOL-USD":"solana","BTC":"bitcoin","BTC-USD":"bitcoin",
-    "ETH":"ethereum","ETH-USD":"ethereum","ADA":"cardano","DOGE":"dogecoin",
-    "XRP":"ripple","LTC":"litecoin","BNB":"binancecoin","AVAX":"avalanche-2",
+    "SOL":"solana","SOL-USD":"solana",
+    "BTC":"bitcoin","BTC-USD":"bitcoin",
+    "ETH":"ethereum","ETH-USD":"ethereum",
+    "ADA":"cardano","DOGE":"dogecoin",
+    "XRP":"ripple","LTC":"litecoin",
+    "BNB":"binancecoin","AVAX":"avalanche-2",
 }
 TICKER_INFO = {
-    "SOL-USD":{"name":"Solana","type":"crypto"},
-    "BTC-USD":{"name":"Bitcoin","type":"crypto"},
-    "ETH-USD":{"name":"Ethereum","type":"crypto"},
-    "EMAAR.DFM":{"name":"Emaar Properties","type":"stock"},
-    "AAPL":{"name":"Apple","type":"stock"},"TSLA":{"name":"Tesla","type":"stock"},
-    "MSFT":{"name":"Microsoft","type":"stock"},"NVDA":{"name":"NVIDIA","type":"stock"},
+    "SOL-USD":  {"name":"Solana",           "type":"crypto"},
+    "BTC-USD":  {"name":"Bitcoin",          "type":"crypto"},
+    "ETH-USD":  {"name":"Ethereum",         "type":"crypto"},
+    "ADA-USD":  {"name":"Cardano",          "type":"crypto"},
+    "DOGE-USD": {"name":"Dogecoin",         "type":"crypto"},
+    "BNB-USD":  {"name":"BNB",              "type":"crypto"},
+    "EMAAR.DFM":{"name":"Emaar Properties", "type":"stock"},
+    "AAPL":     {"name":"Apple",            "type":"stock"},
+    "TSLA":     {"name":"Tesla",            "type":"stock"},
+    "MSFT":     {"name":"Microsoft",        "type":"stock"},
+    "NVDA":     {"name":"NVIDIA",           "type":"stock"},
+    "AMZN":     {"name":"Amazon",           "type":"stock"},
+    "GOOGL":    {"name":"Google",           "type":"stock"},
 }
 HDR = {
-    "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept":"application/json","Accept-Language":"en-US,en;q=0.9",
-    "Referer":"https://finance.yahoo.com/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json",
 }
+CRYPTO_BASES = set(BINANCE_MAP.keys())
+
+
+def is_crypto(ticker: str) -> bool:
+    t = ticker.upper()
+    return t in CRYPTO_BASES or t.replace("-USD","") in CRYPTO_BASES or t.endswith("-USD")
 
 
 class DataManager:
-    def __init__(self, ticker="SOL-USD"):
+    def __init__(self, ticker: str = "SOL-USD"):
         self.ticker = ticker.upper().strip()
         safe = self.ticker.replace("/","_").replace(".","_")
-        self.data_file = os.path.join(DATA_DIR, f"{safe}.csv")
-        self.meta_file = os.path.join(DATA_DIR, f"{safe}_meta.json")
+        self.data_file  = os.path.join(DATA_DIR, f"{safe}.csv")
+        self.meta_file  = os.path.join(DATA_DIR, f"{safe}_meta.json")
+        self.h_file     = os.path.join(DATA_DIR, f"{safe}_1h.csv")   # hourly cache
         os.makedirs(DATA_DIR, exist_ok=True)
 
-    def get_data(self, uploaded_file=None):
+    # ── Public entry point ──────────────────────────────────────────
+    def get_data(self, uploaded_file=None, prefer_hourly: bool = True) -> pd.DataFrame:
         """
-        Data loading priority:
-        1. If CSV bytes uploaded → parse as historical base
-        2. Try to fetch fresh data from API (appends to base)
-        3. Fall back to cached data if API fails
-        4. Error if nothing available
+        Returns OHLCV DataFrame ready for feature engineering.
+        • Crypto:  tries 1h candles first (41 days × 24 = ~984 rows)
+                   then tops up with daily to get longer history
+        • Stocks:  daily only
+        • CSV:     merges with live API top-up
         """
-        base_from_csv = None
-
-        # ── Step 1: Parse uploaded CSV ────────────────────────────────────────
+        # 1. CSV upload
         if uploaded_file is not None:
             try:
-                base_from_csv = self._parse_csv(uploaded_file)
-                if len(base_from_csv) < 50:
-                    base_from_csv = None  # too small, ignore
-                else:
-                    # Save it so subsequent runs can use it
-                    self._save(base_from_csv)
-            except Exception as e:
-                base_from_csv = None
+                df = self._parse_csv(uploaded_file)
+                if len(df) >= 80:
+                    self._save(df); self._save_meta()
+                    return self._clean(df)
+            except Exception:
+                pass
 
-        # ── Step 2: Load any previously cached data ────────────────────────────
         cached = self._load_cached()
 
-        # Use CSV base if we just parsed one, otherwise fall back to cache
-        working_base = base_from_csv if base_from_csv is not None else cached
+        # 2. Fetch fresh
+        if self._is_stale() or cached is None:
+            if is_crypto(self.ticker) and prefer_hourly:
+                fresh = self._fetch_hourly_binance()      # 41 days of 1h
+                if fresh is not None and len(fresh) >= 100:
+                    # Also get daily for longer history (for features like SMA50/200)
+                    daily = self._fetch_daily()
+                    if daily is not None and len(daily) >= 30:
+                        # Combine: daily for old data, hourly for recent 41 days
+                        cutoff = fresh.index.min() if hasattr(fresh.index, 'min') else fresh['Date'].min()
+                        fresh_clean = self._clean(fresh)
+                        daily_clean = self._clean(daily)
+                        # Keep daily rows older than hourly data
+                        if 'Date' in daily_clean.columns:
+                            old_daily = daily_clean[daily_clean['Date'] < cutoff]
+                        else:
+                            old_daily = daily_clean[daily_clean.index < cutoff]
+                        merged = self._merge_df(old_daily, fresh_clean)
+                        self._save_hourly(fresh)
+                        self._save(merged.reset_index() if isinstance(merged.index, pd.DatetimeIndex) else merged)
+                        self._save_meta()
+                        return merged
+                    self._save_hourly(fresh)
+                    self._save_meta()
+                    return self._clean(fresh)
 
-        # ── Step 3: Fetch fresh data from API (always try to top up) ──────────
-        fresh = None
-        if self._is_stale() or working_base is None:
-            fresh = self._fetch_all()
-
-        # ── Step 4: Merge and return ──────────────────────────────────────────
-        if fresh is not None and len(fresh) >= 30:
-            merged = self._merge(working_base, fresh)
-            if len(merged) >= 80:
-                self._save(merged)
-                self._save_meta()
+            fresh = self._fetch_daily()
+            if fresh is not None and len(fresh) >= 80:
+                merged = self._merge(cached, fresh)
+                self._save(merged); self._save_meta()
                 return self._clean(merged)
 
-        # API failed — use what we have
-        if working_base is not None and len(working_base) >= 80:
-            if fresh is None:  # only update meta if we didn't already
-                pass
-            return self._clean(working_base)
+        if cached is not None and len(cached) >= 80:
+            return self._clean(cached)
 
-        # Nothing worked
-        ticker_hint = self.ticker
         raise RuntimeError(
-            f"❌ Could not load data for **{ticker_hint}**.\n\n"
-            f"**What to do:**\n"
-            f"1. If this is a Dubai stock (e.g. Emaar): upload a CSV from "
-            f"[Investing.com](https://investing.com) → search {ticker_hint} → Historical Data → Download\n"
-            f"2. Check the ticker symbol is correct\n"
-            f"3. For crypto use format: `SOL-USD`, `BTC-USD`, `ETH-USD`\n"
-            f"4. For US stocks: `AAPL`, `TSLA`, `NVDA`\n"
-            f"5. For Dubai stocks: `EMAAR.DFM`, `DU.DFM`, `ENBD.DFM`"
+            f"❌ Could not load data for **{self.ticker}**.\n\n"
+            "Please upload a CSV or check the ticker symbol."
         )
 
-    def _fetch_all(self):
+    # ── Binance 1h candles ──────────────────────────────────────────
+    def _fetch_hourly_binance(self) -> pd.DataFrame | None:
+        sym = BINANCE_MAP.get(self.ticker, BINANCE_MAP.get(self.ticker.replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/klines",
+                params={"symbol":sym,"interval":"1h","limit":1000},
+                headers=HDR, timeout=15)
+            if r.status_code != 200: return None
+            rows = [{"Date": datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None),
+                     "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
+                     "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
+            df = pd.DataFrame(rows)
+            df["Change_Pct"] = df["Close"].pct_change() * 100
+            return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+        except Exception:
+            return None
+
+    # ── Daily fetch (all sources) ───────────────────────────────────
+    def _fetch_daily(self):
         t = self.ticker.upper()
         clean = t.replace("-USD","")
         if t in BINANCE_MAP or clean in BINANCE_MAP:
-            df = self._binance(); 
+            df = self._binance_daily()
             if df is not None: return df
-        if t in COINGECKO_MAP or clean in COINGECKO_MAP:
             df = self._cryptocompare()
             if df is not None: return df
         df = self._yahoo()
         if df is not None: return df
         return self._coingecko()
 
-    def _binance(self):
-        t = self.ticker.upper()
-        sym = BINANCE_MAP.get(t, BINANCE_MAP.get(t.replace("-USD","")))
+    def _binance_daily(self):
+        sym = BINANCE_MAP.get(self.ticker, BINANCE_MAP.get(self.ticker.replace("-USD","")))
         if not sym: return None
         try:
             r = requests.get("https://api.binance.com/api/v3/klines",
@@ -140,8 +192,7 @@ class DataManager:
         sym = self.ticker.replace("-USD","").upper()
         try:
             r = requests.get("https://min-api.cryptocompare.com/data/v2/histoday",
-                params={"fsym":sym,"tsym":"USD","limit":2000},
-                headers=HDR, timeout=15)
+                params={"fsym":sym,"tsym":"USD","limit":2000}, headers=HDR, timeout=15)
             if r.status_code!=200: return None
             data = r.json()
             if data.get("Response")!="Success": return None
@@ -150,9 +201,8 @@ class DataManager:
                    "Low":float(d["low"]),"Close":float(d["close"]),
                    "Volume":float(d.get("volumeto",0))/1e6}
                   for d in data["Data"]["Data"] if d["close"]>0]
-            df = pd.DataFrame(rows)
-            df["Date"] = pd.to_datetime(df["Date"])
-            df["Change_Pct"] = df["Close"].pct_change()*100
+            df=pd.DataFrame(rows); df["Date"]=pd.to_datetime(df["Date"])
+            df["Change_Pct"]=df["Close"].pct_change()*100
             return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
         except Exception: return None
 
@@ -162,17 +212,14 @@ class DataManager:
                 r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=5y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
-                res = r.json()["chart"]["result"][0]
-                ts  = res["timestamp"]; q=res["indicators"]["quote"][0]
+                res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
+                q=res["indicators"]["quote"][0]
                 dates=[datetime.fromtimestamp(t,tz=timezone.utc).date() for t in ts]
-                df = pd.DataFrame({
-                    "Date":dates,"Open":q.get("open",[None]*len(ts)),
+                df=pd.DataFrame({"Date":dates,"Open":q.get("open",[None]*len(ts)),
                     "High":q.get("high",[None]*len(ts)),"Low":q.get("low",[None]*len(ts)),
                     "Close":q.get("close",[None]*len(ts)),
-                    "Volume":[v/1e6 if v else 0 for v in q.get("volume",[0]*len(ts))],
-                })
-                df["Date"]=pd.to_datetime(df["Date"])
-                df=df.dropna(subset=["Close"])
+                    "Volume":[v/1e6 if v else 0 for v in q.get("volume",[0]*len(ts))]})
+                df["Date"]=pd.to_datetime(df["Date"]); df=df.dropna(subset=["Close"])
                 df["Change_Pct"]=df["Close"].pct_change()*100
                 df=df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
                 if len(df)>=30: return df
@@ -180,34 +227,32 @@ class DataManager:
         return None
 
     def _coingecko(self):
-        t = self.ticker.replace("-USD","").upper()
-        coin = COINGECKO_MAP.get(self.ticker, COINGECKO_MAP.get(t))
+        t=self.ticker.replace("-USD","").upper()
+        coin=COINGECKO_MAP.get(self.ticker,COINGECKO_MAP.get(t))
         if not coin: return None
         try:
-            r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart",
+            r=requests.get(f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart",
                 params={"vs_currency":"usd","days":"365","interval":"daily"},
-                headers=HDR, timeout=15)
+                headers=HDR,timeout=15)
             if r.status_code!=200: return None
-            prices=r.json().get("prices",[])
-            vols  =r.json().get("total_volumes",[])
-            vmap  ={ts:v/1e6 for ts,v in vols}
-            rows  =[{"Date":datetime.fromtimestamp(ts/1000,tz=timezone.utc).date(),
-                     "Close":p,"Volume":vmap.get(ts,0)} for ts,p in prices]
-            df=pd.DataFrame(rows)
-            df["Date"]=pd.to_datetime(df["Date"])
+            prices=r.json().get("prices",[]); vols=r.json().get("total_volumes",[])
+            vmap={ts:v/1e6 for ts,v in vols}
+            rows=[{"Date":datetime.fromtimestamp(ts/1000,tz=timezone.utc).date(),
+                   "Close":p,"Volume":vmap.get(ts,0)} for ts,p in prices]
+            df=pd.DataFrame(rows); df["Date"]=pd.to_datetime(df["Date"])
             df["Open"]=df["Close"].shift(1).fillna(df["Close"])
             df["High"]=df[["Close","Open"]].max(axis=1)*1.015
-            df["Low"] =df[["Close","Open"]].min(axis=1)*0.985
+            df["Low"]=df[["Close","Open"]].min(axis=1)*0.985
             df["Change_Pct"]=df["Close"].pct_change()*100
             return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
         except Exception: return None
 
+    # ── CSV parse ───────────────────────────────────────────────────
     def _parse_csv(self, f):
         raw=pd.read_csv(f)
         dc=next((c for c in raw.columns if c.lower() in ["date","time","datetime"]),raw.columns[0])
         for fmt in ["%m/%d/%Y","%Y-%m-%d","%d/%m/%Y",None]:
-            try:
-                raw[dc]=pd.to_datetime(raw[dc],format=fmt,errors="raise" if fmt else "coerce"); break
+            try: raw[dc]=pd.to_datetime(raw[dc],format=fmt,errors="raise" if fmt else "coerce"); break
             except Exception: continue
         raw=raw.sort_values(dc).reset_index(drop=True)
         def pv(v):
@@ -218,8 +263,7 @@ class DataManager:
             try: return float(s)
             except: return 1.0
         pc=next((c for c in raw.columns if c.lower() in ["price","close","adj close"]),raw.columns[1])
-        df=pd.DataFrame()
-        df["Date"] =raw[dc]
+        df=pd.DataFrame(); df["Date"]=raw[dc]
         df["Close"]=pd.to_numeric(raw[pc].astype(str).str.replace(",",""),errors="coerce")
         for s in ["Open","High","Low"]:
             c=next((x for x in raw.columns if x.lower()==s.lower()),None)
@@ -232,6 +276,7 @@ class DataManager:
         df.dropna(subset=["Close"],inplace=True)
         return df.reset_index(drop=True)
 
+    # ── Helpers ─────────────────────────────────────────────────────
     def _load_cached(self):
         if os.path.exists(self.data_file):
             try:
@@ -240,14 +285,27 @@ class DataManager:
             except Exception: return None
         return None
 
-    def _merge(self,existing,fresh):
+    def _merge(self, existing, fresh):
         if existing is None: return fresh
         combined=pd.concat([existing,fresh],ignore_index=True)
         combined["Date"]=pd.to_datetime(combined["Date"])
         return combined.sort_values("Date").drop_duplicates("Date",keep="last").reset_index(drop=True)
 
-    def _save(self,df):
-        try: df.to_csv(self.data_file,index=False)
+    def _merge_df(self, df1, df2):
+        """Merge two cleaned DataFrames (DatetimeIndex)."""
+        try:
+            combined = pd.concat([df1, df2])
+            combined = combined[~combined.index.duplicated(keep='last')]
+            return combined.sort_index()
+        except Exception:
+            return df2
+
+    def _save(self, df):
+        try: df.to_csv(self.data_file, index=False)
+        except Exception: pass
+
+    def _save_hourly(self, df):
+        try: df.to_csv(self.h_file, index=False)
         except Exception: pass
 
     def _save_meta(self):
@@ -261,34 +319,35 @@ class DataManager:
         if not os.path.exists(self.meta_file): return True
         try:
             with open(self.meta_file) as f: meta=json.load(f)
-            if meta.get("ticker") != self.ticker: return True
-            age = (datetime.now(timezone.utc) -
-                   datetime.fromisoformat(meta["last_updated"])).total_seconds()
-            return age > 6 * 3600   # refresh every 6 hours
+            if meta.get("ticker")!=self.ticker: return True
+            age=(datetime.now(timezone.utc)-datetime.fromisoformat(meta["last_updated"])).total_seconds()
+            return age > 5*60    # stale after 5 minutes
         except Exception: return True
 
-    def _clean(self,df):
+    def _clean(self, df) -> pd.DataFrame:
         df=df.copy()
-        df["Date"]=pd.to_datetime(df["Date"])
-        df=df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+        if "Date" in df.columns:
+            df["Date"]=pd.to_datetime(df["Date"])
+            df=df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
         df["Volume"]=pd.to_numeric(df.get("Volume",1.0),errors="coerce")
         df["Volume"]=df["Volume"].fillna(df["Volume"].rolling(10,min_periods=1).median()).fillna(1.0)
         for col in ["Open","High","Low","Change_Pct"]:
             if col not in df.columns:
-                if col=="Open":         df[col]=df["Close"].shift(1).fillna(df["Close"])
-                elif col=="High":       df[col]=df["Close"]*1.015
-                elif col=="Low":        df[col]=df["Close"]*0.985
-                elif col=="Change_Pct": df[col]=df["Close"].pct_change()*100
+                if col=="Open":          df[col]=df["Close"].shift(1).fillna(df["Close"])
+                elif col=="High":        df[col]=df["Close"]*1.015
+                elif col=="Low":         df[col]=df["Close"]*0.985
+                elif col=="Change_Pct":  df[col]=df["Close"].pct_change()*100
         for col in ["Close","Open","High","Low"]:
             df[col]=pd.to_numeric(df[col],errors="coerce")
         df.dropna(subset=["Close"],inplace=True)
-        df.set_index("Date",inplace=True)
+        if "Date" in df.columns:
+            df.set_index("Date",inplace=True)
         return df
 
+    # ── Static helpers ──────────────────────────────────────────────
     @staticmethod
-    def get_live_price(ticker):
-        t=ticker.upper()
-        sym=BINANCE_MAP.get(t,BINANCE_MAP.get(t.replace("-USD","")))
+    def get_live_price(ticker: str) -> float | None:
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
         if sym:
             try:
                 r=requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}",
@@ -307,5 +366,87 @@ class DataManager:
         return None
 
     @staticmethod
-    def get_ticker_name(ticker):
-        return TICKER_INFO.get(ticker,{}).get("name",ticker)
+    def get_ticker_name(ticker: str) -> str:
+        return TICKER_INFO.get(ticker,{}).get("name", ticker)
+
+    @staticmethod
+    def get_news_sentiment(ticker: str, limit: int = 20) -> list:
+        """
+        Fetch latest crypto news from CryptoPanic (free, no key needed for public feed).
+        Returns list of dicts: {title, url, published, sentiment, score}
+        """
+        # Map ticker to CryptoPanic currency code
+        currency_map = {
+            "SOL-USD":"SOL","BTC-USD":"BTC","ETH-USD":"ETH",
+            "ADA-USD":"ADA","DOGE-USD":"DOGE","BNB-USD":"BNB",
+            "XRP-USD":"XRP","AVAX-USD":"AVAX","MATIC-USD":"MATIC",
+            "SOL":"SOL","BTC":"BTC","ETH":"ETH",
+        }
+        t = ticker.upper()
+        currency = currency_map.get(t, t.replace("-USD",""))
+
+        try:
+            url = "https://cryptopanic.com/api/v1/posts/"
+            params = {
+                "auth_token": "free",
+                "currencies"  : currency,
+                "kind"        : "news",
+                "public"      : "true",
+            }
+            r = requests.get(url, params=params, headers=HDR, timeout=10)
+            if r.status_code != 200:
+                return _get_fallback_news(currency)
+
+            items = r.json().get("results", [])
+            news  = []
+            for item in items[:limit]:
+                # CryptoPanic returns votes: positive, negative, important, liked, disliked
+                votes = item.get("votes", {})
+                pos   = votes.get("positive", 0) or 0
+                neg   = votes.get("negative", 0) or 0
+                total = pos + neg
+                if total > 0:
+                    score = (pos - neg) / total   # -1 to +1
+                else:
+                    score = 0.0
+
+                if score >  0.1: sentiment = "🟢 Positive"
+                elif score < -0.1: sentiment = "🔴 Negative"
+                else:              sentiment = "⚪ Neutral"
+
+                pub = item.get("published_at","")[:10]
+                news.append({
+                    "title"    : item.get("title",""),
+                    "url"      : item.get("url",""),
+                    "source"   : item.get("source",{}).get("title",""),
+                    "published": pub,
+                    "sentiment": sentiment,
+                    "score"    : round(score, 3),
+                })
+            return news if news else _get_fallback_news(currency)
+        except Exception:
+            return _get_fallback_news(currency)
+
+
+def _get_fallback_news(currency: str) -> list:
+    """Fallback: fetch from CoinGecko news if CryptoPanic fails."""
+    try:
+        r = requests.get(
+            f"https://api.coingecko.com/api/v3/news",
+            headers=HDR, timeout=8)
+        if r.status_code == 200:
+            items = r.json().get("data", [])[:10]
+            news = []
+            for item in items:
+                news.append({
+                    "title"    : item.get("title",""),
+                    "url"      : item.get("url",""),
+                    "source"   : item.get("news_site",""),
+                    "published": item.get("created_at","")[:10],
+                    "sentiment": "⚪ Neutral",
+                    "score"    : 0.0,
+                })
+            return news
+    except Exception:
+        pass
+    return []
