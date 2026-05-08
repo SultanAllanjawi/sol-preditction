@@ -168,27 +168,73 @@ with st.sidebar:
     # ── Asset Selection — base list + any uploaded CSVs ────────────
     st.subheader("📊 Asset Selection")
 
-    BASE_ASSETS = [
-        "SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD",
-        "EMAAR.DFM","AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL",
-    ]
+    # ── Grouped asset list ─────────────────────────────────────────
+    _CRYPTO = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
+    _US     = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
+    _UAE    = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM","SALIK.DFM",
+               "FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+
+    BASE_ASSETS = _CRYPTO + _US + _UAE
+
+    # Asset category selector
+    _cat = st.radio("Category", ["🔵 Crypto","🟢 US Stocks","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
+                    horizontal=False, key="asset_category")
+
+    if _cat == "🔵 Crypto":
+        _asset_list = _CRYPTO
+    elif _cat == "🟢 US Stocks":
+        _asset_list = _US
+    elif _cat == "🇦🇪 UAE / DFM":
+        _asset_list = _UAE
+    elif _cat == "📁 Uploaded":
+        _asset_list = list(st.session_state.uploaded_assets.keys()) or ["No uploads yet"]
+    else:
+        _asset_list = []
+
+    # Build full list for selectbox
+    if _cat == "✏️ Custom":
+        all_assets = ["✏️ Custom ticker..."]
+    else:
+        all_assets = _asset_list + (["✏️ Custom ticker..."] if _cat != "📁 Uploaded" else [])
+
+    # DFM label map for display
+    _UAE_NAMES = {
+        "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
+        "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
+        "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
+        "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
+        "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
+    }
+    _display_map = {t: f"{_UAE_NAMES[t]} ({t})" if t in _UAE_NAMES else t for t in all_assets}
+    _display_opts = [_display_map.get(t,t) for t in all_assets]
+
     # Merge uploaded asset names into the list
-    all_assets  = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
-    all_assets += ["✏️ Custom ticker..."]
+    if _cat == "📁 Uploaded" and not st.session_state.uploaded_assets:
+        ticker = st.session_state.selected_ticker
+    else:
+        _default_in_list = st.session_state.selected_ticker in all_assets
+        _def_idx = all_assets.index(st.session_state.selected_ticker) if _default_in_list else 0
+        _selected_display = st.selectbox("Select asset", _display_opts, index=_def_idx, key="asset_select")
+        # Map display name back to ticker
+        _sel_reverse = {v:k for k,v in _display_map.items()}
+        selected = _sel_reverse.get(_selected_display, _selected_display)
+        all_assets_full = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
 
     # Default index
     default_idx = all_assets.index(st.session_state.selected_ticker)                   if st.session_state.selected_ticker in all_assets else 0
 
     selected = st.selectbox("Select asset", all_assets, index=default_idx)
 
-    if selected == "✏️ Custom ticker...":
+    if _cat == "✏️ Custom":
         ticker = st.text_input(
             "Enter ticker symbol",
             placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
             help="Crypto: SOL-USD, BTC-USD\nDubai: EMAAR.DFM, DU.DFM\nUS stocks: AAPL, TSLA"
         ).upper().strip() or "SOL-USD"
-    else:
+    elif _cat != "📁 Uploaded" or st.session_state.uploaded_assets:
         ticker = selected
+    else:
+        ticker = st.session_state.selected_ticker
 
     # Keep session state in sync + save to disk
     if ticker != st.session_state.selected_ticker:
@@ -218,23 +264,8 @@ with st.sidebar:
     st.caption("Data auto-refreshes every 5 min · Force refresh clears all cache")
     st.divider()
 
-    # ── DFM Quick Access ───────────────────────────────────────────
-    st.subheader("🇦🇪 UAE Market")
-    st.caption("Quick-switch to DFM/ADX stocks")
-    _SIDEBAR_DFM = [
-        ("EMAAR.DFM","Emaar"),("ENBD.DFM","ENBD"),("DIB.DFM","DIB"),
-        ("DU.DFM","du"),("DEWA.DFM","DEWA"),("SALIK.DFM","Salik"),
-        ("FAB.ADX","FAB"),("ALDAR.ADX","Aldar"),("ADCB.ADX","ADCB"),("MASQ.DFM","Mashreq"),
-    ]
-    _sdfm_cols = st.columns(2)
-    for _sdi, (_sticker, _sname) in enumerate(_SIDEBAR_DFM):
-        if _sdfm_cols[_sdi % 2].button(_sname, key=f"sdfm_{_sticker}",
-                                        use_container_width=True):
-            st.session_state.selected_ticker = _sticker
-            st.session_state.uploaded_assets = st.session_state.get("uploaded_assets", {})
-            st.rerun()
-
     st.divider()
+
     st.caption("⚠️ Research only · Not financial advice")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -501,13 +532,43 @@ with col_sig:
     }
     _sicon, _scol, _sbg, _slabel = _status_styles.get(_ss, _status_styles["NONE"])
 
-    if _ss not in ("NONE",):
-        _rem_h  = _sig_status.get("remaining_h", 0)
-        _pnl_p  = _sig_status.get("pnl_pct", 0)
-        _hrs_old= _sig_status.get("hours_old", 0)
-        _msg    = _sig_status.get("message","")
+    # ── Active signals list (all tickers) ──────────────────────────
+    _all_sigs = load_active_signals()
+    _active_list = [
+        (t, s) for t, s in _all_sigs.items()
+        if s.get("status") in ("ACTIVE","HIT_TP","HIT_SL")
+    ]
+    if len(_active_list) > 1:
+        with st.expander(f"📋 All Active Signals ({len(_active_list)} tracked)", expanded=False):
+            for _at, _as in sorted(_active_list, key=lambda x: x[1].get("timestamp",""), reverse=True):
+                _a_status = _as.get("status","ACTIVE")
+                _a_sig    = _as.get("signal","")
+                _a_entry  = _as.get("entry", 0)
+                _a_tp     = _as.get("tp")
+                _a_sl     = _as.get("sl")
+                _a_ic     = "🟡" if _a_status=="ACTIVE" else "🎯" if _a_status=="HIT_TP" else "🛑"
+                _a_col    = "#E3B341" if _a_status=="ACTIVE" else "#3FB950" if _a_status=="HIT_TP" else "#F85149"
+                st.markdown(
+                    f'<div style="background:#161B22;border-left:3px solid {_a_col};'
+                    f'border-radius:6px;padding:8px 14px;margin-bottom:5px;'
+                    f'display:flex;justify-content:space-between;align-items:center">'
+                    f'<span style="color:#F0F6FC;font-weight:600">{_at}</span>'
+                    f'<span style="color:{_a_col}">{_a_ic} {_a_status}</span>'
+                    f'<span style="color:#8B949E;font-size:0.80rem">'
+                    f'{"BUY" if _a_sig=="BUY" else "SELL"} @ ${_a_entry:,.4f}</span>'
+                    f'<span style="color:#3FB950;font-size:0.80rem">TP ${_a_tp:,.4f}</span>'
+                    f'<span style="color:#F85149;font-size:0.80rem">SL ${_a_sl:,.4f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
-        st.markdown(f"""
+        if _ss not in ("NONE",):
+            _rem_h   = _sig_status.get("remaining_h", 0)
+            _pnl_p   = _sig_status.get("pnl_pct", 0)
+            _hrs_old = _sig_status.get("hours_old", 0)
+            _msg     = _sig_status.get("message","")
+
+            st.markdown(f"""
 <div style="background:{_sbg};border:2px solid {_scol};border-radius:10px;
      padding:14px 20px;margin-top:8px">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -1830,31 +1891,50 @@ with tab8:
                 st.rerun()
         _dfm_cur_tf = st.session_state.get("dfm_tf","D")
 
-        # TradingView chart for selected DFM stock
-        _dfm_tv_html = f"""<!DOCTYPE html><html><head>
+        # Chart source selector
+        _chart_src = st.radio(
+            "Chart source",
+            ["📊 TradingView", "🌐 Investing.com"],
+            horizontal=True, key="dfm_chart_src"
+        )
+
+        if _chart_src == "📊 TradingView":
+            # TradingView with allow_symbol_change so user can fix if needed
+            _dfm_tv_html = f"""<!DOCTYPE html><html><head>
 <meta charset="utf-8">
-<style>*{{margin:0;padding:0;}}body{{background:#0D1117;}}</style>
+<style>*{{margin:0;padding:0;box-sizing:border-box;}}body{{background:#0D1117;}}</style>
 </head><body>
-<div class="tradingview-widget-container" style="width:100%;height:520px">
-  <div id="dfm_chart_{_sel_idx}"></div>
-  <script src="https://s3.tradingview.com/tv.js"></script>
-  <script>
+<div id="dfm_tv_{_sel_idx}" style="width:100%;height:520px"></div>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+  // Suppress the notification popup
+  var _origAlert = window.alert;
+  window.alert = function(msg) {{
+    if (msg && msg.indexOf('available') !== -1) return;
+    _origAlert(msg);
+  }};
+
   new TradingView.widget({{
-    "container_id"     : "dfm_chart_{_sel_idx}",
-    "width"            : "100%",
-    "height"           : 520,
-    "symbol"           : "{_sel_stk['tv']}",
-    "interval"         : "{_dfm_cur_tf}",
-    "timezone"         : "Asia/Dubai",
-    "theme"            : "dark",
-    "style"            : "1",
-    "locale"           : "en",
-    "hide_side_toolbar": false,
-    "allow_symbol_change": false,
-    "studies"          : ["Volume@tv-basicstudies","RSI@tv-basicstudies"],
-    "overrides"        : {{
+    "container_id"      : "dfm_tv_{_sel_idx}",
+    "width"             : "100%",
+    "height"            : 520,
+    "symbol"            : "{_sel_stk['tv']}",
+    "interval"          : "{_dfm_cur_tf}",
+    "timezone"          : "Asia/Dubai",
+    "theme"             : "dark",
+    "style"             : "1",
+    "locale"            : "en",
+    "hide_side_toolbar" : false,
+    "allow_symbol_change": true,
+    "save_image"        : false,
+    "hide_volume"       : false,
+    "support_host"      : "https://www.tradingview.com",
+    "studies"           : ["Volume@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies"],
+    "overrides"         : {{
       "paneProperties.background"                       : "#0D1117",
       "paneProperties.backgroundType"                   : "solid",
+      "paneProperties.vertGridProperties.color"         : "#1C2128",
+      "paneProperties.horzGridProperties.color"         : "#1C2128",
       "mainSeriesProperties.candleStyle.upColor"        : "#3FB950",
       "mainSeriesProperties.candleStyle.downColor"      : "#F85149",
       "mainSeriesProperties.candleStyle.borderUpColor"  : "#3FB950",
@@ -1863,10 +1943,56 @@ with tab8:
       "mainSeriesProperties.candleStyle.wickDownColor"  : "#F85149"
     }}
   }});
-  </script>
-</div>
+</script>
 </body></html>"""
-        st.components.v1.html(_dfm_tv_html, height=535, scrolling=False)
+            st.components.v1.html(_dfm_tv_html, height=535, scrolling=False)
+            st.caption(
+                f"TradingView chart for **{_sel_stk['tv']}** · "
+                "If you see 'only available on TradingView' — dismiss and use "
+                "the Investing.com tab instead"
+            )
+
+        else:
+            # Investing.com iframe — works for all DFM/ADX stocks
+            _inv_names = {{
+                "EMAAR.DFM":"emaar-properties","ENBD.DFM":"emirates-nbd",
+                "DIB.DFM":"dubai-islamic-bank","DU.DFM":"emirates-integrated-telecom",
+                "DEWA.DFM":"dubai-electricity-water","SALIK.DFM":"salik-pjsc",
+                "FAB.ADX":"first-abu-dhabi-bank","ALDAR.ADX":"aldar-properties",
+                "ADCB.ADX":"abu-dhabi-commercial-bank","MASQ.DFM":"mashreqbank",
+            }}
+            _inv_slug = _inv_names.get(_sel_stk['ticker'], _sel_stk['name'].lower().replace(' ','-'))
+            _inv_html = f"""<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>
+  *{{margin:0;padding:0;box-sizing:border-box;}}
+  body{{background:#0D1117;}}
+  .btn-bar{{background:#161B22;padding:8px 16px;border-bottom:1px solid #30363D;
+            display:flex;gap:8px;align-items:center;}}
+  .btn{{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;
+        padding:4px 12px;cursor:pointer;font-size:0.80rem;text-decoration:none;}}
+  .btn:hover{{background:#1F6FEB;color:white;}}
+</style>
+</head><body>
+<div class="btn-bar">
+  <a class="btn" href="https://www.investing.com/equities/{_inv_slug}-chart"
+     target="_blank">🌐 Open Full Chart on Investing.com</a>
+  <a class="btn" href="https://www.dfm.ae/the-exchange/market-data/equities-prices"
+     target="_blank">📊 DFM Official Prices</a>
+  <span style="color:#8B949E;font-size:0.75rem;margin-left:8px">
+    {_sel_stk['name']} · {_sel_stk['ticker']}
+  </span>
+</div>
+<iframe
+  src="https://www.investing.com/equities/{_inv_slug}-chart"
+  style="width:100%;height:500px;border:none;"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  referrerpolicy="no-referrer-when-downgrade"
+  loading="lazy">
+</iframe>
+</body></html>"""
+            st.components.v1.html(_inv_html, height=545, scrolling=False)
+            st.caption("Chart from Investing.com · If it doesn't load, try TradingView tab")
 
     with _dfm_info_col:
         st.markdown("**Stock Info**")
