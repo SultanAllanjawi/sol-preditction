@@ -46,29 +46,63 @@ class DataManager:
         os.makedirs(DATA_DIR, exist_ok=True)
 
     def get_data(self, uploaded_file=None):
+        """
+        Data loading priority:
+        1. If CSV bytes uploaded → parse as historical base
+        2. Try to fetch fresh data from API (appends to base)
+        3. Fall back to cached data if API fails
+        4. Error if nothing available
+        """
+        base_from_csv = None
+
+        # ── Step 1: Parse uploaded CSV ────────────────────────────────────────
         if uploaded_file is not None:
             try:
-                df = self._parse_csv(uploaded_file)
-                if len(df) >= 80:
-                    self._save(df); self._save_meta()
-                    return self._clean(df)
-            except Exception:
-                pass
+                base_from_csv = self._parse_csv(uploaded_file)
+                if len(base_from_csv) < 50:
+                    base_from_csv = None  # too small, ignore
+                else:
+                    # Save it so subsequent runs can use it
+                    self._save(base_from_csv)
+            except Exception as e:
+                base_from_csv = None
 
+        # ── Step 2: Load any previously cached data ────────────────────────────
         cached = self._load_cached()
-        if self._is_stale() or cached is None:
+
+        # Use CSV base if we just parsed one, otherwise fall back to cache
+        working_base = base_from_csv if base_from_csv is not None else cached
+
+        # ── Step 3: Fetch fresh data from API (always try to top up) ──────────
+        fresh = None
+        if self._is_stale() or working_base is None:
             fresh = self._fetch_all()
-            if fresh is not None and len(fresh) >= 80:
-                merged = self._merge(cached, fresh)
-                self._save(merged); self._save_meta()
+
+        # ── Step 4: Merge and return ──────────────────────────────────────────
+        if fresh is not None and len(fresh) >= 30:
+            merged = self._merge(working_base, fresh)
+            if len(merged) >= 80:
+                self._save(merged)
+                self._save_meta()
                 return self._clean(merged)
 
-        if cached is not None and len(cached) >= 80:
-            return self._clean(cached)
+        # API failed — use what we have
+        if working_base is not None and len(working_base) >= 80:
+            if fresh is None:  # only update meta if we didn't already
+                pass
+            return self._clean(working_base)
 
+        # Nothing worked
+        ticker_hint = self.ticker
         raise RuntimeError(
-            f"Could not load data for **{self.ticker}**. "
-            "Please check the ticker or upload a CSV file."
+            f"❌ Could not load data for **{ticker_hint}**.\n\n"
+            f"**What to do:**\n"
+            f"1. If this is a Dubai stock (e.g. Emaar): upload a CSV from "
+            f"[Investing.com](https://investing.com) → search {ticker_hint} → Historical Data → Download\n"
+            f"2. Check the ticker symbol is correct\n"
+            f"3. For crypto use format: `SOL-USD`, `BTC-USD`, `ETH-USD`\n"
+            f"4. For US stocks: `AAPL`, `TSLA`, `NVDA`\n"
+            f"5. For Dubai stocks: `EMAAR.DFM`, `DU.DFM`, `ENBD.DFM`"
         )
 
     def _fetch_all(self):
@@ -227,9 +261,10 @@ class DataManager:
         if not os.path.exists(self.meta_file): return True
         try:
             with open(self.meta_file) as f: meta=json.load(f)
-            if meta.get("ticker")!=self.ticker: return True
-            age=(datetime.now(timezone.utc)-datetime.fromisoformat(meta["last_updated"])).total_seconds()
-            return age > 6*3600   # refresh every 6 hours
+            if meta.get("ticker") != self.ticker: return True
+            age = (datetime.now(timezone.utc) -
+                   datetime.fromisoformat(meta["last_updated"])).total_seconds()
+            return age > 6 * 3600   # refresh every 6 hours
         except Exception: return True
 
     def _clean(self,df):
