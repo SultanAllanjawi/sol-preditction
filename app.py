@@ -95,39 +95,88 @@ def dark_fig():
 # ═══════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════
+# ── Session state: track uploaded assets ──────────────────────────
+if "uploaded_assets" not in st.session_state:
+    st.session_state.uploaded_assets = {}   # {ticker_name: bytes}
+if "selected_ticker" not in st.session_state:
+    st.session_state.selected_ticker = "SOL-USD"
+
 with st.sidebar:
     st.markdown("## 🔮 Prediction Dashboard")
     st.caption("Auto-updates every 6 hours")
     st.divider()
 
-    st.subheader("📊 Asset Selection")
+    # ── Upload CSV FIRST (so it adds to list before selection) ────
+    st.subheader("📁 Upload CSV Data")
+    st.caption("Upload for any asset — Investing.com or Yahoo Finance format")
 
-    # Quick-select buttons
-    quick = st.selectbox("Quick select",
-        ["SOL-USD","BTC-USD","ETH-USD","EMAAR.DFM","AAPL","TSLA","NVDA","Custom..."],
-        index=0)
-    if quick == "Custom...":
-        ticker = st.text_input("Enter ticker symbol",
-            placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
-            help="Crypto: SOL-USD, BTC-USD, ETH-USD\nDubai stocks: EMAAR.DFM, DU.DFM\nUS stocks: AAPL, TSLA, NVDA"
-        ).upper().strip()
-        if not ticker:
-            ticker = "SOL-USD"
-    else:
-        ticker = quick
+    uploaded = st.file_uploader(
+        "Drop CSV here",
+        type=["csv"],
+        help="After upload, give it a ticker name below (e.g. EMAAR.DFM, SOL-USD, NVDA)"
+    )
 
-    st.caption(f"Selected: **{DataManager.get_ticker_name(ticker) or ticker}** (`{ticker}`)")
+    if uploaded is not None:
+        col_name, col_add = st.columns([2,1])
+        with col_name:
+            csv_ticker = st.text_input(
+                "Asset name for this CSV",
+                placeholder="e.g. EMAAR.DFM",
+                key="csv_ticker_input"
+            ).upper().strip()
+        with col_add:
+            st.write("")
+            st.write("")
+            if st.button("➕ Add", use_container_width=True) and csv_ticker:
+                st.session_state.uploaded_assets[csv_ticker] = uploaded.read()
+                st.session_state.selected_ticker = csv_ticker
+                st.success(f"✅ Added {csv_ticker}")
+                st.rerun()
+
+    # Show uploaded assets
+    if st.session_state.uploaded_assets:
+        st.caption(f"📂 Uploaded: {', '.join(st.session_state.uploaded_assets.keys())}")
+        if st.button("🗑️ Clear all uploads", use_container_width=True):
+            st.session_state.uploaded_assets = {}
+            st.rerun()
 
     st.divider()
-    st.subheader("📁 Upload CSV (optional)")
-    uploaded = st.file_uploader(
-        "Upload historical data CSV",
-        type=["csv"],
-        help="Accepts Investing.com or Yahoo Finance CSV format. "
-             "Use this for Emaar or any asset the API doesn't cover."
-    )
-    if uploaded:
-        st.success(f"✅ CSV uploaded: {uploaded.name}")
+
+    # ── Asset Selection — base list + any uploaded CSVs ────────────
+    st.subheader("📊 Asset Selection")
+
+    BASE_ASSETS = [
+        "SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD",
+        "EMAAR.DFM","AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL",
+    ]
+    # Merge uploaded asset names into the list
+    all_assets  = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
+    all_assets += ["✏️ Custom ticker..."]
+
+    # Default index
+    default_idx = all_assets.index(st.session_state.selected_ticker)                   if st.session_state.selected_ticker in all_assets else 0
+
+    selected = st.selectbox("Select asset", all_assets, index=default_idx)
+
+    if selected == "✏️ Custom ticker...":
+        ticker = st.text_input(
+            "Enter ticker symbol",
+            placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
+            help="Crypto: SOL-USD, BTC-USD\nDubai: EMAAR.DFM, DU.DFM\nUS stocks: AAPL, TSLA"
+        ).upper().strip() or "SOL-USD"
+    else:
+        ticker = selected
+
+    # Keep session state in sync
+    if ticker != st.session_state.selected_ticker:
+        st.session_state.selected_ticker = ticker
+
+    # Show source badge
+    if ticker in st.session_state.uploaded_assets:
+        st.success(f"📂 Using your uploaded CSV for **{ticker}** (+ daily API top-up)")
+    else:
+        src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","MATIC","LINK","XRP","LTC"] else "Yahoo Finance"
+        st.info(f"📡 Auto-fetching from **{src}** · Updates every 6h")
 
     st.divider()
     st.subheader("⚙️ Signal Settings")
@@ -148,26 +197,36 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════
 @st.cache_data(ttl=21600, show_spinner=False)   # cache 6 hours
 def load_and_train(ticker, _uploaded_bytes=None, _force=False):
-    dm = DataManager(ticker)
-    file_obj = None
-    if _uploaded_bytes is not None:
-        import io
-        file_obj = io.BytesIO(_uploaded_bytes)
-    df_raw  = dm.get_data(uploaded_file=file_obj)
-    df_feat = build_features(df_raw)
-    engine  = ModelEngine(df_feat)
-    results = engine.train()
+    """
+    Load data and train models.
+    _uploaded_bytes: raw CSV bytes if user uploaded a file for this ticker.
+    If bytes provided, they are used as the historical base and the API
+    appends any newer rows on top (so data stays current even after upload).
+    """
+    import io
+    dm       = DataManager(ticker)
+    file_obj = io.BytesIO(_uploaded_bytes) if _uploaded_bytes else None
+    df_raw   = dm.get_data(uploaded_file=file_obj)
+    df_feat  = build_features(df_raw)
+    engine   = ModelEngine(df_feat)
+    results  = engine.train(verbose=False)
     return df_raw, df_feat, results
 
-uploaded_bytes = uploaded.read() if uploaded else None
+# Get uploaded bytes for the selected ticker (if any)
+_uploaded_bytes = st.session_state.uploaded_assets.get(ticker, None)
 
 with st.spinner(f"🔄 Loading **{ticker}** data and training models..."):
     try:
         df_raw, df_feat, results = load_and_train(
-            ticker, uploaded_bytes, force_refresh)
+            ticker, _uploaded_bytes, force_refresh)
     except Exception as e:
         st.error(str(e))
-        st.info("💡 **Tip:** For Emaar, try uploading a CSV from Investing.com with the sidebar uploader.")
+        st.info(
+            "💡 **Tips:**\n"
+            "- For Emaar: upload a CSV from Investing.com, name it `EMAAR.DFM`\n"
+            "- Check the ticker is correct (e.g. `SOL-USD`, `AAPL`, `EMAAR.DFM`)\n"
+            "- Make sure you have internet connection"
+        )
         st.stop()
 
 # ── Unpack + align ─────────────────────────────────────────────────
