@@ -277,6 +277,78 @@ class DataManager:
                 continue
         return None
 
+
+    def _investing_com_uae(self) -> pd.DataFrame | None:
+        """
+        Fetch DFM/ADX stock data from Investing.com.
+        Uses their public chart data endpoint — no API key needed.
+        """
+        inv_map = {
+            "EMAAR.DFM": "2352",   # Investing.com internal ID for Emaar
+            "ENBD.DFM" : "28218",
+            "DIB.DFM"  : "28221",
+            "DU.DFM"   : "28222",
+            "DEWA.DFM" : "1192118",
+            "SALIK.DFM": "1271890",
+            "FAB.ADX"  : "28215",
+            "ALDAR.ADX": "28216",
+            "ADCB.ADX" : "28219",
+            "MASQ.DFM" : "28220",
+        }
+        inv_id = inv_map.get(self.ticker)
+        if not inv_id:
+            return None
+
+        # Investing.com chart data endpoint
+        headers = {
+            "User-Agent"  : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer"     : "https://www.investing.com/",
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept"      : "application/json, text/javascript, */*; q=0.01",
+        }
+        try:
+            import time as _t
+            end_ts   = int(_t.time())
+            start_ts = end_ts - 5 * 365 * 24 * 3600  # 5 years back
+
+            r = requests.get(
+                f"https://api.investing.com/api/financialdata/{inv_id}/historical/chart/",
+                params={
+                    "period"    : "MAX",
+                    "startDate" : start_ts,
+                    "endDate"   : end_ts,
+                    "pointscount": 1200,
+                },
+                headers=headers, timeout=15
+            )
+            if r.status_code == 200:
+                data = r.json().get("data", [])
+                if data:
+                    rows = []
+                    for pt in data:
+                        # pt = [timestamp_ms, open, high, low, close, volume]
+                        try:
+                            rows.append({
+                                "Date"  : datetime.fromtimestamp(pt[0]/1000, tz=timezone.utc).date(),
+                                "Open"  : float(pt[1]),
+                                "High"  : float(pt[2]),
+                                "Low"   : float(pt[3]),
+                                "Close" : float(pt[4]),
+                                "Volume": float(pt[5]) / 1e6 if len(pt) > 5 else 1.0,
+                            })
+                        except Exception:
+                            continue
+                    if rows:
+                        df = pd.DataFrame(rows)
+                        df["Date"] = pd.to_datetime(df["Date"])
+                        df["Change_Pct"] = df["Close"].pct_change() * 100
+                        return (df.sort_values("Date")
+                                  .drop_duplicates("Date")
+                                  .reset_index(drop=True))
+        except Exception:
+            pass
+        return None
+
     def _coingecko(self):
         t=self.ticker.replace("-USD","").upper()
         coin=COINGECKO_MAP.get(self.ticker,COINGECKO_MAP.get(t))
