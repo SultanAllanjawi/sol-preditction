@@ -165,7 +165,7 @@ class ModelEngine:
         # ── 2. Random Forest ──────────────────────────────────────
         if verbose: print("Training RF...")
         try:
-            rf_m=RandomForestClassifier(n_estimators=150,max_depth=6,
+            rf_m=RandomForestClassifier(n_estimators=80,max_depth=5,
                 class_weight="balanced",random_state=42,n_jobs=-1)
             rf_m.fit(self.X_tr,self.y_tr)
             rfp=rf_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
@@ -182,8 +182,8 @@ class ModelEngine:
         # ── 3. Gradient Boosting ──────────────────────────────────
         if verbose: print("Training GB...")
         try:
-            gb=GradientBoostingClassifier(n_estimators=150,max_depth=3,
-                learning_rate=0.07,subsample=0.8,random_state=42)
+            gb=GradientBoostingClassifier(n_estimators=80,max_depth=3,
+                learning_rate=0.10,subsample=0.8,random_state=42)
             gb.fit(self.X_tr,self.y_tr)
             gbp=gb.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             ga=accuracy_score(y_te,(gbp>0.5).astype(int))
@@ -202,7 +202,7 @@ class ModelEngine:
             import xgboost as xgb
             scale_pw = self.CW[1]/self.CW[0]
             xgb_m = xgb.XGBClassifier(
-                n_estimators=200, max_depth=4, learning_rate=0.06,
+                n_estimators=100, max_depth=4, learning_rate=0.08,
                 subsample=0.8, colsample_bytree=0.8,
                 scale_pos_weight=scale_pw,
                 eval_metric="logloss", verbosity=0,
