@@ -148,9 +148,9 @@ class ModelEngine:
         # ── 1. Vanilla RNN ────────────────────────────────────────
         if verbose: print("Training RNN...")
         try:
-            rnn=VanillaRNN(nf,64,5e-4)
+            rnn=VanillaRNN(nf,48,5e-4)
             rnn.fit(self.Xtr2,self.ytr2,self.Xval,self.yval,
-                    self.CW,epochs=80,batch=32,patience=12,verbose=verbose)
+                    self.CW,epochs=50,batch=64,patience=8,verbose=verbose)
             rp=np.clip(rnn.predict_proba(self.Xte_s),0.01,0.99)
             ra=accuracy_score(y_te,(rp>0.5).astype(int))
             rf=f1_score(y_te,(rp>0.5).astype(int),zero_division=0)
@@ -165,7 +165,7 @@ class ModelEngine:
         # ── 2. Random Forest ──────────────────────────────────────
         if verbose: print("Training RF...")
         try:
-            rf_m=RandomForestClassifier(n_estimators=300,max_depth=8,
+            rf_m=RandomForestClassifier(n_estimators=150,max_depth=6,
                 class_weight="balanced",random_state=42,n_jobs=-1)
             rf_m.fit(self.X_tr,self.y_tr)
             rfp=rf_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
@@ -182,8 +182,8 @@ class ModelEngine:
         # ── 3. Gradient Boosting ──────────────────────────────────
         if verbose: print("Training GB...")
         try:
-            gb=GradientBoostingClassifier(n_estimators=300,max_depth=4,
-                learning_rate=0.05,subsample=0.8,random_state=42)
+            gb=GradientBoostingClassifier(n_estimators=150,max_depth=3,
+                learning_rate=0.07,subsample=0.8,random_state=42)
             gb.fit(self.X_tr,self.y_tr)
             gbp=gb.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             ga=accuracy_score(y_te,(gbp>0.5).astype(int))
@@ -202,7 +202,7 @@ class ModelEngine:
             import xgboost as xgb
             scale_pw = self.CW[1]/self.CW[0]
             xgb_m = xgb.XGBClassifier(
-                n_estimators=400, max_depth=5, learning_rate=0.04,
+                n_estimators=200, max_depth=4, learning_rate=0.06,
                 subsample=0.8, colsample_bytree=0.8,
                 scale_pos_weight=scale_pw,
                 eval_metric="logloss", verbosity=0,
