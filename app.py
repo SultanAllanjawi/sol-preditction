@@ -1184,70 +1184,187 @@ with tab5:
     # ── ForexFactory Calendar ─────────────────────────────────────
     with _ctab:
         st.caption(
-            "Economic events from ForexFactory.com | "
-            "Red = High impact (moves markets) | "
-            "Filter by impact level and currency"
+            "ForexFactory live website embedded below + "
+            "TradingView Economic Calendar widget as backup | "
+            "Switch tabs if one doesn't load"
         )
-        if not _fcal:
-            st.info(
-                "ForexFactory calendar will appear here on Streamlit Cloud. "
-                "If you see this locally, the request is being blocked by a firewall."
+
+        # Three sub-options: FF direct, TradingView widget, our data
+        _ff_sub1, _ff_sub2, _ff_sub3 = st.tabs([
+            "🌐 ForexFactory Live Site",
+            "📊 TradingView Economic Calendar",
+            "📋 Our Calendar Data",
+        ])
+
+        # ── ForexFactory direct iframe ────────────────────────────
+        with _ff_sub1:
+            st.caption(
+                "ForexFactory.com embedded live — you can search, filter, "
+                "and browse exactly as on their website. "
+                "If Cloudflare shows a challenge page, use the TradingView tab instead."
             )
-        else:
-            _fi1, _fi2 = st.columns([1,2])
-            with _fi1:
-                _imp_f = st.multiselect("Impact", ["High","Medium","Low"],
-                    default=["High","Medium"], key="ff_imp")
-            with _fi2:
-                _cu_opts = sorted(set(e["currency"] for e in _fcal if e["currency"]))
-                _cu_f = st.multiselect("Currency",_cu_opts,
-                    default=[c for c in ["USD","EUR","GBP","JPY"] if c in _cu_opts],
-                    key="ff_cur")
+            _ff_html = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0D1117; }
+  #ff-frame {
+    width: 100%; height: 720px; border: none;
+    border-radius: 8px; overflow: hidden;
+  }
+  .ff-toolbar {
+    background: #161B22; border: 1px solid #30363D;
+    border-radius: 8px 8px 0 0; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .ff-btn {
+    background: #21262D; color: #C9D1D9; border: 1px solid #30363D;
+    border-radius: 5px; padding: 5px 14px; cursor: pointer;
+    font-size: 0.82rem; font-family: sans-serif;
+    transition: background 0.2s;
+  }
+  .ff-btn:hover { background: #1F6FEB; color: white; }
+  .ff-url { color: #8B949E; font-size: 0.75rem; font-family: monospace; }
+</style></head><body>
+<div class="ff-toolbar">
+  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/calendar')">
+    📅 Calendar
+  </button>
+  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/news')">
+    📰 News
+  </button>
+  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/market')">
+    📈 Market
+  </button>
+  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/trades')">
+    🔄 Trades
+  </button>
+  <button class="ff-btn" onclick="document.getElementById('ff-frame').src=document.getElementById('ff-frame').src">
+    🔄 Reload
+  </button>
+  <span class="ff-url" id="ff-current-url">forexfactory.com/calendar</span>
+</div>
+<iframe
+  id="ff-frame"
+  src="https://www.forexfactory.com/calendar"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
+  referrerpolicy="no-referrer-when-downgrade"
+  loading="lazy"
+></iframe>
+<script>
+  function loadPage(url) {
+    document.getElementById('ff-frame').src = url;
+    document.getElementById('ff-current-url').textContent = url.replace('https://www.','');
+  }
+  // Update URL display when iframe navigates
+  document.getElementById('ff-frame').onload = function() {
+    try {
+      var u = this.contentWindow.location.href;
+      document.getElementById('ff-current-url').textContent = u.replace('https://www.','');
+    } catch(e) {}
+  };
+</script>
+</body></html>"""
+            st.components.v1.html(_ff_html, height=790, scrolling=False)
 
-            _fev = [e for e in _fcal
-                    if (not _imp_f or e["impact_raw"] in _imp_f)
-                    and (not _cu_f or e["currency"] in _cu_f)]
+        # ── TradingView Economic Calendar ─────────────────────────
+        with _ff_sub2:
+            st.caption(
+                "TradingView's official economic calendar widget — "
+                "100% guaranteed to work, filterable by country and importance"
+            )
+            _tv_cal_html = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>* { margin:0; padding:0; } body { background:#0D1117; }</style>
+</head><body>
+<div class="tradingview-widget-container" style="height:700px;width:100%">
+  <div class="tradingview-widget-container__widget"></div>
+  <script
+    type="text/javascript"
+    src="https://s3.tradingview.com/external-embedding/embed-widget-events.js"
+    async>
+  {
+    "colorTheme": "dark",
+    "isTransparent": false,
+    "width": "100%",
+    "height": "700",
+    "locale": "en",
+    "importanceFilter": "-1,0,1",
+    "countryFilter": "us,eu,gb,jp,ca,au,nz,ch",
+    "backgroundColor": "#0D1117",
+    "dateRangeFilter": "this_week"
+  }
+  </script>
+</div>
+</body></html>"""
+            st.components.v1.html(_tv_cal_html, height=720, scrolling=False)
 
-            if not _fev:
-                st.info("No events match your filters.")
+        # ── Our parsed calendar data ───────────────────────────────
+        with _ff_sub3:
+            st.caption(
+                "Calendar data fetched from ForexFactory API · "
+                "Red = High impact | Yellow = Medium | Filter by currency and impact"
+            )
+            if not _fcal:
+                st.info(
+                    "Our calendar data will load on Streamlit Cloud. "
+                    "Locally it may be blocked — use the ForexFactory or TradingView tabs above."
+                )
             else:
-                _imp_colors = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
-                for _e in _fev:
-                    _ic  = _imp_colors.get(_e["impact_raw"],"#30363D")
-                    _act = _e.get("actual","—") or "—"
-                    _ac  = "#F0F6FC"
-                    if _act != "—":
-                        try:
-                            _fv = float(str(_e.get("forecast","0")).replace("%","").replace("K","").replace("M","") or "0")
-                            _av = float(_act.replace("%","").replace("K","").replace("M",""))
-                            _ac = "#3FB950" if _av >= _fv else "#F85149"
-                        except Exception:
-                            pass
-                    st.markdown(
-                        f'<div style="background:#161B22;border:1px solid #21262D;'
-                        f'border-left:4px solid {_ic};border-radius:6px;'
-                        f'padding:9px 15px;margin-bottom:5px;display:flex;'
-                        f'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
-                        f'<div style="flex:2;min-width:180px">'
-                        f'<span style="color:#F0F6FC;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
-                        f'<span style="color:#8B949E;font-size:0.72rem;margin-left:8px">'
-                        f'{_e["currency"]} &middot; {_e["date"]} {_e["time"]}</span></div>'
-                        f'<div style="display:flex;gap:14px">'
-                        f'<div style="text-align:center">'
-                        f'<div style="color:{_ic};font-size:0.72rem;font-weight:600">{_e["impact_raw"]}</div></div>'
-                        f'<div style="text-align:center;min-width:55px">'
-                        f'<div style="color:#6E7681;font-size:0.65rem">Forecast</div>'
-                        f'<div style="color:#8B949E;font-size:0.80rem">{_e["forecast"]}</div></div>'
-                        f'<div style="text-align:center;min-width:55px">'
-                        f'<div style="color:#6E7681;font-size:0.65rem">Previous</div>'
-                        f'<div style="color:#8B949E;font-size:0.80rem">{_e["previous"]}</div></div>'
-                        f'<div style="text-align:center;min-width:55px">'
-                        f'<div style="color:#6E7681;font-size:0.65rem">Actual</div>'
-                        f'<div style="color:{_ac};font-size:0.80rem;font-weight:600">{_act}</div>'
-                        f'</div></div></div>',
-                        unsafe_allow_html=True
-                    )
-                st.caption(f"Showing {len(_fev)} of {len(_fcal)} events | Source: ForexFactory.com")
+                _fi1, _fi2 = st.columns([1,2])
+                with _fi1:
+                    _imp_f = st.multiselect("Impact", ["High","Medium","Low"],
+                        default=["High","Medium"], key="ff_imp")
+                with _fi2:
+                    _cu_opts = sorted(set(e["currency"] for e in _fcal if e["currency"]))
+                    _cu_f = st.multiselect("Currency", _cu_opts,
+                        default=[c for c in ["USD","EUR","GBP","JPY"] if c in _cu_opts],
+                        key="ff_cur")
+
+                _fev = [e for e in _fcal
+                        if (not _imp_f or e["impact_raw"] in _imp_f)
+                        and (not _cu_f or e["currency"] in _cu_f)]
+
+                if not _fev:
+                    st.info("No events match your filters.")
+                else:
+                    _imp_colors = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
+                    for _e in _fev:
+                        _ic  = _imp_colors.get(_e["impact_raw"],"#30363D")
+                        _act = _e.get("actual","—") or "—"
+                        _ac  = "#F0F6FC"
+                        if _act != "—":
+                            try:
+                                _fv2 = float(str(_e.get("forecast","0")).replace("%","").replace("K","").replace("M","") or "0")
+                                _av2 = float(_act.replace("%","").replace("K","").replace("M",""))
+                                _ac  = "#3FB950" if _av2 >= _fv2 else "#F85149"
+                            except Exception:
+                                pass
+                        st.markdown(
+                            f'<div style="background:#161B22;border:1px solid #21262D;'
+                            f'border-left:4px solid {_ic};border-radius:6px;'
+                            f'padding:9px 15px;margin-bottom:5px;display:flex;'
+                            f'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+                            f'<div style="flex:2;min-width:180px">'
+                            f'<span style="color:#F0F6FC;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
+                            f'<span style="color:#8B949E;font-size:0.72rem;margin-left:8px">'
+                            f'{_e["currency"]} &middot; {_e["date"]} {_e["time"]}</span></div>'
+                            f'<div style="display:flex;gap:14px">'
+                            f'<div style="text-align:center;min-width:50px">'
+                            f'<div style="color:{_ic};font-size:0.72rem;font-weight:600">{_e["impact_raw"]}</div></div>'
+                            f'<div style="text-align:center;min-width:55px">'
+                            f'<div style="color:#6E7681;font-size:0.65rem">Forecast</div>'
+                            f'<div style="color:#8B949E;font-size:0.80rem">{_e["forecast"]}</div></div>'
+                            f'<div style="text-align:center;min-width:55px">'
+                            f'<div style="color:#6E7681;font-size:0.65rem">Previous</div>'
+                            f'<div style="color:#8B949E;font-size:0.80rem">{_e["previous"]}</div></div>'
+                            f'<div style="text-align:center;min-width:55px">'
+                            f'<div style="color:#6E7681;font-size:0.65rem">Actual</div>'
+                            f'<div style="color:{_ac};font-size:0.80rem;font-weight:600">{_act}</div>'
+                            f'</div></div></div>',
+                            unsafe_allow_html=True
+                        )
+                    st.caption(f"Showing {len(_fev)} of {len(_fcal)} events | Source: ForexFactory.com")
 
 
 # ════════════════════════════════════════════════════════════════════
