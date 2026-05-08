@@ -8,6 +8,7 @@ SOL/USD (and any asset) Prediction Dashboard v3
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -48,6 +49,35 @@ hr{border-color:#30363D}
 
 C_UP='#3FB950';C_DOWN='#F85149';C_BLUE='#58A6FF'
 C_GOLD='#E3B341';C_GREY='#6E7681';C_WHITE='#F0F6FC';C_DIM='#8B949E'
+
+
+
+def get_tv_symbol(ticker):
+    t = ticker.upper()
+    if t in TRADINGVIEW_MAP:
+        return TRADINGVIEW_MAP[t]
+    # Auto-detect: crypto ending in -USD → Binance
+    if t.endswith("-USD"):
+        return f"BINANCE:{t.replace('-USD','USDT')}"
+    return t
+
+
+# ── TradingView symbol map ─────────────────────────────────────────────────────
+_TV_MAP = {
+    "SOL-USD":"BINANCE:SOLUSDT","BTC-USD":"BINANCE:BTCUSDT",
+    "ETH-USD":"BINANCE:ETHUSDT","ADA-USD":"BINANCE:ADAUSDT",
+    "BNB-USD":"BINANCE:BNBUSDT","XRP-USD":"BINANCE:XRPUSDT",
+    "DOGE-USD":"BINANCE:DOGEUSDT","AVAX-USD":"BINANCE:AVAXUSDT",
+    "MATIC-USD":"BINANCE:MATICUSDT","LINK-USD":"BINANCE:LINKUSDT",
+    "EMAAR.DFM":"DFM:EMAAR","AAPL":"NASDAQ:AAPL","TSLA":"NASDAQ:TSLA",
+    "MSFT":"NASDAQ:MSFT","NVDA":"NASDAQ:NVDA","AMZN":"NASDAQ:AMZN",
+    "GOOGL":"NASDAQ:GOOGL",
+}
+def get_tv_symbol(t):
+    t = t.upper()
+    if t in _TV_MAP: return _TV_MAP[t]
+    if t.endswith("-USD"): return f"BINANCE:{t.replace('-USD','USDT')}"
+    return t
 
 from data_manager import DataManager
 from model_engine import ModelEngine
@@ -194,13 +224,23 @@ elif last_sig == "SELL":
     tp_price = round(display_price - 2.0 * last_atr, 4)
     sl_price = round(display_price + 1.5 * last_atr, 4)
 else:
+    # HOLD — no trade, so no entry/TP/SL
     entry_p  = display_price
-    tp_price = round(display_price + 1.5 * last_atr, 4)
-    sl_price = round(display_price - 1.5 * last_atr, 4)
+    tp_price = None
+    sl_price = None
 
-rr = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
-tp_pct = (tp_price - display_price) / display_price * 100
-sl_pct = (sl_price - display_price) / display_price * 100
+if last_sig == "HOLD":
+    rr = 0.0
+    tp_pct = 0.0
+    sl_pct = 0.0
+    tp_str = "— (No signal)"
+    sl_str = "— (No signal)"
+else:
+    rr = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
+    tp_pct = (tp_price - display_price) / display_price * 100
+    sl_pct = (sl_price - display_price) / display_price * 100
+    tp_str = f"${tp_price:,.4f}"
+    sl_str = f"${sl_price:,.4f}" 
 
 # ═══════════════════════════════════════════════════════════════════
 # HEADER
@@ -245,10 +285,21 @@ with col_sig:
     card_cls = "buy-card" if last_sig=="BUY" else "sell-card" if last_sig=="SELL" else "hold-card"
     emoji    = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
     sig_c    = C_UP if last_sig=="BUY" else C_DOWN if last_sig=="SELL" else C_GREY
-    next_str = (last_date+timedelta(days=1)).strftime('%A %d %b %Y')
+    # Smart date: find next weekday after last candle
+    from datetime import datetime as _dt, timezone as _tz
+    _now_dubai   = _dt.now(_tz.utc) + timedelta(hours=4)   # Dubai = UTC+4
+    _today       = _now_dubai.date()
+    _last        = last_date.date() if hasattr(last_date, 'date') else last_date
+    # If the last candle is today (data already updated), signal applies to tomorrow
+    # If the last candle is yesterday or older, next trading day is what matters
+    _next = _last + timedelta(days=1)
+    # Skip weekends (markets closed Sat/Sun for most assets)
+    while _next.weekday() >= 5:   # 5=Saturday, 6=Sunday
+        _next += timedelta(days=1)
+    next_str = _next.strftime('%A %d %b %Y')
 
-    tp_c  = C_UP   if last_sig=="BUY"  else C_DOWN
-    sl_c  = C_DOWN if last_sig=="BUY"  else C_UP
+    tp_c  = C_UP   if last_sig=="BUY"  else C_DOWN if last_sig=="SELL" else C_GREY
+    sl_c  = C_DOWN if last_sig=="BUY"  else C_UP   if last_sig=="SELL" else C_GREY
 
     st.markdown(f"""
     <div class="signal-card {card_cls}">
@@ -269,13 +320,13 @@ with col_sig:
             <tr style="border-bottom:1px solid #30363D">
                 <td style="color:#8B949E;padding:4px 0">🎯 Take Profit</td>
                 <td style="color:{tp_c};text-align:right;font-weight:bold">
-                    ${tp_price:,.4f} <span style="font-size:0.8rem">({tp_pct:+.2f}%)</span>
+                    {tp_str}{" <span style='font-size:0.8rem'>(" + f"{tp_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
                 </td>
             </tr>
             <tr style="border-bottom:1px solid #30363D">
                 <td style="color:#8B949E;padding:4px 0">🛑 Stop Loss</td>
                 <td style="color:{sl_c};text-align:right;font-weight:bold">
-                    ${sl_price:,.4f} <span style="font-size:0.8rem">({sl_pct:+.2f}%)</span>
+                    {sl_str}{" <span style='font-size:0.8rem'>(" + f"{sl_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
                 </td>
             </tr>
             <tr>
@@ -298,16 +349,23 @@ with col_7d:
         sig  = ("🟢 BUY"  if prob >= confidence_thresh else
                 "🔴 SELL" if prob <= (1-confidence_thresh) else "⚪ HOLD")
         # ATR-based TP/SL for each day
-        day_tp = round(display_price + 2.0*last_atr, 4) if prob>0.5 else round(display_price - 2.0*last_atr, 4)
-        day_sl = round(display_price - 1.5*last_atr, 4) if prob>0.5 else round(display_price + 1.5*last_atr, 4)
+        _dsig  = ("BUY" if prob >= confidence_thresh else "SELL" if prob <= (1-confidence_thresh) else "HOLD")
+        if _dsig == "BUY":
+            day_tp = round(display_price + 2.0*last_atr, 4)
+            day_sl = round(display_price - 1.5*last_atr, 4)
+        elif _dsig == "SELL":
+            day_tp = round(display_price - 2.0*last_atr, 4)
+            day_sl = round(display_price + 1.5*last_atr, 4)
+        else:
+            day_tp = None; day_sl = None
         rows.append({
             "Date"       : dt.strftime("%a %d %b"),
             "Signal"     : sig,
             "Direction"  : "📈 UP" if prob>0.5 else "📉 DOWN",
             "Confidence" : f"{max(prob,1-prob)*100:.0f}%",
             "P(UP)"      : f"{prob*100:.1f}%",
-            "TP"         : f"${day_tp:,.4f}",
-            "SL"         : f"${day_sl:,.4f}",
+            "TP"         : f"${day_tp:,.4f}" if day_tp else "—",
+            "SL"         : f"${day_sl:,.4f}" if day_sl else "—",
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     n_buy_w  = sum(1 for r in rows if "BUY"  in r["Signal"])
@@ -320,10 +378,50 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab1,tab2,tab3,tab4 = st.tabs([
-    "📈 Price & Signals","🎯 Predicted vs Actual",
+tab0,tab1,tab2,tab3,tab4 = st.tabs([
+    "📡 Live Chart","📈 Price & Signals","🎯 Predicted vs Actual",
     "📊 Model Performance","📜 Signal History"
 ])
+
+# ── TAB 0: Live TradingView Chart ─────────────────────────────────
+with tab0:
+    tv_symbol = get_tv_symbol(ticker)
+    st.markdown(f"**📡 Live Chart — {name} (`{tv_symbol}`)**")
+    st.caption("Real-time data from TradingView · Updates live · Switch timeframes inside the chart")
+
+    tv_html = f"""<div class="tradingview-widget-container" style="height:580px;width:100%">
+      <div id="tv_chart_main"></div>
+      <script src="https://s3.tradingview.com/tv.js"></script>
+      <script>
+        new TradingView.widget({{
+          "container_id"     : "tv_chart_main",
+          "width"            : "100%",
+          "height"           : 560,
+          "symbol"           : "{tv_symbol}",
+          "interval"         : "D",
+          "timezone"         : "Asia/Dubai",
+          "theme"            : "dark",
+          "style"            : "1",
+          "locale"           : "en",
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "studies": ["RSI@tv-basicstudies","MACD@tv-basicstudies","BB@tv-basicstudies"]
+        }});
+      </script>
+    </div>"""
+    st.components.v1.html(tv_html, height=580, scrolling=False)
+
+    st.caption("💡 Inside the chart: click timeframe buttons (1m 5m 1h 4h 1D 1W) in the toolbar")
+    _sc1, _sc2, _sc3 = st.columns(3)
+    _sc1.metric("Live Price",      f"${display_price:,.4f}", delta=f"{day_chg:+.2f}%")
+    _sc2.metric("Tomorrow Signal", f"{emoji} {last_sig}",    delta=f"Confidence: {last_conf:.1f}%")
+    if last_sig != "HOLD" and tp_price and sl_price:
+        _sc3.metric("TP / SL",
+            f"TP: ${tp_price:,.4f}",
+            delta=f"SL: ${sl_price:,.4f}",
+            delta_color="inverse")
+    else:
+        _sc3.metric("Signal", "⚪ HOLD", delta="Wait for clearer signal")
 
 # ── TAB 1: Price & Signals ─────────────────────────────────────────
 with tab1:
