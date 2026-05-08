@@ -79,7 +79,7 @@ def get_tv_symbol(t):
     if t.endswith("-USD"): return f"BINANCE:{t.replace('-USD','USDT')}"
     return t
 
-from data_manager import DataManager
+from data_manager import DataManager, is_crypto
 from model_engine import ModelEngine
 from feature_engine import build_features
 
@@ -188,25 +188,24 @@ with st.sidebar:
 
     st.divider()
     force_refresh = st.button("🔄 Force Refresh Data", use_container_width=True)
-    st.caption("Data auto-refreshes every 6h")
+    if force_refresh:
+        st.cache_data.clear()
+        st.rerun()
+    st.caption("Data auto-refreshes every 5 min · Force refresh clears all cache")
     st.divider()
     st.caption("⚠️ Research only · Not financial advice")
 
 # ═══════════════════════════════════════════════════════════════════
 # LOAD DATA + TRAIN
 # ═══════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=300, show_spinner=False)   # cache 5 minutes — live updates
+@st.cache_data(ttl=300, show_spinner=False)   # 5-min cache — live updates
 def load_and_train(ticker, _uploaded_bytes=None, _force=False):
-    """
-    Load data and train models.
-    _uploaded_bytes: raw CSV bytes if user uploaded a file for this ticker.
-    If bytes provided, they are used as the historical base and the API
-    appends any newer rows on top (so data stays current even after upload).
-    """
     import io
     dm       = DataManager(ticker)
     file_obj = io.BytesIO(_uploaded_bytes) if _uploaded_bytes else None
-    df_raw   = dm.get_data(uploaded_file=file_obj)
+    # Crypto assets get hourly data for better intraday signals
+    _use_hourly = is_crypto(ticker)
+    df_raw   = dm.get_data(uploaded_file=file_obj, prefer_hourly=_use_hourly)
     df_feat  = build_features(df_raw)
     engine   = ModelEngine(df_feat)
     results  = engine.train(verbose=False)
@@ -446,9 +445,14 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4 = st.tabs([
-    "📡 Live Chart","📈 Price & Signals","🎯 Predicted vs Actual",
-    "📊 Model Performance","📜 Signal History"
+tab0,tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
+    "📡 Live Chart",
+    "📈 Price & Signals",
+    "🎯 Predicted vs Actual",
+    "📊 Model Performance",
+    "📜 Signal History",
+    "📰 News & Sentiment",
+    "💼 Portfolio Tracker",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1074,6 +1078,255 @@ with tab4:
 
 # ── FOOTER ─────────────────────────────────────────────────────────
 st.divider()
+
+# ════════════════════════════════════════════════════════════════════
+# TAB 5: News & Sentiment
+# ════════════════════════════════════════════════════════════════════
+with tab5:
+    st.subheader(f"📰 News & Sentiment — {name}")
+    st.caption(
+        "Live news from CryptoPanic · Sentiment scored from community votes · "
+        "Updates on every page refresh"
+    )
+
+    @st.cache_data(ttl=300, show_spinner=False)
+    def fetch_news(ticker):
+        return DataManager.get_news_sentiment(ticker, limit=25)
+
+    with st.spinner("Fetching latest news..."):
+        news_items = fetch_news(ticker)
+
+    if not news_items:
+        st.info("No news available for this asset right now. Try again in a few minutes.")
+    else:
+        # Sentiment summary metrics
+        pos_count  = sum(1 for n in news_items if "Positive" in n.get("sentiment",""))
+        neg_count  = sum(1 for n in news_items if "Negative" in n.get("sentiment",""))
+        neu_count  = len(news_items) - pos_count - neg_count
+        avg_score  = sum(n.get("score",0) for n in news_items) / max(len(news_items),1)
+
+        _nc1,_nc2,_nc3,_nc4 = st.columns(4)
+        _nc1.metric("📰 Total Articles",  len(news_items))
+        _nc2.metric("🟢 Positive",        pos_count, delta=f"{pos_count/len(news_items)*100:.0f}%")
+        _nc3.metric("🔴 Negative",        neg_count, delta=f"{neg_count/len(news_items)*100:.0f}%")
+        overall = "🟢 BULLISH" if avg_score > 0.05 else "🔴 BEARISH" if avg_score < -0.05 else "⚪ NEUTRAL"
+        _nc4.metric("Overall Sentiment",  overall, delta=f"Score: {avg_score:+.3f}")
+
+        st.divider()
+
+        # Sentiment gauge bar
+        if len(news_items) > 0:
+            _pct = pos_count / len(news_items)
+            _bar_html = f"""
+<div style="background:#161B22;border-radius:8px;padding:12px 20px;border:1px solid #30363D;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.8rem">
+    <span style="color:#3FB950">🟢 Positive {pos_count}</span>
+    <span style="color:#8B949E">⚪ Neutral {neu_count}</span>
+    <span style="color:#F85149">🔴 Negative {neg_count}</span>
+  </div>
+  <div style="background:#21262D;border-radius:4px;height:10px;overflow:hidden">
+    <div style="background:linear-gradient(90deg,#3FB950,#58A6FF);width:{_pct*100:.0f}%;height:100%;border-radius:4px"></div>
+  </div>
+  <div style="text-align:center;color:#8B949E;font-size:0.75rem;margin-top:4px">
+    Sentiment: {overall}
+  </div>
+</div>"""
+            st.markdown(_bar_html, unsafe_allow_html=True)
+
+        # News cards
+        for _n in news_items:
+            _sent  = _n.get("sentiment","⚪ Neutral")
+            _score = _n.get("score", 0)
+            _border = "#3FB950" if "Positive" in _sent else "#F85149" if "Negative" in _sent else "#30363D"
+            _card = f"""
+<div style="background:#161B22;border:1px solid {_border};border-left:4px solid {_border};
+     border-radius:8px;padding:12px 16px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <div style="flex:1">
+      <a href="{_n.get('url','#')}" target="_blank"
+         style="color:#F0F6FC;font-weight:600;font-size:0.9rem;text-decoration:none;
+                line-height:1.4;display:block">
+        {_n.get('title','No title')}
+      </a>
+      <div style="color:#8B949E;font-size:0.75rem;margin-top:4px">
+        {_n.get('source','')} · {_n.get('published','')}
+      </div>
+    </div>
+    <div style="text-align:right;min-width:80px">
+      <div style="font-size:0.82rem;font-weight:600">{_sent}</div>
+      <div style="color:#6E7681;font-size:0.72rem">score: {_score:+.2f}</div>
+    </div>
+  </div>
+</div>"""
+            st.markdown(_card, unsafe_allow_html=True)
+
+# ════════════════════════════════════════════════════════════════════
+# TAB 6: Portfolio Tracker
+# ════════════════════════════════════════════════════════════════════
+with tab6:
+    st.subheader("💼 Portfolio Tracker")
+    st.caption(
+        "Track which signals you acted on · Calculate your P&L · "
+        "Data stored in your browser session (resets on page close)"
+    )
+
+    # Init session state for portfolio
+    if "portfolio_trades" not in st.session_state:
+        st.session_state.portfolio_trades = []
+
+    # ── Add new trade ────────────────────────────────────────────
+    with st.expander("➕ Add a Trade", expanded=len(st.session_state.portfolio_trades)==0):
+        _pt1,_pt2,_pt3 = st.columns(3)
+        with _pt1:
+            _pt_ticker = st.selectbox("Asset", ["SOL-USD","BTC-USD","ETH-USD","AAPL","TSLA","NVDA",ticker],
+                                       key="pt_ticker")
+            _pt_side   = st.selectbox("Side", ["BUY","SELL"], key="pt_side")
+        with _pt2:
+            _pt_entry  = st.number_input("Entry Price ($)", min_value=0.0, value=float(display_price),
+                                          format="%.4f", key="pt_entry")
+            _pt_size   = st.number_input("Position Size (units)", min_value=0.001,
+                                          value=1.0, format="%.4f", key="pt_size")
+        with _pt3:
+            _pt_tp     = st.number_input("Take Profit ($)", min_value=0.0,
+                                          value=float(tp_price) if tp_price else 0.0,
+                                          format="%.4f", key="pt_tp")
+            _pt_sl     = st.number_input("Stop Loss ($)", min_value=0.0,
+                                          value=float(sl_price) if sl_price else 0.0,
+                                          format="%.4f", key="pt_sl")
+
+        _pt_note = st.text_input("Notes (optional)", placeholder="e.g. Signal confidence 73%", key="pt_note")
+
+        if st.button("✅ Add Trade", use_container_width=True, type="primary"):
+            from datetime import datetime as _DT2, timezone as _TZ2
+            _now_str = (_DT2.now(_TZ2.utc) + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M")
+            st.session_state.portfolio_trades.append({
+                "date"  : _now_str,
+                "ticker": _pt_ticker,
+                "side"  : _pt_side,
+                "entry" : _pt_entry,
+                "size"  : _pt_size,
+                "tp"    : _pt_tp,
+                "sl"    : _pt_sl,
+                "status": "Open",
+                "exit"  : None,
+                "pnl"   : None,
+                "note"  : _pt_note,
+            })
+            st.success(f"✅ Trade added: {_pt_side} {_pt_ticker} @ ${_pt_entry:.4f}")
+            st.rerun()
+
+    # ── Open positions ───────────────────────────────────────────
+    if not st.session_state.portfolio_trades:
+        st.info("No trades yet. Add your first trade above to start tracking.")
+    else:
+        trades = st.session_state.portfolio_trades
+
+        # Calculate live P&L for open trades
+        total_pnl   = 0.0
+        total_invest= 0.0
+        open_count  = 0
+        closed_count= 0
+
+        _rows = []
+        for _i, _t in enumerate(trades):
+            # Get live price for this ticker
+            _live = DataManager.get_live_price(_t["ticker"]) or _t["entry"]
+            _is_open = _t["status"] == "Open"
+
+            if _is_open:
+                _pnl_per = (_live - _t["entry"]) if _t["side"]=="BUY" else (_t["entry"] - _live)
+                _pnl_total = _pnl_per * _t["size"]
+                _pnl_pct   = (_pnl_per / _t["entry"]) * 100 if _t["entry"]>0 else 0
+                open_count += 1
+                total_pnl  += _pnl_total
+                total_invest+=_t["entry"]*_t["size"]
+            else:
+                _pnl_total = _t.get("pnl",0) or 0
+                _pnl_pct   = (_pnl_total/(_t["entry"]*_t["size"]))*100 if _t["entry"]>0 else 0
+                _live      = _t.get("exit", _t["entry"])
+                closed_count += 1
+                total_pnl  += _pnl_total
+
+            _rows.append({
+                "Date"        : _t["date"],
+                "Asset"       : _t["ticker"],
+                "Side"        : f"{'🟢' if _t['side']=='BUY' else '🔴'} {_t['side']}",
+                "Entry"       : f"${_t['entry']:,.4f}",
+                "Size"        : f"{_t['size']:.4f}",
+                "Live/Exit"   : f"${_live:,.4f}",
+                "P&L"         : f"{'+'if _pnl_total>=0 else ''}{_pnl_total:,.4f}",
+                "P&L %"       : f"{'+'if _pnl_pct>=0 else ''}{_pnl_pct:.2f}%",
+                "TP"          : f"${_t['tp']:,.4f}" if _t["tp"] else "—",
+                "SL"          : f"${_t['sl']:,.4f}" if _t["sl"] else "—",
+                "Status"      : _t["status"],
+            })
+
+        # Summary metrics
+        _pm1,_pm2,_pm3,_pm4 = st.columns(4)
+        _pm1.metric("Total Trades",     len(trades))
+        _pm2.metric("Open Positions",   open_count)
+        _pm3.metric("Total P&L",
+                    f"{'+'if total_pnl>=0 else ''}{total_pnl:,.4f}",
+                    delta=f"{'Profit' if total_pnl>=0 else 'Loss'}",
+                    delta_color="normal" if total_pnl>=0 else "inverse")
+        roi = (total_pnl/total_invest*100) if total_invest>0 else 0
+        _pm4.metric("ROI",              f"{roi:+.2f}%",
+                    delta_color="normal" if roi>=0 else "inverse")
+
+        st.divider()
+
+        # Trade table with color
+        _df_trades = pd.DataFrame(_rows)
+
+        def _color_pnl(val):
+            try:
+                v = float(str(val).replace("+","").replace("%","").replace(",",""))
+                return "color:#3FB950;font-weight:600" if v>0 else "color:#F85149;font-weight:600" if v<0 else ""
+            except Exception: return ""
+
+        def _color_side(val):
+            if "BUY"  in str(val): return "color:#3FB950;font-weight:bold"
+            if "SELL" in str(val): return "color:#F85149;font-weight:bold"
+            return ""
+
+        try:
+            _styled = _df_trades.style                .map(_color_pnl,  subset=["P&L","P&L %"])                .map(_color_side, subset=["Side"])
+        except Exception:
+            _styled = _df_trades
+
+        st.dataframe(_styled, use_container_width=True, hide_index=True, height=400)
+
+        # Close / Delete trade controls
+        st.divider()
+        st.markdown("**Manage Trades**")
+        _mc1, _mc2, _mc3 = st.columns(3)
+        with _mc1:
+            _close_idx = st.number_input("Trade # to close (1-based)", min_value=1,
+                                          max_value=len(trades), value=1, key="close_idx")
+            _exit_price = st.number_input("Exit price ($)", min_value=0.0,
+                                           value=float(display_price), format="%.4f", key="exit_p")
+            if st.button("✅ Close Trade", use_container_width=True):
+                _idx = int(_close_idx) - 1
+                _t   = st.session_state.portfolio_trades[_idx]
+                _pnl_per = (_exit_price - _t["entry"]) if _t["side"]=="BUY" else (_t["entry"]-_exit_price)
+                st.session_state.portfolio_trades[_idx]["status"] = "Closed"
+                st.session_state.portfolio_trades[_idx]["exit"]   = _exit_price
+                st.session_state.portfolio_trades[_idx]["pnl"]    = _pnl_per * _t["size"]
+                st.success(f"Closed trade #{int(_close_idx)} at ${_exit_price:.4f}")
+                st.rerun()
+
+        with _mc2:
+            _del_idx = st.number_input("Trade # to delete (1-based)", min_value=1,
+                                        max_value=len(trades), value=1, key="del_idx")
+            if st.button("🗑️ Delete Trade", use_container_width=True):
+                st.session_state.portfolio_trades.pop(int(_del_idx)-1)
+                st.rerun()
+
+        with _mc3:
+            if st.button("🗑️ Clear All Trades", use_container_width=True):
+                st.session_state.portfolio_trades = []
+                st.rerun()
+
 # ── Auto-refresh every 60s for live price ──────────────────────────────────
 st.markdown(
     '<script>setTimeout(function(){window.location.reload();},60000);</script>',
