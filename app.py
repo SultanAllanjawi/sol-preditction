@@ -79,8 +79,19 @@ def get_tv_symbol(t):
     if t.endswith("-USD"): return f"BINANCE:{t.replace('-USD','USDT')}"
     return t
 
-from data_manager import DataManager, is_crypto
+from data_manager import DataManager
 from model_engine import ModelEngine
+
+# ── Crypto detection (self-contained, no data_manager dependency) ──
+_CRYPTO_SET = {
+    "SOL","SOL-USD","BTC","BTC-USD","ETH","ETH-USD","ADA","ADA-USD",
+    "BNB","BNB-USD","XRP","XRP-USD","DOGE","DOGE-USD","AVAX","AVAX-USD",
+    "MATIC","MATIC-USD","LINK","LINK-USD","DOT","DOT-USD","LTC","LTC-USD",
+    "UNI","ATOM","FIL","SHIB","SHIB-USD",
+}
+def is_crypto(t: str) -> bool:
+    t = t.upper()
+    return t in _CRYPTO_SET or t.replace("-USD","") in _CRYPTO_SET or t.endswith("-USD")
 from feature_engine import build_features
 
 def dark_fig():
@@ -198,14 +209,18 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════
 # LOAD DATA + TRAIN
 # ═══════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=300, show_spinner=False)   # 5-min cache — live updates
+@st.cache_data(ttl=900, show_spinner=False)   # 15-min cache — fast loads
 def load_and_train(ticker, _uploaded_bytes=None, _force=False):
     import io
     dm       = DataManager(ticker)
     file_obj = io.BytesIO(_uploaded_bytes) if _uploaded_bytes else None
     # Crypto assets get hourly data for better intraday signals
     _use_hourly = is_crypto(ticker)
-    df_raw   = dm.get_data(uploaded_file=file_obj, prefer_hourly=_use_hourly)
+    try:
+        df_raw = dm.get_data(uploaded_file=file_obj, prefer_hourly=_use_hourly)
+    except TypeError:
+        # Fallback: old data_manager without prefer_hourly param
+        df_raw = dm.get_data(uploaded_file=file_obj)
     df_feat  = build_features(df_raw)
     engine   = ModelEngine(df_feat)
     results  = engine.train(verbose=False)
@@ -214,18 +229,28 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False):
 # Get uploaded bytes for the selected ticker (if any)
 _uploaded_bytes = st.session_state.uploaded_assets.get(ticker, None)
 
-with st.spinner(f"🔄 Loading **{ticker}** data and training models..."):
+with st.spinner(f"⏳ Loading **{ticker}** · Training models (15–20 sec first load, cached after)..."):
     try:
         df_raw, df_feat, results = load_and_train(
             ticker, _uploaded_bytes, force_refresh)
+        # Clear the spinner — success
+
     except Exception as e:
-        st.error(str(e))
-        st.info(
-            "💡 **Tips:**\n"
-            "- For Emaar: upload a CSV from Investing.com, name it `EMAAR.DFM`\n"
-            "- Check the ticker is correct (e.g. `SOL-USD`, `AAPL`, `EMAAR.DFM`)\n"
-            "- Make sure you have internet connection"
-        )
+        st.markdown(f"""
+<div style="background:#2D1B1B;border:2px solid #F85149;border-radius:10px;padding:20px 24px;margin:20px 0">
+  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">❌ Error Loading Data</div>
+  <div style="color:#F0F6FC;font-size:0.9rem;font-family:monospace">{str(e)}</div>
+</div>""", unsafe_allow_html=True)
+        st.markdown("""
+<div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
+  <div style="color:#E3B341;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
+  <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.8">
+    1. Make sure ALL 4 files are updated on GitHub: <code>app.py</code>, <code>data_manager.py</code>, <code>model_engine.py</code>, <code>requirements.txt</code><br>
+    2. For crypto (SOL, BTC, ETH): data auto-loads from Binance — no action needed<br>
+    3. For stocks or Dubai assets: upload a CSV using the sidebar uploader<br>
+    4. Try clicking <b>Force Refresh Data</b> in the sidebar
+  </div>
+</div>""", unsafe_allow_html=True)
         st.stop()
 
 # ── Central date logic (used everywhere in the app) ────────────────────────
@@ -1080,85 +1105,150 @@ with tab4:
 st.divider()
 
 # ════════════════════════════════════════════════════════════════════
-# TAB 5: News & Sentiment
+# TAB 5: News & Sentiment + ForexFactory Calendar
 # ════════════════════════════════════════════════════════════════════
 with tab5:
-    st.subheader(f"📰 News & Sentiment — {name}")
-    st.caption(
-        "Live news from CryptoPanic · Sentiment scored from community votes · "
-        "Updates on every page refresh"
-    )
+    st.subheader(f"📰 News & Market Intelligence — {name}")
+    st.caption("CryptoPanic crypto news · ForexFactory economic calendar · Updates every 10 minutes")
 
-    @st.cache_data(ttl=300, show_spinner=False)
-    def fetch_news(ticker):
-        return DataManager.get_news_sentiment(ticker, limit=25)
+    @st.cache_data(ttl=600, show_spinner=False)
+    def fetch_all_news(ticker):
+        from data_manager import get_combined_news
+        return get_combined_news(ticker)
 
-    with st.spinner("Fetching latest news..."):
-        news_items = fetch_news(ticker)
+    with st.spinner("Loading news & economic calendar..."):
+        _nd  = fetch_all_news(ticker)
 
-    if not news_items:
-        st.info("No news available for this asset right now. Try again in a few minutes.")
-    else:
-        # Sentiment summary metrics
-        pos_count  = sum(1 for n in news_items if "Positive" in n.get("sentiment",""))
-        neg_count  = sum(1 for n in news_items if "Negative" in n.get("sentiment",""))
-        neu_count  = len(news_items) - pos_count - neg_count
-        avg_score  = sum(n.get("score",0) for n in news_items) / max(len(news_items),1)
+    _cnews = _nd.get("crypto_news", [])
+    _fcal  = _nd.get("forex_calendar", [])
+    _sscore= _nd.get("sentiment_score", 0)
 
-        _nc1,_nc2,_nc3,_nc4 = st.columns(4)
-        _nc1.metric("📰 Total Articles",  len(news_items))
-        _nc2.metric("🟢 Positive",        pos_count, delta=f"{pos_count/len(news_items)*100:.0f}%")
-        _nc3.metric("🔴 Negative",        neg_count, delta=f"{neg_count/len(news_items)*100:.0f}%")
-        overall = "🟢 BULLISH" if avg_score > 0.05 else "🔴 BEARISH" if avg_score < -0.05 else "⚪ NEUTRAL"
-        _nc4.metric("Overall Sentiment",  overall, delta=f"Score: {avg_score:+.3f}")
+    _ntab, _ctab = st.tabs(["📰 Crypto News & Sentiment", "📅 ForexFactory Economic Calendar"])
 
-        st.divider()
+    # ── Crypto News ───────────────────────────────────────────────
+    with _ntab:
+        if not _cnews:
+            st.info("No crypto news found. This will load live on Streamlit Cloud.")
+        else:
+            _pos = sum(1 for n in _cnews if "Positive" in n.get("sentiment",""))
+            _neg = sum(1 for n in _cnews if "Negative" in n.get("sentiment",""))
+            _neu = len(_cnews) - _pos - _neg
+            _ov  = ("BULLISH" if _sscore > 0.05 else "BEARISH" if _sscore < -0.05 else "NEUTRAL")
+            _ov_e= ("GREEN"   if _sscore > 0.05 else "RED"     if _sscore < -0.05 else "GREY")
+            _ov_c= ("#3FB950" if _sscore > 0.05 else "#F85149" if _sscore < -0.05 else "#6E7681")
 
-        # Sentiment gauge bar
-        if len(news_items) > 0:
-            _pct = pos_count / len(news_items)
-            _bar_html = f"""
-<div style="background:#161B22;border-radius:8px;padding:12px 20px;border:1px solid #30363D;margin-bottom:16px">
-  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.8rem">
-    <span style="color:#3FB950">🟢 Positive {pos_count}</span>
-    <span style="color:#8B949E">⚪ Neutral {neu_count}</span>
-    <span style="color:#F85149">🔴 Negative {neg_count}</span>
-  </div>
-  <div style="background:#21262D;border-radius:4px;height:10px;overflow:hidden">
-    <div style="background:linear-gradient(90deg,#3FB950,#58A6FF);width:{_pct*100:.0f}%;height:100%;border-radius:4px"></div>
-  </div>
-  <div style="text-align:center;color:#8B949E;font-size:0.75rem;margin-top:4px">
-    Sentiment: {overall}
-  </div>
-</div>"""
-            st.markdown(_bar_html, unsafe_allow_html=True)
+            _m1,_m2,_m3,_m4 = st.columns(4)
+            _m1.metric("Articles",  len(_cnews))
+            _m2.metric("Positive",  _pos)
+            _m3.metric("Negative",  _neg)
+            _m4.metric("Sentiment", _ov, delta=f"score {_sscore:+.3f}")
 
-        # News cards
-        for _n in news_items:
-            _sent  = _n.get("sentiment","⚪ Neutral")
-            _score = _n.get("score", 0)
-            _border = "#3FB950" if "Positive" in _sent else "#F85149" if "Negative" in _sent else "#30363D"
-            _card = f"""
-<div style="background:#161B22;border:1px solid {_border};border-left:4px solid {_border};
-     border-radius:8px;padding:12px 16px;margin-bottom:8px">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-    <div style="flex:1">
-      <a href="{_n.get('url','#')}" target="_blank"
-         style="color:#F0F6FC;font-weight:600;font-size:0.9rem;text-decoration:none;
-                line-height:1.4;display:block">
-        {_n.get('title','No title')}
-      </a>
-      <div style="color:#8B949E;font-size:0.75rem;margin-top:4px">
-        {_n.get('source','')} · {_n.get('published','')}
-      </div>
-    </div>
-    <div style="text-align:right;min-width:80px">
-      <div style="font-size:0.82rem;font-weight:600">{_sent}</div>
-      <div style="color:#6E7681;font-size:0.72rem">score: {_score:+.2f}</div>
-    </div>
-  </div>
-</div>"""
-            st.markdown(_card, unsafe_allow_html=True)
+            _gp = int(_pos / max(len(_cnews),1) * 100)
+            st.markdown(
+                f'<div style="background:#161B22;border-radius:8px;padding:12px 20px;'
+                f'border:1px solid #30363D;margin:10px 0">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
+                f'<span style="color:#3FB950">Positive {_pos}</span>'
+                f'<span style="color:#8B949E">Neutral {_neu}</span>'
+                f'<span style="color:#F85149">Negative {_neg}</span></div>'
+                f'<div style="background:#21262D;border-radius:4px;height:8px;overflow:hidden">'
+                f'<div style="background:linear-gradient(90deg,#3FB950,#58A6FF);'
+                f'width:{_gp}%;height:100%;border-radius:4px"></div></div>'
+                f'<div style="text-align:center;color:{_ov_c};font-size:0.73rem;margin-top:4px">'
+                f'Market Sentiment: {_ov} | Score: {_sscore:+.3f}</div></div>',
+                unsafe_allow_html=True
+            )
+            st.divider()
+
+            for _n in _cnews:
+                _s  = _n.get("sentiment","Neutral")
+                _sc = _n.get("score",0)
+                _bc = "#3FB950" if "Positive" in _s else "#F85149" if "Negative" in _s else "#30363D"
+                st.markdown(
+                    f'<div style="background:#161B22;border:1px solid {_bc};border-left:4px solid {_bc};'
+                    f'border-radius:8px;padding:11px 15px;margin-bottom:7px">'
+                    f'<div style="display:flex;justify-content:space-between;gap:10px">'
+                    f'<div style="flex:1">'
+                    f'<a href="{_n.get("url","#")}" target="_blank" '
+                    f'style="color:#F0F6FC;font-weight:600;font-size:0.87rem;'
+                    f'text-decoration:none;line-height:1.4">{_n.get("title","")}</a>'
+                    f'<div style="color:#8B949E;font-size:0.72rem;margin-top:3px">'
+                    f'{_n.get("source","")} &middot; {_n.get("published","")}</div></div>'
+                    f'<div style="text-align:right;min-width:85px">'
+                    f'<div style="font-size:0.79rem;font-weight:600;color:{_bc}">{_s}</div>'
+                    f'<div style="color:#6E7681;font-size:0.69rem">score {_sc:+.2f}</div>'
+                    f'</div></div></div>',
+                    unsafe_allow_html=True
+                )
+
+    # ── ForexFactory Calendar ─────────────────────────────────────
+    with _ctab:
+        st.caption(
+            "Economic events from ForexFactory.com | "
+            "Red = High impact (moves markets) | "
+            "Filter by impact level and currency"
+        )
+        if not _fcal:
+            st.info(
+                "ForexFactory calendar will appear here on Streamlit Cloud. "
+                "If you see this locally, the request is being blocked by a firewall."
+            )
+        else:
+            _fi1, _fi2 = st.columns([1,2])
+            with _fi1:
+                _imp_f = st.multiselect("Impact", ["High","Medium","Low"],
+                    default=["High","Medium"], key="ff_imp")
+            with _fi2:
+                _cu_opts = sorted(set(e["currency"] for e in _fcal if e["currency"]))
+                _cu_f = st.multiselect("Currency",_cu_opts,
+                    default=[c for c in ["USD","EUR","GBP","JPY"] if c in _cu_opts],
+                    key="ff_cur")
+
+            _fev = [e for e in _fcal
+                    if (not _imp_f or e["impact_raw"] in _imp_f)
+                    and (not _cu_f or e["currency"] in _cu_f)]
+
+            if not _fev:
+                st.info("No events match your filters.")
+            else:
+                _imp_colors = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
+                for _e in _fev:
+                    _ic  = _imp_colors.get(_e["impact_raw"],"#30363D")
+                    _act = _e.get("actual","—") or "—"
+                    _ac  = "#F0F6FC"
+                    if _act != "—":
+                        try:
+                            _fv = float(str(_e.get("forecast","0")).replace("%","").replace("K","").replace("M","") or "0")
+                            _av = float(_act.replace("%","").replace("K","").replace("M",""))
+                            _ac = "#3FB950" if _av >= _fv else "#F85149"
+                        except Exception:
+                            pass
+                    st.markdown(
+                        f'<div style="background:#161B22;border:1px solid #21262D;'
+                        f'border-left:4px solid {_ic};border-radius:6px;'
+                        f'padding:9px 15px;margin-bottom:5px;display:flex;'
+                        f'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+                        f'<div style="flex:2;min-width:180px">'
+                        f'<span style="color:#F0F6FC;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
+                        f'<span style="color:#8B949E;font-size:0.72rem;margin-left:8px">'
+                        f'{_e["currency"]} &middot; {_e["date"]} {_e["time"]}</span></div>'
+                        f'<div style="display:flex;gap:14px">'
+                        f'<div style="text-align:center">'
+                        f'<div style="color:{_ic};font-size:0.72rem;font-weight:600">{_e["impact_raw"]}</div></div>'
+                        f'<div style="text-align:center;min-width:55px">'
+                        f'<div style="color:#6E7681;font-size:0.65rem">Forecast</div>'
+                        f'<div style="color:#8B949E;font-size:0.80rem">{_e["forecast"]}</div></div>'
+                        f'<div style="text-align:center;min-width:55px">'
+                        f'<div style="color:#6E7681;font-size:0.65rem">Previous</div>'
+                        f'<div style="color:#8B949E;font-size:0.80rem">{_e["previous"]}</div></div>'
+                        f'<div style="text-align:center;min-width:55px">'
+                        f'<div style="color:#6E7681;font-size:0.65rem">Actual</div>'
+                        f'<div style="color:{_ac};font-size:0.80rem;font-weight:600">{_act}</div>'
+                        f'</div></div></div>',
+                        unsafe_allow_html=True
+                    )
+                st.caption(f"Showing {len(_fev)} of {len(_fcal)} events | Source: ForexFactory.com")
+
 
 # ════════════════════════════════════════════════════════════════════
 # TAB 6: Portfolio Tracker
