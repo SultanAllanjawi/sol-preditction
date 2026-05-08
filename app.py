@@ -209,7 +209,7 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════
 # LOAD DATA + TRAIN
 # ═══════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=900, show_spinner=False)   # 15-min cache — fast loads
+@st.cache_data(ttl=1800, show_spinner=False)  # 30-min cache
 def load_and_train(ticker, _uploaded_bytes=None, _force=False):
     import io
     dm       = DataManager(ticker)
@@ -229,11 +229,23 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False):
 # Get uploaded bytes for the selected ticker (if any)
 _uploaded_bytes = st.session_state.uploaded_assets.get(ticker, None)
 
-with st.spinner(f"⏳ Loading **{ticker}** · Training models (15–20 sec first load, cached after)..."):
+with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 min after..."):
     try:
         df_raw, df_feat, results = load_and_train(
             ticker, _uploaded_bytes, force_refresh)
-        # Clear the spinner — success
+        # ── Toast alert when signal changes ─────────────────────────
+        _prev_sig_key = f"prev_signal_{ticker}"
+        _cur_sig      = results.get("last_signal","HOLD")
+        _prev_sig     = st.session_state.get(_prev_sig_key, None)
+        if _prev_sig is not None and _cur_sig != _prev_sig and _cur_sig != "HOLD":
+            _sig_icon = "🟢" if _cur_sig == "BUY" else "🔴"
+            _conf_val = results.get("last_confidence", 0)
+            st.toast(
+                f"{_sig_icon} **{ticker} signal changed: {_cur_sig}** "
+                f"({_conf_val:.1f}% confidence)",
+                icon=_sig_icon
+            )
+        st.session_state[_prev_sig_key] = _cur_sig
 
     except Exception as e:
         st.markdown(f"""
@@ -252,6 +264,10 @@ with st.spinner(f"⏳ Loading **{ticker}** · Training models (15–20 sec first
   </div>
 </div>""", unsafe_allow_html=True)
         st.stop()
+
+# ── Signal change alert ─────────────────────────────────────────────────────
+# Store previous signal and show toast notification when it changes
+_prev_sig = st.session_state.get(f"prev_signal_{ticker}", None)
 
 # ── Central date logic (used everywhere in the app) ────────────────────────
 _CRYPTO_SET = {"SOL","BTC","ETH","ADA","BNB","XRP","DOGE","AVAX",
@@ -307,6 +323,18 @@ y_te       = y_te[-n:]
 signals    = signals[-n:]
 price_pred = price_pred[-n:]
 y_price_te = y_price_te[-n:]
+
+# ── Signal change alert toast ──────────────────────────────────────────────
+_current_sig = results['last_signal']
+if _prev_sig is not None and _prev_sig != _current_sig:
+    if _current_sig == "BUY":
+        st.toast(f"🟢 Signal changed to BUY for {ticker}!", icon="🟢")
+    elif _current_sig == "SELL":
+        st.toast(f"🔴 Signal changed to SELL for {ticker}!", icon="🔴")
+    else:
+        st.toast(f"⚪ Signal changed to HOLD for {ticker}", icon="⚪")
+# Store current signal for next refresh
+st.session_state[f"prev_signal_{ticker}"] = _current_sig
 
 # ── ATR-based TP / SL ─────────────────────────────────────────────
 # Use the last ATR value to set realistic TP and SL
@@ -470,7 +498,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -478,6 +506,7 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
     "📜 Signal History",
     "📰 News & Sentiment",
     "💼 Portfolio Tracker",
+    "🔀 Multi-Asset Scanner",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1190,125 +1219,51 @@ with tab5:
         )
 
         # Three sub-options: FF direct, TradingView widget, our data
-        _ff_sub1, _ff_sub2, _ff_sub3 = st.tabs([
-            "🌐 ForexFactory Live Site",
+        # Two sub-tabs: TradingView (works 100%) + Our parsed data
+        _ff_sub1, _ff_sub2 = st.tabs([
             "📊 TradingView Economic Calendar",
-            "📋 Our Calendar Data",
+            "📋 ForexFactory Data",
         ])
 
-        # ── ForexFactory direct iframe ────────────────────────────
+        # ── TradingView Economic Calendar (official widget, always works) ──
         with _ff_sub1:
             st.caption(
-                "ForexFactory.com embedded live — you can search, filter, "
-                "and browse exactly as on their website. "
-                "If Cloudflare shows a challenge page, use the TradingView tab instead."
+                "TradingView official economic calendar · Same data as ForexFactory · "
+                "Filter by country and importance directly in the widget"
             )
-            _ff_html = """
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0D1117; }
-  #ff-frame {
-    width: 100%; height: 720px; border: none;
-    border-radius: 8px; overflow: hidden;
-  }
-  .ff-toolbar {
-    background: #161B22; border: 1px solid #30363D;
-    border-radius: 8px 8px 0 0; padding: 10px 16px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .ff-btn {
-    background: #21262D; color: #C9D1D9; border: 1px solid #30363D;
-    border-radius: 5px; padding: 5px 14px; cursor: pointer;
-    font-size: 0.82rem; font-family: sans-serif;
-    transition: background 0.2s;
-  }
-  .ff-btn:hover { background: #1F6FEB; color: white; }
-  .ff-url { color: #8B949E; font-size: 0.75rem; font-family: monospace; }
-</style></head><body>
-<div class="ff-toolbar">
-  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/calendar')">
-    📅 Calendar
-  </button>
-  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/news')">
-    📰 News
-  </button>
-  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/market')">
-    📈 Market
-  </button>
-  <button class="ff-btn" onclick="loadPage('https://www.forexfactory.com/trades')">
-    🔄 Trades
-  </button>
-  <button class="ff-btn" onclick="document.getElementById('ff-frame').src=document.getElementById('ff-frame').src">
-    🔄 Reload
-  </button>
-  <span class="ff-url" id="ff-current-url">forexfactory.com/calendar</span>
-</div>
-<iframe
-  id="ff-frame"
-  src="https://www.forexfactory.com/calendar"
-  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
-  referrerpolicy="no-referrer-when-downgrade"
-  loading="lazy"
-></iframe>
-<script>
-  function loadPage(url) {
-    document.getElementById('ff-frame').src = url;
-    document.getElementById('ff-current-url').textContent = url.replace('https://www.','');
-  }
-  // Update URL display when iframe navigates
-  document.getElementById('ff-frame').onload = function() {
-    try {
-      var u = this.contentWindow.location.href;
-      document.getElementById('ff-current-url').textContent = u.replace('https://www.','');
-    } catch(e) {}
-  };
-</script>
-</body></html>"""
-            st.components.v1.html(_ff_html, height=790, scrolling=False)
-
-        # ── TradingView Economic Calendar ─────────────────────────
-        with _ff_sub2:
-            st.caption(
-                "TradingView's official economic calendar widget — "
-                "100% guaranteed to work, filterable by country and importance"
-            )
-            _tv_cal_html = """
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>* { margin:0; padding:0; } body { background:#0D1117; }</style>
+            _tv_cal_html = """<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0D1117;}</style>
 </head><body>
-<div class="tradingview-widget-container" style="height:700px;width:100%">
-  <div class="tradingview-widget-container__widget"></div>
-  <script
-    type="text/javascript"
-    src="https://s3.tradingview.com/external-embedding/embed-widget-events.js"
-    async>
+<div class="tradingview-widget-container" style="width:100%;height:700px">
+  <div class="tradingview-widget-container__widget" style="height:700px"></div>
+  <script type="text/javascript"
+    src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
   {
     "colorTheme": "dark",
-    "isTransparent": false,
+    "isTransparent": true,
     "width": "100%",
     "height": "700",
     "locale": "en",
     "importanceFilter": "-1,0,1",
-    "countryFilter": "us,eu,gb,jp,ca,au,nz,ch",
-    "backgroundColor": "#0D1117",
-    "dateRangeFilter": "this_week"
+    "countryFilter": "us,eu,gb,jp,ca,au,nz,ch,ae,sa",
+    "backgroundColor": "#0D1117"
   }
   </script>
 </div>
 </body></html>"""
-            st.components.v1.html(_tv_cal_html, height=720, scrolling=False)
+            st.components.v1.html(_tv_cal_html, height=710, scrolling=False)
 
-        # ── Our parsed calendar data ───────────────────────────────
-        with _ff_sub3:
+        # ── Our parsed ForexFactory data ───────────────────────────
+        with _ff_sub2:
             st.caption(
-                "Calendar data fetched from ForexFactory API · "
-                "Red = High impact | Yellow = Medium | Filter by currency and impact"
+                "Economic events fetched from ForexFactory API · "
+                "Red = High impact | Yellow = Medium · Updates every 10 min"
             )
             if not _fcal:
                 st.info(
-                    "Our calendar data will load on Streamlit Cloud. "
-                    "Locally it may be blocked — use the ForexFactory or TradingView tabs above."
+                    "Calendar data loads on Streamlit Cloud. "
+                    "Use the TradingView tab above — it works everywhere."
                 )
             else:
                 _fi1, _fi2 = st.columns([1,2])
@@ -1328,9 +1283,9 @@ with tab5:
                 if not _fev:
                     st.info("No events match your filters.")
                 else:
-                    _imp_colors = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
+                    _ic_map = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
                     for _e in _fev:
-                        _ic  = _imp_colors.get(_e["impact_raw"],"#30363D")
+                        _ic  = _ic_map.get(_e["impact_raw"],"#30363D")
                         _act = _e.get("actual","—") or "—"
                         _ac  = "#F0F6FC"
                         if _act != "—":
@@ -1364,8 +1319,7 @@ with tab5:
                             f'</div></div></div>',
                             unsafe_allow_html=True
                         )
-                    st.caption(f"Showing {len(_fev)} of {len(_fcal)} events | Source: ForexFactory.com")
-
+                    st.caption(f"Showing {len(_fev)} of {len(_fcal)} events · Source: ForexFactory.com")
 
 # ════════════════════════════════════════════════════════════════════
 # TAB 6: Portfolio Tracker
@@ -1533,6 +1487,198 @@ with tab6:
             if st.button("🗑️ Clear All Trades", use_container_width=True):
                 st.session_state.portfolio_trades = []
                 st.rerun()
+
+# ════════════════════════════════════════════════════════════════════
+# TAB 7: Multi-Asset Scanner
+# ════════════════════════════════════════════════════════════════════
+with tab7:
+    st.subheader("🔀 Multi-Asset Signal Scanner")
+    st.caption(
+        "Live signals for all assets simultaneously · "
+        "Strongest BUY/SELL shown first · Updates every 15 minutes"
+    )
+
+    # Asset list to scan
+    _SCAN_ASSETS = [
+        "SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD",
+        "AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL",
+    ]
+
+    # Allow user to customise
+    with st.expander("⚙️ Customise scan list", expanded=False):
+        _custom = st.text_area(
+            "One ticker per line",
+            value=chr(10).join(_SCAN_ASSETS),
+            height=200,
+            key="scan_asset_list"
+        )
+        _SCAN_ASSETS = [t.strip().upper() for t in _custom.split(chr(10)) if t.strip()]
+
+    @st.cache_data(ttl=1800, show_spinner=False)
+    def scan_asset(asset_ticker):
+        """Train model for one asset and return signal summary."""
+        try:
+            from data_manager import DataManager
+            from feature_engine import build_features
+            from model_engine import ModelEngine
+            _dm  = DataManager(asset_ticker)
+            _df  = _dm.get_data(prefer_hourly=is_crypto(asset_ticker))
+            _ft  = build_features(_df)
+            _eng = ModelEngine(_ft)
+            _res = _eng.train(verbose=False)
+            _live = DataManager.get_live_price(asset_ticker) or float(_df['Close'].iloc[-1])
+            _atr  = float(_ft['ATR'].iloc[-1]) if 'ATR' in _ft.columns else _live * 0.03
+            _sig  = _res['last_signal']
+            _conf = _res['last_confidence']
+            _prob = _res['last_prob']
+            _acc  = _res['ensemble_filt_acc']
+            _tp   = round(_live + 2*_atr, 4) if _sig=="BUY" else round(_live - 2*_atr, 4) if _sig=="SELL" else None
+            _sl   = round(_live - 1.5*_atr, 4) if _sig=="BUY" else round(_live + 1.5*_atr, 4) if _sig=="SELL" else None
+            return {
+                "ticker"  : asset_ticker,
+                "name"    : DataManager.get_ticker_name(asset_ticker) or asset_ticker,
+                "price"   : _live,
+                "signal"  : _sig,
+                "conf"    : _conf,
+                "prob"    : _prob,
+                "acc"     : _acc,
+                "tp"      : _tp,
+                "sl"      : _sl,
+                "atr"     : _atr,
+                "error"   : None,
+            }
+        except Exception as e:
+            return {"ticker": asset_ticker, "error": str(e)[:60], "signal":"—", "conf":0}
+
+    # Scan button
+    _do_scan = st.button("🔍 Scan All Assets Now", type="primary", use_container_width=False)
+    _auto_scan = st.checkbox("Auto-scan on page load (slower)", value=False, key="auto_scan")
+
+    if _do_scan or _auto_scan:
+        _scan_results = []
+        _prog = st.progress(0, text="Scanning assets...")
+        for _i, _asset in enumerate(_SCAN_ASSETS):
+            _prog.progress((_i+1)/len(_SCAN_ASSETS), text=f"Scanning {_asset}...")
+            _scan_results.append(scan_asset(_asset))
+        _prog.empty()
+
+        # Store results
+        st.session_state["scan_results"] = _scan_results
+        st.session_state["scan_time"]    = datetime.now(timezone.utc) + timedelta(hours=4)
+
+    _scan_results = st.session_state.get("scan_results", [])
+    _scan_time    = st.session_state.get("scan_time", None)
+
+    if not _scan_results:
+        st.info(
+            "Click **Scan All Assets Now** to see live signals for all assets in one view. "
+            "First scan takes ~30 seconds (trains models for each asset)."
+        )
+    else:
+        if _scan_time:
+            st.caption(f"Last scanned: {_scan_time.strftime('%H:%M %d %b')} Dubai time")
+
+        # Sort: BUY first (by confidence), then SELL (by confidence), then HOLD
+        _sig_order = {"BUY":0,"SELL":1,"HOLD":2,"—":3}
+        _scan_results.sort(key=lambda x: (_sig_order.get(x.get("signal","—"),3), -x.get("conf",0)))
+
+        # Summary row
+        _nb = sum(1 for r in _scan_results if r.get("signal")=="BUY")
+        _ns = sum(1 for r in _scan_results if r.get("signal")=="SELL")
+        _nh = sum(1 for r in _scan_results if r.get("signal")=="HOLD")
+        _sm1,_sm2,_sm3,_sm4 = st.columns(4)
+        _sm1.metric("Assets Scanned",  len(_scan_results))
+        _sm2.metric("BUY Signals",     _nb,  delta="Bullish" if _nb>_ns else None)
+        _sm3.metric("SELL Signals",    _ns,  delta="Bearish" if _ns>_nb else None)
+        _sm4.metric("HOLD",            _nh)
+
+        # Market bias bar
+        _tot = max(len(_scan_results),1)
+        _buy_pct  = int(_nb/_tot*100)
+        _sell_pct = int(_ns/_tot*100)
+        _hold_pct = 100 - _buy_pct - _sell_pct
+        _bias     = "BULLISH" if _nb > _ns else "BEARISH" if _ns > _nb else "MIXED"
+        _bias_c   = "#3FB950" if _nb > _ns else "#F85149" if _ns > _nb else "#8B949E"
+        st.markdown(
+            f'<div style="background:#161B22;border:1px solid #30363D;border-radius:8px;'
+            f'padding:12px 20px;margin:10px 0">'
+            f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
+            f'<span style="color:#3FB950">BUY {_buy_pct}%</span>'
+            f'<span style="color:#8B949E">HOLD {_hold_pct}%</span>'
+            f'<span style="color:#F85149">SELL {_sell_pct}%</span></div>'
+            f'<div style="height:10px;background:#21262D;border-radius:5px;overflow:hidden;display:flex">'
+            f'<div style="width:{_buy_pct}%;background:#3FB950"></div>'
+            f'<div style="width:{_hold_pct}%;background:#30363D"></div>'
+            f'<div style="width:{_sell_pct}%;background:#F85149"></div></div>'
+            f'<div style="text-align:center;color:{_bias_c};font-weight:bold;margin-top:6px;font-size:0.85rem">'
+            f'Market is {_bias}</div></div>',
+            unsafe_allow_html=True
+        )
+
+        st.divider()
+
+        # Signal cards grid
+        _cols_per_row = 3
+        for _row_start in range(0, len(_scan_results), _cols_per_row):
+            _row_assets = _scan_results[_row_start:_row_start+_cols_per_row]
+            _gcols = st.columns(_cols_per_row)
+            for _ci, _r in enumerate(_row_assets):
+                with _gcols[_ci]:
+                    if _r.get("error"):
+                        st.markdown(
+                            f'<div style="background:#161B22;border:1px solid #30363D;'
+                            f'border-radius:10px;padding:14px;text-align:center">'
+                            f'<div style="color:#8B949E;font-size:0.85rem;font-weight:600">'
+                            f'{_r["ticker"]}</div>'
+                            f'<div style="color:#F85149;font-size:0.75rem;margin-top:6px">'
+                            f'Error: {_r["error"]}</div></div>',
+                            unsafe_allow_html=True
+                        )
+                        continue
+
+                    _rsig  = _r.get("signal","—")
+                    _rconf = _r.get("conf",0)
+                    _rprice= _r.get("price",0)
+                    _rtp   = _r.get("tp")
+                    _rsl   = _r.get("sl")
+                    _racc  = _r.get("acc",0)
+                    _rprob = _r.get("prob",0.5)
+
+                    _sc  = "#3FB950" if _rsig=="BUY" else "#F85149" if _rsig=="SELL" else "#6E7681"
+                    _bc  = "buy-card" if _rsig=="BUY" else "sell-card" if _rsig=="SELL" else "hold-card"
+                    _em  = "🟢" if _rsig=="BUY" else "🔴" if _rsig=="SELL" else "⚪"
+                    _tps = f"${_rtp:,.4f}" if _rtp else "—"
+                    _sls = f"${_rsl:,.4f}" if _rsl else "—"
+                    _rr  = abs(_rtp-_rprice)/max(abs(_rprice-_rsl),0.0001) if _rtp and _rsl else 0
+
+                    st.markdown(
+                        f'<div class="signal-card {_bc}" style="padding:14px 16px">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                        f'<div>'
+                        f'<div style="color:#F0F6FC;font-weight:700;font-size:0.95rem">{_r.get("ticker","")}</div>'
+                        f'<div style="color:#8B949E;font-size:0.72rem">{_r.get("name","")}</div>'
+                        f'</div>'
+                        f'<div style="color:{_sc};font-size:1.3rem;font-weight:700">{_em} {_rsig}</div>'
+                        f'</div>'
+                        f'<div style="color:#F0F6FC;font-size:1.1rem;font-weight:600;margin:8px 0">'
+                        f'${_rprice:,.4f}</div>'
+                        f'<table style="width:100%;font-size:0.78rem;border-collapse:collapse">'
+                        f'<tr><td style="color:#8B949E">Confidence</td>'
+                        f'<td style="color:#E3B341;text-align:right;font-weight:600">{_rconf:.1f}%</td></tr>'
+                        f'<tr><td style="color:#8B949E">P(UP)</td>'
+                        f'<td style="color:#58A6FF;text-align:right">{_rprob*100:.1f}%</td></tr>'
+                        f'<tr><td style="color:#8B949E">Take Profit</td>'
+                        f'<td style="color:#3FB950;text-align:right;font-weight:600">{_tps}</td></tr>'
+                        f'<tr><td style="color:#8B949E">Stop Loss</td>'
+                        f'<td style="color:#F85149;text-align:right;font-weight:600">{_sls}</td></tr>'
+                        f'<tr><td style="color:#8B949E">R/R</td>'
+                        f'<td style="color:#F0F6FC;text-align:right">1:{_rr:.2f}</td></tr>'
+                        f'<tr><td style="color:#8B949E">Accuracy</td>'
+                        f'<td style="color:#E3B341;text-align:right">{_racc*100:.1f}%</td></tr>'
+                        f'</table></div>',
+                        unsafe_allow_html=True
+                    )
+
 
 # ── Auto-refresh every 60s for live price ──────────────────────────────────
 st.markdown(
