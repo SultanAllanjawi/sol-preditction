@@ -220,11 +220,6 @@ with st.sidebar:
         selected = _sel_reverse.get(_selected_display, _selected_display)
         all_assets_full = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
 
-    # Default index
-    default_idx = all_assets.index(st.session_state.selected_ticker)                   if st.session_state.selected_ticker in all_assets else 0
-
-    selected = st.selectbox("Select asset", all_assets, index=default_idx)
-
     if _cat == "✏️ Custom":
         ticker = st.text_input(
             "Enter ticker symbol",
@@ -634,7 +629,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -643,7 +638,6 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📰 News & Sentiment",
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
-    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
