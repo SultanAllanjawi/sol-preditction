@@ -81,6 +81,11 @@ def get_tv_symbol(t):
 
 from data_manager import DataManager
 from model_engine import ModelEngine
+from persistence import (
+    load_portfolio, save_portfolio,
+    load_active_signals, update_signal_status,
+    load_settings, save_settings,
+)
 
 # ── Crypto detection (self-contained, no data_manager dependency) ──
 _CRYPTO_SET = {
@@ -106,11 +111,18 @@ def dark_fig():
 # ═══════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════
-# ── Session state: track uploaded assets ──────────────────────────
+# ── Session state: init from saved settings ──────────────────────
+_saved_settings = load_settings()
 if "uploaded_assets" not in st.session_state:
-    st.session_state.uploaded_assets = {}   # {ticker_name: bytes}
+    st.session_state.uploaded_assets = {}
 if "selected_ticker" not in st.session_state:
-    st.session_state.selected_ticker = "SOL-USD"
+    st.session_state.selected_ticker = _saved_settings.get("last_ticker","SOL-USD")
+if "portfolio_trades" not in st.session_state:
+    st.session_state.portfolio_trades = load_portfolio()   # load from disk
+if "chart_tf" not in st.session_state:
+    st.session_state.chart_tf = _saved_settings.get("chart_tf","D")
+if "chart_lookback" not in st.session_state:
+    st.session_state.chart_lookback = _saved_settings.get("lookback_days",90)
 
 with st.sidebar:
     st.markdown("## 🔮 Prediction Dashboard")
@@ -178,9 +190,10 @@ with st.sidebar:
     else:
         ticker = selected
 
-    # Keep session state in sync
+    # Keep session state in sync + save to disk
     if ticker != st.session_state.selected_ticker:
         st.session_state.selected_ticker = ticker
+        save_settings({**_saved_settings, "last_ticker": ticker})
 
     # Show source badge
     if ticker in st.session_state.uploaded_assets:
@@ -455,6 +468,50 @@ with col_sig:
         </div>
     </div>""", unsafe_allow_html=True)
 
+    # ── Live signal status tracker ──────────────────────────────────
+    _sig_status = update_signal_status(
+        ticker, last_sig, display_price, tp_price, sl_price, display_price
+    )
+    _ss = _sig_status["status"]
+
+    _status_styles = {{
+        "ACTIVE"  : ("🟡", "#E3B341", "#2A2400", "Signal is ACTIVE"),
+        "HIT_TP"  : ("🎯", "#3FB950", "#1C2A1C", "TARGET HIT — Signal succeeded!"),
+        "HIT_SL"  : ("🛑", "#F85149", "#2A1C1C", "STOP LOSS HIT — Signal failed"),
+        "EXPIRED" : ("⏰", "#6E7681", "#161B22", "Signal EXPIRED — Do not enter"),
+        "NONE"    : ("⚪", "#6E7681", "#161B22", "Waiting for signal"),
+    }}
+    _sicon, _scol, _sbg, _slabel = _status_styles.get(_ss, _status_styles["NONE"])
+
+    if _ss not in ("NONE",):
+        _rem_h  = _sig_status.get("remaining_h", 0)
+        _pnl_p  = _sig_status.get("pnl_pct", 0)
+        _hrs_old= _sig_status.get("hours_old", 0)
+        _msg    = _sig_status.get("message","")
+
+        st.markdown(f"""
+<div style="background:{_sbg};border:2px solid {_scol};border-radius:10px;
+     padding:14px 20px;margin-top:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <span style="font-size:1.2rem">{_sicon}</span>
+      <span style="color:{_scol};font-weight:700;font-size:1.1rem;margin-left:8px">{_slabel}</span>
+    </div>
+    <div style="text-align:right">
+      <div style="color:#8B949E;font-size:0.78rem">{_hrs_old:.0f}h since signal</div>
+      {'<div style="color:#E3B341;font-size:0.78rem">⏱ ' + f'{_rem_h:.0f}h remaining</div>' if _ss=="ACTIVE" else ''}
+    </div>
+  </div>
+  <div style="color:#C9D1D9;font-size:0.85rem;margin-top:8px">{_msg}</div>
+  {'<div style="color:' + ("#3FB950" if _pnl_p>=0 else "#F85149") + ';font-weight:600;margin-top:4px">Current P&amp;L: ' + (f"+{_pnl_p:.2f}%" if _pnl_p>=0 else f"{_pnl_p:.2f}%") + '</div>' if _ss not in ("NONE","EXPIRED") else ''}
+  {('<div style="background:#2A1C00;border-radius:6px;padding:8px 12px;margin-top:8px;' +
+     'color:#E3B341;font-size:0.82rem">⚠️ <b>Do NOT enter this signal</b> — ' +
+     'it has expired. Wait for the next BUY or SELL signal.</div>') if _ss=="EXPIRED" else ''}
+  {('<div style="background:#1C2A1C;border-radius:6px;padding:8px 12px;margin-top:8px;' +
+     'color:#3FB950;font-size:0.82rem">✅ <b>Best entry window:</b> ' +
+     f'Enter within {min(4, _rem_h):.0f}h of signal · Set TP at ${tp_price:,.4f} · SL at ${sl_price:,.4f}</div>') if _ss=="ACTIVE" and last_sig!="HOLD" and tp_price and sl_price else ''}
+</div>""", unsafe_allow_html=True)
+
 with col_7d:
     st.markdown("**📅 7-Day Forward Outlook**")
     st.caption("Confidence decays further out — tomorrow is the most reliable")
@@ -498,7 +555,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -507,6 +564,7 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📰 News & Sentiment",
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
+    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1373,6 +1431,7 @@ with tab6:
                 "pnl"   : None,
                 "note"  : _pt_note,
             })
+            save_portfolio(st.session_state.portfolio_trades)
             st.success(f"✅ Trade added: {_pt_side} {_pt_ticker} @ ${_pt_entry:.4f}")
             st.rerun()
 
@@ -1473,6 +1532,7 @@ with tab6:
                 st.session_state.portfolio_trades[_idx]["status"] = "Closed"
                 st.session_state.portfolio_trades[_idx]["exit"]   = _exit_price
                 st.session_state.portfolio_trades[_idx]["pnl"]    = _pnl_per * _t["size"]
+                save_portfolio(st.session_state.portfolio_trades)
                 st.success(f"Closed trade #{int(_close_idx)} at ${_exit_price:.4f}")
                 st.rerun()
 
@@ -1481,11 +1541,13 @@ with tab6:
                                         max_value=len(trades), value=1, key="del_idx")
             if st.button("🗑️ Delete Trade", use_container_width=True):
                 st.session_state.portfolio_trades.pop(int(_del_idx)-1)
+                save_portfolio(st.session_state.portfolio_trades)
                 st.rerun()
 
         with _mc3:
             if st.button("🗑️ Clear All Trades", use_container_width=True):
                 st.session_state.portfolio_trades = []
+                save_portfolio([])
                 st.rerun()
 
 # ════════════════════════════════════════════════════════════════════
@@ -1678,6 +1740,178 @@ with tab7:
                         f'</table></div>',
                         unsafe_allow_html=True
                     )
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# TAB 8: UAE DFM Market
+# ════════════════════════════════════════════════════════════════════
+with tab8:
+    st.subheader("🇦🇪 UAE Market — DFM & ADX Top Stocks")
+    st.caption(
+        "Top 10 most traded UAE stocks · Live TradingView charts · "
+        "Click any stock to see its full chart · Data from Dubai Financial Market & ADX"
+    )
+
+    # DFM / ADX stock list
+    DFM_STOCKS = [
+        {"ticker":"EMAAR.DFM",  "name":"Emaar Properties",    "tv":"DFM:EMAAR",  "sector":"Real Estate"},
+        {"ticker":"FAB.ADX",    "name":"First Abu Dhabi Bank", "tv":"ADX:FAB",    "sector":"Banking"},
+        {"ticker":"DIB.DFM",    "name":"Dubai Islamic Bank",   "tv":"DFM:DIB",    "sector":"Banking"},
+        {"ticker":"DU.DFM",     "name":"du Telecom",           "tv":"DFM:DU",     "sector":"Telecom"},
+        {"ticker":"DEWA.DFM",   "name":"Dubai Electricity",    "tv":"DFM:DEWA",   "sector":"Utilities"},
+        {"ticker":"ALDAR.ADX",  "name":"Aldar Properties",     "tv":"ADX:ALDAR",  "sector":"Real Estate"},
+        {"ticker":"MASQ.DFM",   "name":"Mashreq Bank",         "tv":"DFM:MASQ",   "sector":"Banking"},
+        {"ticker":"ENBD.DFM",   "name":"Emirates NBD",         "tv":"DFM:ENBD",   "sector":"Banking"},
+        {"ticker":"ADCB.ADX",   "name":"ADCB Bank",            "tv":"ADX:ADCB",   "sector":"Banking"},
+        {"ticker":"SALIK.DFM",  "name":"Salik",                "tv":"DFM:SALIK",  "sector":"Transport"},
+    ]
+
+    # ── Stock selector ─────────────────────────────────────────────
+    _dfm_names = [f"{s['name']} ({s['ticker']})" for s in DFM_STOCKS]
+    _dfm_sel_idx = st.session_state.get("dfm_selected", 0)
+
+    # Quick-select buttons in a grid
+    st.markdown("**Select a stock:**")
+    _dcols = st.columns(5)
+    for _di, _ds in enumerate(DFM_STOCKS):
+        _col_idx = _di % 5
+        _is_active = st.session_state.get("dfm_selected", 0) == _di
+        _btn_type = "primary" if _is_active else "secondary"
+        if _dcols[_col_idx].button(
+            _ds["name"].split()[0],   # short name
+            key=f"dfm_btn_{_di}",
+            use_container_width=True,
+            type=_btn_type,
+        ):
+            st.session_state["dfm_selected"] = _di
+            st.rerun()
+
+    st.divider()
+    _sel_idx  = st.session_state.get("dfm_selected", 0)
+    _sel_stk  = DFM_STOCKS[_sel_idx]
+
+    # ── Two columns: chart + signal ────────────────────────────────
+    _dfm_chart_col, _dfm_info_col = st.columns([3, 1])
+
+    with _dfm_chart_col:
+        st.markdown(f"**{_sel_stk['name']} ({_sel_stk['ticker']})** — {_sel_stk['sector']}")
+
+        # Timeframe selector for DFM chart
+        _dfm_tf_map = {"1D":"D","1W":"W","1M":"M","3M":"3M","1h":"60","4h":"240","15m":"15"}
+        _dfm_cur_tf = st.session_state.get("dfm_tf","D")
+        _dfm_tf_cols = st.columns(len(_dfm_tf_map))
+        for _tfi, (_lbl, _val) in enumerate(_dfm_tf_map.items()):
+            _active = _dfm_cur_tf == _val
+            if _dfm_tf_cols[_tfi].button(
+                _lbl, key=f"dfm_tf_{_val}",
+                use_container_width=True,
+                type="primary" if _active else "secondary"
+            ):
+                st.session_state["dfm_tf"] = _val
+                st.rerun()
+        _dfm_cur_tf = st.session_state.get("dfm_tf","D")
+
+        # TradingView chart for selected DFM stock
+        _dfm_tv_html = f"""<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>*{{margin:0;padding:0;}}body{{background:#0D1117;}}</style>
+</head><body>
+<div class="tradingview-widget-container" style="width:100%;height:520px">
+  <div id="dfm_chart_{_sel_idx}"></div>
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+  new TradingView.widget({{
+    "container_id"     : "dfm_chart_{_sel_idx}",
+    "width"            : "100%",
+    "height"           : 520,
+    "symbol"           : "{_sel_stk['tv']}",
+    "interval"         : "{_dfm_cur_tf}",
+    "timezone"         : "Asia/Dubai",
+    "theme"            : "dark",
+    "style"            : "1",
+    "locale"           : "en",
+    "hide_side_toolbar": false,
+    "allow_symbol_change": false,
+    "studies"          : ["Volume@tv-basicstudies","RSI@tv-basicstudies"],
+    "overrides"        : {{
+      "paneProperties.background"                       : "#0D1117",
+      "paneProperties.backgroundType"                   : "solid",
+      "mainSeriesProperties.candleStyle.upColor"        : "#3FB950",
+      "mainSeriesProperties.candleStyle.downColor"      : "#F85149",
+      "mainSeriesProperties.candleStyle.borderUpColor"  : "#3FB950",
+      "mainSeriesProperties.candleStyle.borderDownColor": "#F85149",
+      "mainSeriesProperties.candleStyle.wickUpColor"    : "#3FB950",
+      "mainSeriesProperties.candleStyle.wickDownColor"  : "#F85149"
+    }}
+  }});
+  </script>
+</div>
+</body></html>"""
+        st.components.v1.html(_dfm_tv_html, height=535, scrolling=False)
+
+    with _dfm_info_col:
+        st.markdown("**Stock Info**")
+        st.markdown(f"""
+<div style="background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px">
+  <div style="color:#8B949E;font-size:0.75rem">Name</div>
+  <div style="color:#F0F6FC;font-weight:600;margin-bottom:10px">{_sel_stk['name']}</div>
+  <div style="color:#8B949E;font-size:0.75rem">Ticker</div>
+  <div style="color:#58A6FF;font-weight:600;margin-bottom:10px">{_sel_stk['ticker']}</div>
+  <div style="color:#8B949E;font-size:0.75rem">Sector</div>
+  <div style="color:#E3B341;font-weight:600;margin-bottom:10px">{_sel_stk['sector']}</div>
+  <div style="color:#8B949E;font-size:0.75rem">Exchange</div>
+  <div style="color:#F0F6FC;font-weight:600;margin-bottom:10px">
+    {"DFM 🇦🇪" if "DFM" in _sel_stk['ticker'] else "ADX 🇦🇪"}
+  </div>
+  <div style="color:#8B949E;font-size:0.75rem">Market Hours</div>
+  <div style="color:#F0F6FC;font-size:0.82rem">Sun–Thu<br>10:00–14:50 Dubai</div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("**Add to Watchlist**")
+        if st.button(f"📊 Analyse {_sel_stk['ticker']}", use_container_width=True, type="primary"):
+            st.session_state.selected_ticker = _sel_stk['ticker']
+            st.session_state.uploaded_assets  = st.session_state.get('uploaded_assets',{})
+            st.toast(f"Switched to {_sel_stk['name']} — go to Price & Signals tab", icon="📊")
+            st.rerun()
+
+        st.markdown("**⚠️ Note**")
+        st.caption(
+            "DFM/ADX stocks need a CSV upload for ML predictions. "
+            "Download from Investing.com → search ticker → Historical Data → CSV. "
+            "Then upload via the sidebar."
+        )
+
+    st.divider()
+
+    # ── All 10 stocks overview ──────────────────────────────────────
+    st.markdown("**📊 All UAE Stocks Overview**")
+    st.caption("Click 'Analyse' on any stock to run ML predictions on it")
+
+    _ov_rows = []
+    for _ds in DFM_STOCKS:
+        # Try to get live price
+        _lp = DataManager.get_live_price(_ds['ticker'])
+        _ov_rows.append({
+            "Stock"   : f"{_ds['name']}",
+            "Ticker"  : _ds['ticker'],
+            "Sector"  : _ds['sector'],
+            "Exchange": "DFM" if "DFM" in _ds['ticker'] else "ADX",
+            "Live Price": f"AED {_lp:,.4f}" if _lp else "Upload CSV",
+        })
+
+    _ov_df = pd.DataFrame(_ov_rows)
+    st.dataframe(_ov_df, use_container_width=True, hide_index=True)
+
+    st.info(
+        "**How to get ML signals for DFM stocks:**\n\n"
+        "1. Go to [Investing.com](https://www.investing.com)\n"
+        "2. Search for e.g. 'Emaar Properties'\n"
+        "3. Click 'Historical Data' → Download CSV\n"
+        "4. Upload via **Upload CSV Data** in the sidebar\n"
+        "5. Name it `EMAAR.DFM` and click ➕ Add\n"
+        "6. Select it from the asset dropdown → you'll see full ML predictions"
+    )
 
 
 # ── Auto-refresh every 60s for live price ──────────────────────────────────
