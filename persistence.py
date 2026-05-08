@@ -62,6 +62,10 @@ def update_signal_status(ticker: str, signal: str, entry: float,
     prev_sig = existing.get("signal", "HOLD")
 
     if signal != "HOLD" and (signal != prev_sig or not existing):
+        # Mark old signal as expired when new one fires
+        if existing and existing.get("status") == "ACTIVE":
+            existing["status"] = "EXPIRED_BY_NEW"
+            signals[ticker + "_prev"] = existing
         signals[ticker] = {
             "signal"    : signal,
             "entry"     : entry,
@@ -71,6 +75,19 @@ def update_signal_status(ticker: str, signal: str, entry: float,
             "status"    : "ACTIVE",
         }
         save_active_signals(signals)
+    elif signal == "HOLD" and existing.get("status") == "ACTIVE":
+        # Model moved to HOLD = signal no longer valid
+        from datetime import timedelta as _td
+        _ts = existing.get("timestamp", now.isoformat())
+        try:
+            _age_h = (now - datetime.fromisoformat(_ts).replace(tzinfo=timezone.utc)).total_seconds()/3600
+        except Exception:
+            _age_h = 0
+        # Expire after 24h if model goes HOLD
+        if _age_h > 24:
+            existing["status"] = "EXPIRED"
+            signals[ticker] = existing
+            save_active_signals(signals)
 
     sig_data = signals.get(ticker, {})
     if not sig_data or sig_data.get("signal") == "HOLD":
