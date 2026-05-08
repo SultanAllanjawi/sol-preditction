@@ -529,7 +529,9 @@ with tab1:
     ax1.annotate('',xy=(next_dt,tgt),xytext=(D[-1],float(cl[-1])),
         arrowprops=dict(arrowstyle='-|>',color=arrc,lw=2.5,mutation_scale=16))
     ax1.scatter([next_dt],[tgt],marker='*',s=220,color=C_GOLD,zorder=9)
-    ax1.annotate(f'  TOMORROW\n  {last_sig}\n  TP:${tp_price:,.2f}\n  SL:${sl_price:,.2f}',
+    _tp_txt = f"TP:${tp_price:,.2f}" if tp_price is not None else "HOLD"
+    _sl_txt = f"SL:${sl_price:,.2f}" if sl_price is not None else "No trade"
+    ax1.annotate(f'  TOMORROW\n  {last_sig}\n  {_tp_txt}\n  {_sl_txt}',
         (next_dt,tgt),fontsize=8,color=arrc,fontweight='bold',
         xytext=(8,0),textcoords='offset points',
         bbox=dict(boxstyle='round,pad=0.35',fc='#161B22',ec='#30363D',alpha=0.95))
