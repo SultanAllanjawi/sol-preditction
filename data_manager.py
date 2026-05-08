@@ -58,6 +58,21 @@ TICKER_INFO = {
     "AMZN":     {"name":"Amazon",           "type":"stock"},
     "GOOGL":    {"name":"Google",           "type":"stock"},
 }
+
+# ── UAE DFM/ADX → Yahoo Finance ticker translation ──────────────────
+UAE_YAHOO_MAP = {
+    "EMAAR.DFM" : "EMAAR.AE",
+    "ENBD.DFM"  : "ENBD.AE",
+    "DIB.DFM"   : "DIB.AE",
+    "DU.DFM"    : "DU.AE",
+    "DEWA.DFM"  : "DEWA.AE",
+    "SALIK.DFM" : "SALIK.AE",
+    "FAB.ADX"   : "FAB.AE",
+    "ALDAR.ADX" : "ALDAR.AE",
+    "ADCB.ADX"  : "ADCB.AE",
+    "MASQ.DFM"  : "MASQ.AE",
+}
+
 HDR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
@@ -226,6 +241,42 @@ class DataManager:
             except Exception: continue
         return None
 
+
+    def _yahoo_uae(self):
+        """Fetch UAE DFM/ADX stocks using Yahoo Finance .AE suffix."""
+        yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
+        for base in ["https://query1.finance.yahoo.com",
+                     "https://query2.finance.yahoo.com"]:
+            try:
+                r = requests.get(
+                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5y",
+                    headers=HDR, timeout=15)
+                if r.status_code != 200: continue
+                result = r.json()["chart"]["result"][0]
+                ts     = result["timestamp"]
+                q      = result["indicators"]["quote"][0]
+                dates  = [datetime.fromtimestamp(t, tz=timezone.utc).date() for t in ts]
+                df = pd.DataFrame({
+                    "Date"  : dates,
+                    "Open"  : q.get("open",  [None]*len(ts)),
+                    "High"  : q.get("high",  [None]*len(ts)),
+                    "Low"   : q.get("low",   [None]*len(ts)),
+                    "Close" : q.get("close", [None]*len(ts)),
+                    "Volume": [v/1e6 if v else 0
+                               for v in q.get("volume", [0]*len(ts))],
+                })
+                df["Date"] = pd.to_datetime(df["Date"])
+                df = df.dropna(subset=["Close"])
+                df["Change_Pct"] = df["Close"].pct_change() * 100
+                df = (df.sort_values("Date")
+                        .drop_duplicates("Date")
+                        .reset_index(drop=True))
+                if len(df) >= 30:
+                    return df
+            except Exception:
+                continue
+        return None
+
     def _coingecko(self):
         t=self.ticker.replace("-USD","").upper()
         coin=COINGECKO_MAP.get(self.ticker,COINGECKO_MAP.get(t))
@@ -347,6 +398,24 @@ class DataManager:
     # ── Static helpers ──────────────────────────────────────────────
     @staticmethod
     def get_live_price(ticker: str) -> float | None:
+        # UAE stocks: use Yahoo Finance .AE suffix
+        if ticker in UAE_YAHOO_MAP:
+            yf_ticker = UAE_YAHOO_MAP[ticker]
+            for base in ["https://query1.finance.yahoo.com",
+                         "https://query2.finance.yahoo.com"]:
+                try:
+                    r = requests.get(
+                        f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5d",
+                        headers=HDR, timeout=5)
+                    if r.status_code == 200:
+                        closes = (r.json()["chart"]["result"][0]
+                                  ["indicators"]["quote"][0]["close"])
+                        p = next((c for c in reversed(closes) if c), None)
+                        if p: return float(p)
+                except Exception:
+                    pass
+            return None
+
         sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
         if sym:
             try:
