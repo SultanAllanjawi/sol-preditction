@@ -312,19 +312,39 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
         st.session_state[_prev_sig_key] = _cur_sig
 
     except Exception as e:
+        _uae_list = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                      "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+        _is_uae_err = ticker in _uae_list
         st.markdown(f"""
 <div style="background:#2D1B1B;border:2px solid #F85149;border-radius:10px;padding:20px 24px;margin:20px 0">
-  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">❌ Error Loading Data</div>
-  <div style="color:#F0F6FC;font-size:0.9rem;font-family:monospace">{str(e)}</div>
+  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">
+    ❌ Error Loading Data for {ticker}
+  </div>
+  <div style="color:#F0F6FC;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
 </div>""", unsafe_allow_html=True)
-        st.markdown("""
+        if _is_uae_err:
+            st.markdown("""
+<div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
+  <div style="color:#E3B341;font-weight:bold;margin-bottom:10px">
+    🇦🇪 UAE Stock — Auto-loading via yfinance
+  </div>
+  <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.9">
+    UAE stocks load automatically from Yahoo Finance using the <b>yfinance</b> library.<br>
+    This works on Streamlit Cloud. If you see this error, try these steps:<br>
+    1. Click <b>Force Refresh Data</b> button in the sidebar<br>
+    2. Make sure <b>data_manager.py</b> is updated on GitHub (latest version)<br>
+    3. If still failing: go to <b>🇦🇪 DFM Market</b> tab to see the live chart while data loads
+  </div>
+</div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
 <div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
   <div style="color:#E3B341;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
   <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.8">
-    1. Make sure ALL 4 files are updated on GitHub: <code>app.py</code>, <code>data_manager.py</code>, <code>model_engine.py</code>, <code>requirements.txt</code><br>
-    2. For crypto (SOL, BTC, ETH): data auto-loads from Binance — no action needed<br>
-    3. For stocks or Dubai assets: upload a CSV using the sidebar uploader<br>
-    4. Try clicking <b>Force Refresh Data</b> in the sidebar
+    1. For crypto (SOL, BTC, ETH): auto-loads from Binance<br>
+    2. For US stocks: auto-loads from Yahoo Finance<br>
+    3. Click <b>Force Refresh Data</b> in the sidebar<br>
+    4. Make sure all files are updated on GitHub
   </div>
 </div>""", unsafe_allow_html=True)
         st.stop()
@@ -778,7 +798,33 @@ body{{background:#0D1117}}
   </div>
 </div>
 """
-    st.components.v1.html(_tv_live_html, height=670, scrolling=False)
+    if ticker in _UAE_TICKERS_TAB:
+        # UAE stocks: use Investing.com iframe (TradingView widget doesn't work for DFM)
+        _inv_slug = _INV_SLUGS.get(ticker, ticker.lower().replace(".", "-"))
+        _inv_live_url = f"https://www.investing.com/equities/{_inv_slug}-chart"
+        _inv_live_html = (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0D1117;}'
+            '.tb{background:#161B22;border-bottom:1px solid #30363D;padding:8px 16px;'
+            'display:flex;gap:10px;align-items:center;}'
+            '.btn{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;'
+            'padding:5px 12px;text-decoration:none;font-size:0.80rem;font-family:sans-serif;}'
+            '.btn:hover{background:#1F6FEB;color:white;}</style>'
+            '</head><body>'
+            f'<div class="tb">'
+            f'<a class="btn" href="{_inv_live_url}" target="_blank">↗ Full Chart on Investing.com</a>'
+            f'<a class="btn" href="https://www.dfm.ae/the-exchange/market-data/equities-prices" target="_blank">📊 DFM Official</a>'
+            f'<a class="btn" href="https://www.tradingview.com/chart/?symbol={_tv_sym}" target="_blank">📈 TradingView</a>'
+            f'<span style="color:#8B949E;font-size:0.75rem">{name} · {ticker}</span>'
+            f'</div>'
+            f'<iframe src="{_inv_live_url}" style="width:100%;height:620px;border:none;"'
+            ' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"'
+            ' referrerpolicy="no-referrer-when-downgrade" loading="lazy"></iframe>'
+            '</body></html>'
+        )
+        st.components.v1.html(_inv_live_html, height=670, scrolling=False)
+    else:
+        st.components.v1.html(_tv_live_html, height=670, scrolling=False)
 
     # ── Signal history table under the live chart ─────────────────
     if not sig_hist.empty:
