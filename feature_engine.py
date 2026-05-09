@@ -1,6 +1,11 @@
 """
-feature_engine.py — builds all 60+ features used by the ML models.
-Same logic as the Colab notebook so predictions are consistent.
+feature_engine.py v2
+────────────────────
+Builds 65+ features for ML models.
+New in v2:
+  • Sentiment score injected as feature (if provided)
+  • Hour-of-day + day-of-week features for intraday signals
+  • Intraday volatility features (when hourly data available)
 """
 
 import numpy as np
@@ -8,16 +13,27 @@ import pandas as pd
 from scipy import signal as scipy_signal
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
+def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFrame:
     """
-    Input : raw OHLCV DataFrame (index = Date)
+    Input : raw OHLCV DataFrame (index = Date or Datetime)
     Output: feature-rich DataFrame with Target column
+
+    sentiment_score: -1.0 (very bearish) to +1.0 (very bullish), 0.0 = neutral
     """
     d = df.copy()
 
+    # ── Detect intraday (hourly) vs daily ─────────────────────────────────────
+    _is_intraday = False
+    if hasattr(d.index, 'hour'):
+        _diffs = d.index.to_series().diff().dropna()
+        if len(_diffs) > 0:
+            _median_hrs = _diffs.median().total_seconds() / 3600
+            _is_intraday = _median_hrs <= 4
+
     # ── Savitzky-Golay denoising ───────────────────────────────────────────────
-    if len(d) >= 11:
-        d["Smooth"] = scipy_signal.savgol_filter(d["Close"].values, 11, 3)
+    _wlen = 11 if not _is_intraday else 7
+    if len(d) >= _wlen:
+        d["Smooth"] = scipy_signal.savgol_filter(d["Close"].values, _wlen, 3)
     else:
         d["Smooth"] = d["Close"]
 
@@ -25,8 +41,9 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     C = d["Close"]
 
     # ── Moving Averages ────────────────────────────────────────────────────────
-    for w in [5, 10, 20, 50, 100]:
-        d[f"SMA{w}"] = P.rolling(w).mean()
+    _windows = [5, 10, 20, 50, 100] if not _is_intraday else [5, 10, 20, 48, 96]
+    for w in _windows:
+        d[f"SMA{w}"] = P.rolling(w, min_periods=1).mean()
         d[f"EMA{w}"] = P.ewm(span=w, adjust=False).mean()
 
     d["X_5_20"]   = (d["SMA5"]  > d["SMA20"]).astype(int)
@@ -42,27 +59,28 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     d["MACD_cross"] = (d["MACD"] > d["MACD_sig"]).astype(int)
     d["MACD_div"]   = d["MACD_hist"] - d["MACD_hist"].shift(1)
 
-    # ── RSI (14) ───────────────────────────────────────────────────────────────
+    # ── RSI ────────────────────────────────────────────────────────────────────
     delta = P.diff()
-    gain  = delta.clip(lower=0).rolling(14).mean()
-    loss  = (-delta.clip(upper=0)).rolling(14).mean()
-    d["RSI"]    = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
-    d["RSI_OB"] = (d["RSI"] > 70).astype(int)
-    d["RSI_OS"] = (d["RSI"] < 30).astype(int)
-    d["RSI_mid"]= ((d["RSI"] >= 45) & (d["RSI"] <= 55)).astype(int)
+    gain  = delta.clip(lower=0).rolling(14, min_periods=1).mean()
+    loss  = (-delta.clip(upper=0)).rolling(14, min_periods=1).mean()
+    d["RSI"]     = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
+    d["RSI_OB"]  = (d["RSI"] > 70).astype(int)
+    d["RSI_OS"]  = (d["RSI"] < 30).astype(int)
+    d["RSI_mid"] = ((d["RSI"] >= 45) & (d["RSI"] <= 55)).astype(int)
 
-    r_min, r_max   = d["RSI"].rolling(14).min(), d["RSI"].rolling(14).max()
-    d["StochRSI"]  = (d["RSI"] - r_min) / (r_max - r_min + 1e-9)
-    d["StRSI_K"]   = d["StochRSI"].rolling(3).mean()
-    d["StRSI_D"]   = d["StRSI_K"].rolling(3).mean()
+    r_min = d["RSI"].rolling(14, min_periods=1).min()
+    r_max = d["RSI"].rolling(14, min_periods=1).max()
+    d["StochRSI"] = (d["RSI"] - r_min) / (r_max - r_min + 1e-9)
+    d["StRSI_K"]  = d["StochRSI"].rolling(3, min_periods=1).mean()
+    d["StRSI_D"]  = d["StRSI_K"].rolling(3, min_periods=1).mean()
 
     # ── Bollinger Bands ────────────────────────────────────────────────────────
-    bb_std   = P.rolling(20).std()
-    d["BB_U"]= d["SMA20"] + 2 * bb_std
-    d["BB_L"]= d["SMA20"] - 2 * bb_std
-    d["BB_W"]= (d["BB_U"] - d["BB_L"]) / (d["SMA20"] + 1e-9)
-    d["BB_P"]= (P - d["BB_L"]) / (d["BB_U"] - d["BB_L"] + 1e-9)
-    d["BB_SQ"]= (d["BB_W"] < d["BB_W"].rolling(20).mean()).astype(int)
+    bb_std    = P.rolling(20, min_periods=1).std()
+    d["BB_U"] = d["SMA20"] + 2 * bb_std
+    d["BB_L"] = d["SMA20"] - 2 * bb_std
+    d["BB_W"] = (d["BB_U"] - d["BB_L"]) / (d["SMA20"] + 1e-9)
+    d["BB_P"] = (P - d["BB_L"]) / (d["BB_U"] - d["BB_L"] + 1e-9)
+    d["BB_SQ"]= (d["BB_W"] < d["BB_W"].rolling(20, min_periods=1).mean()).astype(int)
 
     # ── ATR ────────────────────────────────────────────────────────────────────
     tr = pd.concat([
@@ -70,81 +88,102 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         (d["High"] - C.shift()).abs(),
         (d["Low"]  - C.shift()).abs(),
     ], axis=1).max(axis=1)
-    d["ATR"]      = tr.rolling(14).mean()
-    d["ATR_pct"]  = d["ATR"] / (P + 1e-9)
-    d["ATR_trend"]= d["ATR"] - d["ATR"].rolling(5).mean()
+    d["ATR"]       = tr.rolling(14, min_periods=1).mean()
+    d["ATR_pct"]   = d["ATR"] / (P + 1e-9)
+    d["ATR_trend"] = d["ATR"] - d["ATR"].rolling(5, min_periods=1).mean()
 
-    # ── Returns & lags ─────────────────────────────────────────────────────────
-    for n in [1, 2, 3, 5, 7, 10, 14, 20]:
-        d[f"Ret{n}"]  = P.pct_change(n)
-        d[f"RRaw{n}"] = C.pct_change(n)
+    # ── Returns & Lags ────────────────────────────────────────────────────────
+    for lag in [1, 2, 3, 5, 7, 10, 14, 20]:
+        d[f"Ret{lag}"]  = P.pct_change(lag) * 100
+    for lag in [1, 3, 5]:
+        d[f"RRaw{lag}"] = C.diff(lag)
 
-    for lag in [1, 2, 3, 5, 7, 10]:
-        d[f"Lag{lag}"]  = P.shift(lag)
-        d[f"LagR{lag}"] = d["Ret1"].shift(lag)
+    # ── Volume features ───────────────────────────────────────────────────────
+    vol = d.get("Volume", pd.Series(1.0, index=d.index))
+    d["Vol_MA20"]   = vol.rolling(20, min_periods=1).mean()
+    d["Vol_ratio"]  = vol / (d["Vol_MA20"] + 1e-9)
+    d["Vol_spike"]  = (d["Vol_ratio"] > 2.0).astype(int)
+    d["OBV"]        = (np.sign(C.diff()) * vol).cumsum()
+    d["OBV_MA"]     = d["OBV"].rolling(10, min_periods=1).mean()
+    d["OBV_trend"]  = (d["OBV"] > d["OBV_MA"]).astype(int)
 
-    # ── Volatility ─────────────────────────────────────────────────────────────
-    d["HV5"]    = d["Ret1"].rolling(5).std()
-    d["HV20"]   = d["Ret1"].rolling(20).std()
-    d["VIX_like"]= d["HV20"] / (d["HV5"] + 1e-9)
+    # ── Candle body features ──────────────────────────────────────────────────
+    d["Body"]       = (C - d["Open"]).abs()
+    d["UpWick"]     = d["High"] - d[["Close","Open"]].max(axis=1)
+    d["DnWick"]     = d[["Close","Open"]].min(axis=1) - d["Low"]
+    d["BullCandle"] = (C > d["Open"]).astype(int)
+    d["BodyRatio"]  = d["Body"] / (d["High"] - d["Low"] + 1e-9)
 
-    # ── Candle ─────────────────────────────────────────────────────────────────
-    d["Body"]      = (C - d["Open"]).abs() / (d["ATR"] + 1e-9)
-    d["HL_span"]   = (d["High"] - d["Low"]) / (C + 1e-9)
-    d["Gap"]       = (d["Open"] - C.shift()) / (C.shift() + 1e-9)
-    d["Bull_bar"]  = (C > d["Open"]).astype(int)
-    d["Up_wick"]   = (d["High"] - d[["Close","Open"]].max(axis=1)) / (d["ATR"] + 1e-9)
-    d["Down_wick"] = (d[["Close","Open"]].min(axis=1) - d["Low"])  / (d["ATR"] + 1e-9)
+    # ── Market regime ────────────────────────────────────────────────────────
+    d["Regime"]     = (d["SMA20"] > d["SMA50"]).astype(int)
+    d["Trend_str"]  = (P - P.rolling(20, min_periods=1).mean()) / (P.rolling(20, min_periods=1).std() + 1e-9)
 
-    # ── Volume ─────────────────────────────────────────────────────────────────
-    d["VolMA5"]   = d["Volume"].rolling(5).mean()
-    d["VolMA20"]  = d["Volume"].rolling(20).mean()
-    d["VolRatio"] = d["Volume"] / (d["VolMA5"] + 1e-9)
-    d["VolChg"]   = d["Volume"].pct_change()
-    d["VolSurge"] = (d["VolRatio"] > 2.0).astype(int)
-    d["OBV"]      = (np.sign(d["Ret1"]) * d["Volume"]).cumsum()
-    d["OBV_sig"]  = (d["OBV"] > d["OBV"].rolling(10).mean()).astype(int)
+    # ── Noise / Efficiency ────────────────────────────────────────────────────
+    d["Noise"]      = d["ATR"] / (P.diff(5).abs() + 1e-9)
+    d["Efficiency"] = P.diff(10).abs() / (d["ATR"].rolling(10, min_periods=1).sum() + 1e-9)
 
-    # ── Price position / regime ────────────────────────────────────────────────
-    d["P_SMA20"]   = (P - d["SMA20"]) / (d["SMA20"] + 1e-9)
-    d["P_SMA50"]   = (P - d["SMA50"]) / (d["SMA50"] + 1e-9)
-    d["P_SMA100"]  = (P - d["SMA100"])/ (d["SMA100"]+ 1e-9)
-    d["Regime"]    = (P > d["SMA50"]).astype(int)
-    d["Regime_chg"]= d["Regime"].diff().abs()
-    d["Wk_trend"]  = d["Ret5"].rolling(3).mean()
-    d["Mo_trend"]  = d["Ret20"].rolling(5).mean()
-    d["Trend_str"] = d["P_SMA20"] - d["P_SMA50"]
+    # ── Intraday features (hourly data only) ──────────────────────────────────
+    if _is_intraday and hasattr(d.index, 'hour'):
+        d["Hour"]       = d.index.hour / 23.0
+        d["DayOfWeek"]  = d.index.dayofweek / 6.0
+        d["IsAsiaOpen"] = ((d.index.hour >= 0) & (d.index.hour < 8)).astype(int)
+        d["IsEUOpen"]   = ((d.index.hour >= 7) & (d.index.hour < 15)).astype(int)
+        d["IsUSOpen"]   = ((d.index.hour >= 13) & (d.index.hour < 21)).astype(int)
+        # Intraday high/low position
+        d["DayHigh"]    = d["High"].rolling(24, min_periods=1).max()
+        d["DayLow"]     = d["Low"].rolling(24, min_periods=1).min()
+        d["PosInDay"]   = (C - d["DayLow"]) / (d["DayHigh"] - d["DayLow"] + 1e-9)
+    else:
+        d["Hour"]       = 0.5
+        d["DayOfWeek"]  = d.index.dayofweek / 6.0 if hasattr(d.index, 'dayofweek') else 0.5
+        d["IsAsiaOpen"] = 0
+        d["IsEUOpen"]   = 0
+        d["IsUSOpen"]   = 0
+        d["DayHigh"]    = d["High"].rolling(5, min_periods=1).max()
+        d["DayLow"]     = d["Low"].rolling(5, min_periods=1).min()
+        d["PosInDay"]   = (C - d["DayLow"]) / (d["DayHigh"] - d["DayLow"] + 1e-9)
 
-    # ── Noise feature ──────────────────────────────────────────────────────────
-    d["Noise"]  = C - d["Smooth"]
-    d["Noise_z"]= (d["Noise"] - d["Noise"].rolling(20).mean()) / (d["Noise"].rolling(20).std() + 1e-9)
+    # ── News Sentiment Feature ────────────────────────────────────────────────
+    # sentiment_score: -1.0 to +1.0 (from CryptoPanic votes)
+    # Applied to all rows so model knows current sentiment context
+    d["Sentiment"]      = float(sentiment_score)
+    d["Sentiment_Bull"] = (float(sentiment_score) > 0.1).astype(int)
+    d["Sentiment_Bear"] = (float(sentiment_score) < -0.1).astype(int)
 
-    # ── Targets ────────────────────────────────────────────────────────────────
-    d["Target"]   = (C.shift(-1) > C).astype(int)
-    d["NextClose"]=  C.shift(-1)
+    # ── Target ───────────────────────────────────────────────────────────────
+    d["NextClose"] = C.shift(-1)
+    d["Target"]    = (d["NextClose"] > C).astype(int)
 
-    d.dropna(inplace=True)
+    d.dropna(subset=["Target", "Close"], inplace=True)
     return d
 
 
-# Feature columns used for training (keep in sync with model_engine.py)
 FEATURE_COLS = [
+    # Price & smoothed
     "Close","Open","High","Low","Volume","Change_Pct","Smooth",
+    # Moving averages
     "SMA5","SMA10","SMA20","SMA50","SMA100",
     "EMA5","EMA10","EMA20","EMA50","EMA100",
     "X_5_20","X_20_50","X_E12_26",
+    # MACD
     "MACD","MACD_sig","MACD_hist","MACD_cross","MACD_div",
+    # RSI
     "RSI","RSI_OB","RSI_OS","RSI_mid","StochRSI","StRSI_K","StRSI_D",
+    # Bollinger
     "BB_U","BB_L","BB_W","BB_P","BB_SQ",
+    # ATR
     "ATR","ATR_pct","ATR_trend",
+    # Returns
     "Ret1","Ret2","Ret3","Ret5","Ret7","Ret10","Ret14","Ret20",
-    "RRaw1","RRaw3","RRaw5","RRaw10",
-    "Lag1","Lag2","Lag3","Lag5","Lag7","Lag10",
-    "LagR1","LagR2","LagR3","LagR5",
-    "HV5","HV20","VIX_like",
-    "Body","HL_span","Gap","Bull_bar","Up_wick","Down_wick",
-    "VolRatio","VolChg","VolSurge","OBV_sig","VolMA20",
-    "P_SMA20","P_SMA50","P_SMA100",
-    "Regime","Regime_chg","Wk_trend","Mo_trend","Trend_str",
-    "Noise_z",
+    "RRaw1","RRaw3","RRaw5",
+    # Volume
+    "Vol_MA20","Vol_ratio","Vol_spike","OBV","OBV_MA","OBV_trend",
+    # Candle
+    "Body","UpWick","DnWick","BullCandle","BodyRatio",
+    # Regime
+    "Regime","Trend_str","Noise","Efficiency",
+    # Time features
+    "Hour","DayOfWeek","IsAsiaOpen","IsEUOpen","IsUSOpen","PosInDay",
+    # Sentiment
+    "Sentiment","Sentiment_Bull","Sentiment_Bear",
 ]
