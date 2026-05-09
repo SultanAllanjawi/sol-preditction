@@ -1228,19 +1228,16 @@ with tab2:
     _mode_label = "1h Intraday" if _intraday else "Daily"
     st.caption(f"Model: {_mode_label} · Showing last {len(te_df)} candles of predictions")
     dark_fig()
-    # Recompute with proper alignment check
     try:
-        _pp_valid = price_pred[price_pred > 0] if len(price_pred) > 0 else price_pred
-        _yt_valid = y_price_te[:len(_pp_valid)]
-        if len(_pp_valid) > 5 and np.std(_pp_valid) > 0.001:
-            rmse = float(np.sqrt(mean_squared_error(_yt_valid, _pp_valid)))
-            mae  = float(mean_absolute_error(_yt_valid, _pp_valid))
-            mape = float(np.mean(np.abs((_yt_valid-_pp_valid)/(_yt_valid+1e-9)))*100)
+        if len(price_pred) > 5 and np.std(price_pred) > 0.001:
+            rmse = float(np.sqrt(mean_squared_error(y_price_te, price_pred)))
+            mae  = float(mean_absolute_error(y_price_te, price_pred))
+            mape = float(np.mean(np.abs((y_price_te - price_pred) / (y_price_te + 1e-9))) * 100)
         else:
             rmse = mae = mape = 0.0
         dacc = float(accuracy_score(y_te, ens_pred))
     except Exception:
-        rmse=mae=mape=0.0; dacc=ens_acc
+        rmse = mae = mape = 0.0; dacc = ens_acc
 
     m1,m2,m3,m4=st.columns(4)
     m1.metric("RMSE",f"${rmse:.4f}")
