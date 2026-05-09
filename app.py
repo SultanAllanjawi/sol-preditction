@@ -242,20 +242,18 @@ with st.sidebar:
     if ticker in st.session_state.uploaded_assets:
         st.success(f"📂 Using uploaded CSV for **{ticker}**")
     elif ticker in _UAE_LIST:
-        st.info(f"📡 Auto-fetching from **Yahoo Finance (.AE)** · Updates every 30 min")
-        # Quick chart link for UAE stocks
-        _tv_sym_side = {
-            "EMAAR.DFM":"DFM:EMAAR","ENBD.DFM":"DFM:ENBD","DIB.DFM":"DFM:DIB",
-            "DU.DFM":"DFM:DU","DEWA.DFM":"DFM:DEWA","SALIK.DFM":"DFM:SALIK",
-            "FAB.ADX":"ADX:FAB","ALDAR.ADX":"ADX:ALDAR",
-            "ADCB.ADX":"ADX:ADCB","MASQ.DFM":"DFM:MASQ",
-        }.get(ticker, ticker)
-        st.markdown(
-            f'<a href="https://www.tradingview.com/chart/?symbol={_tv_sym_side}" '
-            f'target="_blank" style="color:#58A6FF;font-size:0.82rem">'
-            f'📈 Open {ticker} live chart on TradingView ↗</a>',
-            unsafe_allow_html=True
+        _uae_names_sb = {
+            "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
+            "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
+            "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
+            "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
+            "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
+        }
+        st.success(
+            f"🇦🇪 **{_uae_names_sb.get(ticker, ticker)}** · "
+            f"Live chart shown below ↓"
         )
+        st.caption("Scroll down past the tabs to see the live chart")
     else:
         src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","MATIC","LINK","XRP","LTC"] else "Yahoo Finance"
         st.info(f"📡 Auto-fetching from **{src}** · Updates every 30 min")
@@ -391,292 +389,320 @@ if not _is_crypto:
 next_str       = _next_date.strftime('%A %d %b %Y')
 next_str_short = _next_date.strftime('%a %d %b')
 
-# ── Unpack + align ─────────────────────────────────────────────────
-last_date   = df_feat.index[-1]
-last_close  = float(df_feat['Close'].iloc[-1])
-prev_close  = float(df_feat['Close'].iloc[-2])
-day_chg     = (last_close - prev_close) / prev_close * 100
+# ── Unpack results (skipped for UAE stocks) ───────────────────────
+if not _is_uae_stock:
+    # ── Unpack + align ─────────────────────────────────────────────────
+    last_date   = df_feat.index[-1]
+    last_close  = float(df_feat['Close'].iloc[-1])
+    prev_close  = float(df_feat['Close'].iloc[-2])
+    day_chg     = (last_close - prev_close) / prev_close * 100
 
-# Get LIVE price (may differ from yesterday's close)
-live_price = DataManager.get_live_price(ticker)
-display_price = live_price if live_price else last_close
+    # Get LIVE price (may differ from yesterday's close)
+    live_price = DataManager.get_live_price(ticker)
+    display_price = live_price if live_price else last_close
 
-ens_proba  = results['ens_proba']
-ens_pred   = results['ens_pred']
-y_te       = results['y_te']
-signals    = results['signals']
-te_df      = results['te_df']
-price_pred = results['price_pred']
-y_price_te = results['y_price_te']
-model_data = results['model_data']
-sig_hist   = results['signal_history']
-HIGH       = results['HIGH']
-LOW        = results['LOW']
-ens_acc    = results['ensemble_acc']
-ens_filt   = results['ensemble_filt_acc']
-last_prob  = results['last_prob']
-last_sig   = results['last_signal']
-last_conf  = results['last_confidence']
+    ens_proba  = results['ens_proba']
+    ens_pred   = results['ens_pred']
+    y_te       = results['y_te']
+    signals    = results['signals']
+    te_df      = results['te_df']
+    price_pred = results['price_pred']
+    y_price_te = results['y_price_te']
+    model_data = results['model_data']
+    sig_hist   = results['signal_history']
+    HIGH       = results['HIGH']
+    LOW        = results['LOW']
+    ens_acc    = results['ensemble_acc']
+    ens_filt   = results['ensemble_filt_acc']
+    last_prob  = results['last_prob']
+    last_sig   = results['last_signal']
+    last_conf  = results['last_confidence']
 
-# Align all to same length
-n = min(len(te_df),len(ens_proba),len(ens_pred),len(y_te),
-        len(signals),len(price_pred),len(y_price_te))
-te_df      = te_df.iloc[-n:]
-ens_proba  = ens_proba[-n:]
-ens_pred   = ens_pred[-n:]
-y_te       = y_te[-n:]
-signals    = signals[-n:]
-price_pred = price_pred[-n:]
-y_price_te = y_price_te[-n:]
+    # Align all to same length
+    n = min(len(te_df),len(ens_proba),len(ens_pred),len(y_te),
+            len(signals),len(price_pred),len(y_price_te))
+    te_df      = te_df.iloc[-n:]
+    ens_proba  = ens_proba[-n:]
+    ens_pred   = ens_pred[-n:]
+    y_te       = y_te[-n:]
+    signals    = signals[-n:]
+    price_pred = price_pred[-n:]
+    y_price_te = y_price_te[-n:]
 
-# ── Signal change alert toast ──────────────────────────────────────────────
-_current_sig = results['last_signal']
-if _prev_sig is not None and _prev_sig != _current_sig:
-    if _current_sig == "BUY":
-        st.toast(f"🟢 Signal changed to BUY for {ticker}!", icon="🟢")
-    elif _current_sig == "SELL":
-        st.toast(f"🔴 Signal changed to SELL for {ticker}!", icon="🔴")
+    # ── Signal change alert toast ──────────────────────────────────────────────
+    _current_sig = results['last_signal']
+    if _prev_sig is not None and _prev_sig != _current_sig:
+        if _current_sig == "BUY":
+            st.toast(f"🟢 Signal changed to BUY for {ticker}!", icon="🟢")
+        elif _current_sig == "SELL":
+            st.toast(f"🔴 Signal changed to SELL for {ticker}!", icon="🔴")
+        else:
+            st.toast(f"⚪ Signal changed to HOLD for {ticker}", icon="⚪")
+    # Store current signal for next refresh
+    st.session_state[f"prev_signal_{ticker}"] = _current_sig
+
+    # ── ATR-based TP / SL ─────────────────────────────────────────────
+    # Use the last ATR value to set realistic TP and SL
+    last_atr    = float(df_feat['ATR'].iloc[-1]) if 'ATR' in df_feat.columns else display_price * 0.03
+    atr_pct     = last_atr / display_price
+
+    # BUY: TP = price + 2×ATR  |  SL = price - 1.5×ATR
+    # SELL: TP = price - 2×ATR  |  SL = price + 1.5×ATR
+    if last_sig == "BUY":
+        entry_p  = round(display_price * 0.999, 4)  # slight dip entry
+        tp_price = round(display_price + 2.0 * last_atr, 4)
+        sl_price = round(display_price - 1.5 * last_atr, 4)
+    elif last_sig == "SELL":
+        entry_p  = round(display_price * 1.001, 4)
+        tp_price = round(display_price - 2.0 * last_atr, 4)
+        sl_price = round(display_price + 1.5 * last_atr, 4)
     else:
-        st.toast(f"⚪ Signal changed to HOLD for {ticker}", icon="⚪")
-# Store current signal for next refresh
-st.session_state[f"prev_signal_{ticker}"] = _current_sig
+        # HOLD — no trade, so no entry/TP/SL
+        entry_p  = display_price
+        tp_price = None
+        sl_price = None
 
-# ── ATR-based TP / SL ─────────────────────────────────────────────
-# Use the last ATR value to set realistic TP and SL
-last_atr    = float(df_feat['ATR'].iloc[-1]) if 'ATR' in df_feat.columns else display_price * 0.03
-atr_pct     = last_atr / display_price
+    if last_sig == "HOLD":
+        rr = 0.0
+        tp_pct = 0.0
+        sl_pct = 0.0
+        tp_str = "— (No signal)"
+        sl_str = "— (No signal)"
+    else:
+        rr = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
+        tp_pct = (tp_price - display_price) / display_price * 100
+        sl_pct = (sl_price - display_price) / display_price * 100
+        tp_str = f"${tp_price:,.4f}"
+        sl_str = f"${sl_price:,.4f}" 
 
-# BUY: TP = price + 2×ATR  |  SL = price - 1.5×ATR
-# SELL: TP = price - 2×ATR  |  SL = price + 1.5×ATR
-if last_sig == "BUY":
-    entry_p  = round(display_price * 0.999, 4)  # slight dip entry
-    tp_price = round(display_price + 2.0 * last_atr, 4)
-    sl_price = round(display_price - 1.5 * last_atr, 4)
-elif last_sig == "SELL":
-    entry_p  = round(display_price * 1.001, 4)
-    tp_price = round(display_price - 2.0 * last_atr, 4)
-    sl_price = round(display_price + 1.5 * last_atr, 4)
-else:
-    # HOLD — no trade, so no entry/TP/SL
-    entry_p  = display_price
-    tp_price = None
-    sl_price = None
+    # ═══════════════════════════════════════════════════════════════════
+    # HEADER
+    # ═══════════════════════════════════════════════════════════════════
+    name = DataManager.get_ticker_name(ticker) or ticker
+    col_h, col_p = st.columns([5,1])
+    with col_h:
+        st.markdown(f"## 🔮 {name} (`{ticker}`) Prediction Dashboard")
+        data_src = "Binance" if any(ticker.replace("-USD","").upper() == k.replace("-USD","") for k in ["SOL","BTC","ETH"]) else "Yahoo Finance"
+        st.caption(
+            f"Data source: **{data_src}** · "
+            f"Last candle: **{last_date.strftime('%A %d %b %Y')}** · "
+            f"{len(df_feat):,} trading days · "
+            f"Refreshes every 6h"
+        )
+    with col_p:
+        label = "Live Price" if live_price else "Last Close"
+        st.metric(label, f"${display_price:,.4f}", delta=f"{day_chg:+.2f}%")
+    st.divider()
 
-if last_sig == "HOLD":
-    rr = 0.0
-    tp_pct = 0.0
-    sl_pct = 0.0
-    tp_str = "— (No signal)"
-    sl_str = "— (No signal)"
-else:
-    rr = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
-    tp_pct = (tp_price - display_price) / display_price * 100
-    sl_pct = (sl_price - display_price) / display_price * 100
-    tp_str = f"${tp_price:,.4f}"
-    sl_str = f"${sl_price:,.4f}" 
+    # ═══════════════════════════════════════════════════════════════════
+    # TOP METRICS
+    # ═══════════════════════════════════════════════════════════════════
+    c1,c2,c3,c4,c5 = st.columns(5)
+    c1.metric("Model Accuracy",     f"{ens_acc*100:.1f}%")
+    c2.metric("Filtered Accuracy",  f"{ens_filt*100:.1f}%",
+              delta=f"+{(ens_filt-ens_acc)*100:.1f}% vs raw")
+    c3.metric("P(UP Tomorrow)",     f"{last_prob*100:.1f}%",
+              delta="↑ UP" if last_prob>0.5 else "↓ DOWN")
+    c4.metric("ATR (volatility)",   f"${last_atr:.4f}",
+              help="Average True Range — used to set TP and SL")
+    c5.metric("Active Signals",     str(results['n_signals']))
+    st.divider()
 
-# ═══════════════════════════════════════════════════════════════════
-# HEADER
-# ═══════════════════════════════════════════════════════════════════
-name = DataManager.get_ticker_name(ticker) or ticker
-col_h, col_p = st.columns([5,1])
-with col_h:
-    st.markdown(f"## 🔮 {name} (`{ticker}`) Prediction Dashboard")
-    data_src = "Binance" if any(ticker.replace("-USD","").upper() == k.replace("-USD","") for k in ["SOL","BTC","ETH"]) else "Yahoo Finance"
-    st.caption(
-        f"Data source: **{data_src}** · "
-        f"Last candle: **{last_date.strftime('%A %d %b %Y')}** · "
-        f"{len(df_feat):,} trading days · "
-        f"Refreshes every 6h"
-    )
-with col_p:
-    label = "Live Price" if live_price else "Last Close"
-    st.metric(label, f"${display_price:,.4f}", delta=f"{day_chg:+.2f}%")
-st.divider()
+    # ═══════════════════════════════════════════════════════════════════
+    # SIGNAL CARD + 7-DAY OUTLOOK
+    # ═══════════════════════════════════════════════════════════════════
+    st.subheader("🎯 Trading Signals")
+    col_sig, col_7d = st.columns([1, 2])
 
-# ═══════════════════════════════════════════════════════════════════
-# TOP METRICS
-# ═══════════════════════════════════════════════════════════════════
-c1,c2,c3,c4,c5 = st.columns(5)
-c1.metric("Model Accuracy",     f"{ens_acc*100:.1f}%")
-c2.metric("Filtered Accuracy",  f"{ens_filt*100:.1f}%",
-          delta=f"+{(ens_filt-ens_acc)*100:.1f}% vs raw")
-c3.metric("P(UP Tomorrow)",     f"{last_prob*100:.1f}%",
-          delta="↑ UP" if last_prob>0.5 else "↓ DOWN")
-c4.metric("ATR (volatility)",   f"${last_atr:.4f}",
-          help="Average True Range — used to set TP and SL")
-c5.metric("Active Signals",     str(results['n_signals']))
-st.divider()
+    with col_sig:
+        card_cls = "buy-card" if last_sig=="BUY" else "sell-card" if last_sig=="SELL" else "hold-card"
+        emoji    = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
+        sig_c    = C_UP if last_sig=="BUY" else C_DOWN if last_sig=="SELL" else C_GREY
+        # next_str already computed above (central date logic)
+        tp_c  = C_UP   if last_sig=="BUY"  else C_DOWN if last_sig=="SELL" else C_GREY
+        sl_c  = C_DOWN if last_sig=="BUY"  else C_UP   if last_sig=="SELL" else C_GREY
 
-# ═══════════════════════════════════════════════════════════════════
-# SIGNAL CARD + 7-DAY OUTLOOK
-# ═══════════════════════════════════════════════════════════════════
-st.subheader("🎯 Trading Signals")
-col_sig, col_7d = st.columns([1, 2])
+        st.markdown(f"""
+        <div class="signal-card {card_cls}">
+            <div style="font-size:0.80rem;color:#8B949E;margin-bottom:2px">TOMORROW — {next_str}</div>
+            <div style="font-size:2.2rem;font-weight:bold;color:{sig_c};margin:2px 0">{emoji} {last_sig}</div>
+            <div style="color:#8B949E;font-size:0.88rem">Confidence: <b style="color:#E3B341">{last_conf:.1f}%</b>
+            &nbsp;|&nbsp; P(UP): <b style="color:#58A6FF">{last_prob*100:.1f}%</b></div>
+            <hr style="border-color:#30363D;margin:10px 0">
+            <table style="width:100%;font-size:0.88rem;border-collapse:collapse">
+                <tr style="border-bottom:1px solid #30363D">
+                    <td style="color:#8B949E;padding:4px 0">Live Price</td>
+                    <td style="color:#F0F6FC;text-align:right;font-weight:bold">${display_price:,.4f}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #30363D">
+                    <td style="color:#8B949E;padding:4px 0">Entry</td>
+                    <td style="color:#58A6FF;text-align:right;font-weight:bold">${entry_p:,.4f}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #30363D">
+                    <td style="color:#8B949E;padding:4px 0">🎯 Take Profit</td>
+                    <td style="color:{tp_c};text-align:right;font-weight:bold">
+                        {tp_str}{" <span style='font-size:0.8rem'>(" + f"{tp_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
+                    </td>
+                </tr>
+                <tr style="border-bottom:1px solid #30363D">
+                    <td style="color:#8B949E;padding:4px 0">🛑 Stop Loss</td>
+                    <td style="color:{sl_c};text-align:right;font-weight:bold">
+                        {sl_str}{" <span style='font-size:0.8rem'>(" + f"{sl_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:#8B949E;padding:4px 0">Risk/Reward</td>
+                    <td style="color:#F0F6FC;text-align:right;font-weight:bold">1 : {rr:.2f}</td>
+                </tr>
+            </table>
+            <div style="font-size:0.75rem;color:#6E7681;margin-top:8px">
+                TP/SL based on ATR ({atr_pct*100:.2f}% of price) · Not financial advice
+            </div>
+        </div>""", unsafe_allow_html=True)
 
-with col_sig:
-    card_cls = "buy-card" if last_sig=="BUY" else "sell-card" if last_sig=="SELL" else "hold-card"
-    emoji    = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
-    sig_c    = C_UP if last_sig=="BUY" else C_DOWN if last_sig=="SELL" else C_GREY
-    # next_str already computed above (central date logic)
-    tp_c  = C_UP   if last_sig=="BUY"  else C_DOWN if last_sig=="SELL" else C_GREY
-    sl_c  = C_DOWN if last_sig=="BUY"  else C_UP   if last_sig=="SELL" else C_GREY
+        # ── Live signal status tracker ──────────────────────────────────
+        _sig_status = update_signal_status(
+            ticker, last_sig, display_price, tp_price, sl_price, display_price
+        )
+        _ss = _sig_status["status"]
 
-    st.markdown(f"""
-    <div class="signal-card {card_cls}">
-        <div style="font-size:0.80rem;color:#8B949E;margin-bottom:2px">TOMORROW — {next_str}</div>
-        <div style="font-size:2.2rem;font-weight:bold;color:{sig_c};margin:2px 0">{emoji} {last_sig}</div>
-        <div style="color:#8B949E;font-size:0.88rem">Confidence: <b style="color:#E3B341">{last_conf:.1f}%</b>
-        &nbsp;|&nbsp; P(UP): <b style="color:#58A6FF">{last_prob*100:.1f}%</b></div>
-        <hr style="border-color:#30363D;margin:10px 0">
-        <table style="width:100%;font-size:0.88rem;border-collapse:collapse">
-            <tr style="border-bottom:1px solid #30363D">
-                <td style="color:#8B949E;padding:4px 0">Live Price</td>
-                <td style="color:#F0F6FC;text-align:right;font-weight:bold">${display_price:,.4f}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #30363D">
-                <td style="color:#8B949E;padding:4px 0">Entry</td>
-                <td style="color:#58A6FF;text-align:right;font-weight:bold">${entry_p:,.4f}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #30363D">
-                <td style="color:#8B949E;padding:4px 0">🎯 Take Profit</td>
-                <td style="color:{tp_c};text-align:right;font-weight:bold">
-                    {tp_str}{" <span style='font-size:0.8rem'>(" + f"{tp_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
-                </td>
-            </tr>
-            <tr style="border-bottom:1px solid #30363D">
-                <td style="color:#8B949E;padding:4px 0">🛑 Stop Loss</td>
-                <td style="color:{sl_c};text-align:right;font-weight:bold">
-                    {sl_str}{" <span style='font-size:0.8rem'>(" + f"{sl_pct:+.2f}%" + ")</span>" if last_sig != "HOLD" else ""}
-                </td>
-            </tr>
-            <tr>
-                <td style="color:#8B949E;padding:4px 0">Risk/Reward</td>
-                <td style="color:#F0F6FC;text-align:right;font-weight:bold">1 : {rr:.2f}</td>
-            </tr>
-        </table>
-        <div style="font-size:0.75rem;color:#6E7681;margin-top:8px">
-            TP/SL based on ATR ({atr_pct*100:.2f}% of price) · Not financial advice
+        _status_styles = {
+            "ACTIVE"  : ("🟡", "#E3B341", "#2A2400", "Signal is ACTIVE"),
+            "HIT_TP"  : ("🎯", "#3FB950", "#1C2A1C", "TARGET HIT — Signal succeeded!"),
+            "HIT_SL"  : ("🛑", "#F85149", "#2A1C1C", "STOP LOSS HIT — Signal failed"),
+            "EXPIRED" : ("⏰", "#6E7681", "#161B22", "Signal EXPIRED — Do not enter"),
+            "NONE"    : ("⚪", "#6E7681", "#161B22", "Waiting for signal"),
+        }
+        _sicon, _scol, _sbg, _slabel = _status_styles.get(_ss, _status_styles["NONE"])
+
+        # ── Active signals list (all tickers) ──────────────────────────
+        _all_sigs = load_active_signals()
+        _active_list = [
+            (t, s) for t, s in _all_sigs.items()
+            if s.get("status") in ("ACTIVE","HIT_TP","HIT_SL")
+        ]
+        if len(_active_list) > 1:
+            with st.expander(f"📋 All Active Signals ({len(_active_list)} tracked)", expanded=False):
+                for _at, _as in sorted(_active_list, key=lambda x: x[1].get("timestamp",""), reverse=True):
+                    _a_status = _as.get("status","ACTIVE")
+                    _a_sig    = _as.get("signal","")
+                    _a_entry  = _as.get("entry", 0)
+                    _a_tp     = _as.get("tp")
+                    _a_sl     = _as.get("sl")
+                    _a_ic     = "🟡" if _a_status=="ACTIVE" else "🎯" if _a_status=="HIT_TP" else "🛑"
+                    _a_col    = "#E3B341" if _a_status=="ACTIVE" else "#3FB950" if _a_status=="HIT_TP" else "#F85149"
+                    st.markdown(
+                        f'<div style="background:#161B22;border-left:3px solid {_a_col};'
+                        f'border-radius:6px;padding:8px 14px;margin-bottom:5px;'
+                        f'display:flex;justify-content:space-between;align-items:center">'
+                        f'<span style="color:#F0F6FC;font-weight:600">{_at}</span>'
+                        f'<span style="color:{_a_col}">{_a_ic} {_a_status}</span>'
+                        f'<span style="color:#8B949E;font-size:0.80rem">'
+                        f'{"BUY" if _a_sig=="BUY" else "SELL"} @ ${_a_entry:,.4f}</span>'
+                        f'<span style="color:#3FB950;font-size:0.80rem">TP ${_a_tp:,.4f}</span>'
+                        f'<span style="color:#F85149;font-size:0.80rem">SL ${_a_sl:,.4f}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+            if _ss not in ("NONE",):
+                _rem_h   = _sig_status.get("remaining_h", 0)
+                _pnl_p   = _sig_status.get("pnl_pct", 0)
+                _hrs_old = _sig_status.get("hours_old", 0)
+                _msg     = _sig_status.get("message","")
+
+                st.markdown(f"""
+    <div style="background:{_sbg};border:2px solid {_scol};border-radius:10px;
+         padding:14px 20px;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-size:1.2rem">{_sicon}</span>
+          <span style="color:{_scol};font-weight:700;font-size:1.1rem;margin-left:8px">{_slabel}</span>
         </div>
+        <div style="text-align:right">
+          <div style="color:#8B949E;font-size:0.78rem">{_hrs_old:.0f}h since signal</div>
+          {'<div style="color:#E3B341;font-size:0.78rem">⏱ ' + f'{_rem_h:.0f}h remaining</div>' if _ss=="ACTIVE" else ''}
+        </div>
+      </div>
+      <div style="color:#C9D1D9;font-size:0.85rem;margin-top:8px">{_msg}</div>
+      {'<div style="color:' + ("#3FB950" if _pnl_p>=0 else "#F85149") + ';font-weight:600;margin-top:4px">Current P&amp;L: ' + (f"+{_pnl_p:.2f}%" if _pnl_p>=0 else f"{_pnl_p:.2f}%") + '</div>' if _ss not in ("NONE","EXPIRED") else ''}
+      {('<div style="background:#2A1C00;border-radius:6px;padding:8px 12px;margin-top:8px;' +
+         'color:#E3B341;font-size:0.82rem">⚠️ <b>Do NOT enter this signal</b> — ' +
+         'it has expired. Wait for the next BUY or SELL signal.</div>') if _ss=="EXPIRED" else ''}
+      {('<div style="background:#1C2A1C;border-radius:6px;padding:8px 12px;margin-top:8px;' +
+         'color:#3FB950;font-size:0.82rem">✅ <b>Best entry window:</b> ' +
+         f'Enter within {min(4, _rem_h):.0f}h of signal · Set TP at ${tp_price:,.4f} · SL at ${sl_price:,.4f}</div>') if _ss=="ACTIVE" and last_sig!="HOLD" and tp_price and sl_price else ''}
     </div>""", unsafe_allow_html=True)
 
-    # ── Live signal status tracker ──────────────────────────────────
-    _sig_status = update_signal_status(
-        ticker, last_sig, display_price, tp_price, sl_price, display_price
-    )
-    _ss = _sig_status["status"]
+    with col_7d:
+        st.markdown("**📅 7-Day Forward Outlook**")
+        st.caption("Confidence decays further out — tomorrow is the most reliable")
+        rows = []
+        for i in range(7):
+            _d = _today_date + timedelta(days=i+1)
+            if not _is_crypto:   # stocks skip weekends
+                while _d.weekday() >= 5:
+                    _d += timedelta(days=1)
+            dt = datetime(_d.year, _d.month, _d.day)
+            prob = 0.5 + (last_prob-0.5) * np.exp(-0.35*i)
+            sig  = ("🟢 BUY"  if prob >= confidence_thresh else
+                    "🔴 SELL" if prob <= (1-confidence_thresh) else "⚪ HOLD")
+            # ATR-based TP/SL for each day
+            _dsig  = ("BUY" if prob >= confidence_thresh else "SELL" if prob <= (1-confidence_thresh) else "HOLD")
+            if _dsig == "BUY":
+                day_tp = round(display_price + 2.0*last_atr, 4)
+                day_sl = round(display_price - 1.5*last_atr, 4)
+            elif _dsig == "SELL":
+                day_tp = round(display_price - 2.0*last_atr, 4)
+                day_sl = round(display_price + 1.5*last_atr, 4)
+            else:
+                day_tp = None; day_sl = None
+            rows.append({
+                "Date"       : dt.strftime("%a %d %b"),
+                "Signal"     : sig,
+                "Direction"  : "📈 UP" if prob>0.5 else "📉 DOWN",
+                "Confidence" : f"{max(prob,1-prob)*100:.0f}%",
+                "P(UP)"      : f"{prob*100:.1f}%",
+                "TP"         : f"${day_tp:,.4f}" if day_tp else "—",
+                "SL"         : f"${day_sl:,.4f}" if day_sl else "—",
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        n_buy_w  = sum(1 for r in rows if "BUY"  in r["Signal"])
+        n_sell_w = sum(1 for r in rows if "SELL" in r["Signal"])
+        out = "📈 BULLISH" if n_buy_w>n_sell_w else "📉 BEARISH" if n_sell_w>n_buy_w else "➡️ SIDEWAYS"
+        st.markdown(f"**Weekly Outlook: {out}** &nbsp;|&nbsp; 🟢 {n_buy_w} BUY &nbsp;🔴 {n_sell_w} SELL &nbsp;⚪ {7-n_buy_w-n_sell_w} HOLD")
 
-    _status_styles = {
-        "ACTIVE"  : ("🟡", "#E3B341", "#2A2400", "Signal is ACTIVE"),
-        "HIT_TP"  : ("🎯", "#3FB950", "#1C2A1C", "TARGET HIT — Signal succeeded!"),
-        "HIT_SL"  : ("🛑", "#F85149", "#2A1C1C", "STOP LOSS HIT — Signal failed"),
-        "EXPIRED" : ("⏰", "#6E7681", "#161B22", "Signal EXPIRED — Do not enter"),
-        "NONE"    : ("⚪", "#6E7681", "#161B22", "Waiting for signal"),
-    }
-    _sicon, _scol, _sbg, _slabel = _status_styles.get(_ss, _status_styles["NONE"])
+    st.divider()
 
-    # ── Active signals list (all tickers) ──────────────────────────
-    _all_sigs = load_active_signals()
-    _active_list = [
-        (t, s) for t, s in _all_sigs.items()
-        if s.get("status") in ("ACTIVE","HIT_TP","HIT_SL")
-    ]
-    if len(_active_list) > 1:
-        with st.expander(f"📋 All Active Signals ({len(_active_list)} tracked)", expanded=False):
-            for _at, _as in sorted(_active_list, key=lambda x: x[1].get("timestamp",""), reverse=True):
-                _a_status = _as.get("status","ACTIVE")
-                _a_sig    = _as.get("signal","")
-                _a_entry  = _as.get("entry", 0)
-                _a_tp     = _as.get("tp")
-                _a_sl     = _as.get("sl")
-                _a_ic     = "🟡" if _a_status=="ACTIVE" else "🎯" if _a_status=="HIT_TP" else "🛑"
-                _a_col    = "#E3B341" if _a_status=="ACTIVE" else "#3FB950" if _a_status=="HIT_TP" else "#F85149"
-                st.markdown(
-                    f'<div style="background:#161B22;border-left:3px solid {_a_col};'
-                    f'border-radius:6px;padding:8px 14px;margin-bottom:5px;'
-                    f'display:flex;justify-content:space-between;align-items:center">'
-                    f'<span style="color:#F0F6FC;font-weight:600">{_at}</span>'
-                    f'<span style="color:{_a_col}">{_a_ic} {_a_status}</span>'
-                    f'<span style="color:#8B949E;font-size:0.80rem">'
-                    f'{"BUY" if _a_sig=="BUY" else "SELL"} @ ${_a_entry:,.4f}</span>'
-                    f'<span style="color:#3FB950;font-size:0.80rem">TP ${_a_tp:,.4f}</span>'
-                    f'<span style="color:#F85149;font-size:0.80rem">SL ${_a_sl:,.4f}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
+    # ═══════════════════════════════════════════════════════════════════
+    # TABS
+    # ═══════════════════════════════════════════════════════════════════
 
-        if _ss not in ("NONE",):
-            _rem_h   = _sig_status.get("remaining_h", 0)
-            _pnl_p   = _sig_status.get("pnl_pct", 0)
-            _hrs_old = _sig_status.get("hours_old", 0)
-            _msg     = _sig_status.get("message","")
 
-            st.markdown(f"""
-<div style="background:{_sbg};border:2px solid {_scol};border-radius:10px;
-     padding:14px 20px;margin-top:8px">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div>
-      <span style="font-size:1.2rem">{_sicon}</span>
-      <span style="color:{_scol};font-weight:700;font-size:1.1rem;margin-left:8px">{_slabel}</span>
-    </div>
-    <div style="text-align:right">
-      <div style="color:#8B949E;font-size:0.78rem">{_hrs_old:.0f}h since signal</div>
-      {'<div style="color:#E3B341;font-size:0.78rem">⏱ ' + f'{_rem_h:.0f}h remaining</div>' if _ss=="ACTIVE" else ''}
-    </div>
-  </div>
-  <div style="color:#C9D1D9;font-size:0.85rem;margin-top:8px">{_msg}</div>
-  {'<div style="color:' + ("#3FB950" if _pnl_p>=0 else "#F85149") + ';font-weight:600;margin-top:4px">Current P&amp;L: ' + (f"+{_pnl_p:.2f}%" if _pnl_p>=0 else f"{_pnl_p:.2f}%") + '</div>' if _ss not in ("NONE","EXPIRED") else ''}
-  {('<div style="background:#2A1C00;border-radius:6px;padding:8px 12px;margin-top:8px;' +
-     'color:#E3B341;font-size:0.82rem">⚠️ <b>Do NOT enter this signal</b> — ' +
-     'it has expired. Wait for the next BUY or SELL signal.</div>') if _ss=="EXPIRED" else ''}
-  {('<div style="background:#1C2A1C;border-radius:6px;padding:8px 12px;margin-top:8px;' +
-     'color:#3FB950;font-size:0.82rem">✅ <b>Best entry window:</b> ' +
-     f'Enter within {min(4, _rem_h):.0f}h of signal · Set TP at ${tp_price:,.4f} · SL at ${sl_price:,.4f}</div>') if _ss=="ACTIVE" and last_sig!="HOLD" and tp_price and sl_price else ''}
-</div>""", unsafe_allow_html=True)
+else:
+    # UAE stock — set safe defaults (DFM section renders below tabs)
+    import pandas as _pd2
+    import numpy as _np2
+    _now_d2      = datetime.now(timezone.utc) + timedelta(hours=4)
+    _today_d2    = _now_d2.date()
+    last_date    = _pd2.Timestamp(_today_d2)
+    display_price= DataManager.get_live_price(ticker) or 0.0
+    day_chg      = 0.0; last_close = display_price; live_price = display_price
+    ens_proba    = _np2.array([0.5]); ens_pred = _np2.array([0])
+    y_te         = _np2.array([0]); signals = _np2.array([0])
+    price_pred   = _np2.array([display_price]); y_price_te = _np2.array([display_price])
+    model_data   = {}; sig_hist = _pd2.DataFrame(); te_df = _pd2.DataFrame()
+    HIGH = 0.60; LOW = 0.40; ens_acc = 0.0; ens_filt = 0.0
+    last_prob = 0.5; last_sig = "HOLD"; last_conf = 50.0
+    last_atr = display_price * 0.025; atr_pct = 0.025
+    tp_price = sl_price = tp_pct = sl_pct = None; rr = 0.0
+    entry_p = display_price; name = ticker
+    _next_date = _today_d2 + timedelta(days=1)
+    next_str = _next_date.strftime('%A %d %b %Y')
+    next_str_short = _next_date.strftime('%a %d %b')
+    emoji = "⚪"; _is_crypto = False
+    n = 1
 
-with col_7d:
-    st.markdown("**📅 7-Day Forward Outlook**")
-    st.caption("Confidence decays further out — tomorrow is the most reliable")
-    rows = []
-    for i in range(7):
-        _d = _today_date + timedelta(days=i+1)
-        if not _is_crypto:   # stocks skip weekends
-            while _d.weekday() >= 5:
-                _d += timedelta(days=1)
-        dt = datetime(_d.year, _d.month, _d.day)
-        prob = 0.5 + (last_prob-0.5) * np.exp(-0.35*i)
-        sig  = ("🟢 BUY"  if prob >= confidence_thresh else
-                "🔴 SELL" if prob <= (1-confidence_thresh) else "⚪ HOLD")
-        # ATR-based TP/SL for each day
-        _dsig  = ("BUY" if prob >= confidence_thresh else "SELL" if prob <= (1-confidence_thresh) else "HOLD")
-        if _dsig == "BUY":
-            day_tp = round(display_price + 2.0*last_atr, 4)
-            day_sl = round(display_price - 1.5*last_atr, 4)
-        elif _dsig == "SELL":
-            day_tp = round(display_price - 2.0*last_atr, 4)
-            day_sl = round(display_price + 1.5*last_atr, 4)
-        else:
-            day_tp = None; day_sl = None
-        rows.append({
-            "Date"       : dt.strftime("%a %d %b"),
-            "Signal"     : sig,
-            "Direction"  : "📈 UP" if prob>0.5 else "📉 DOWN",
-            "Confidence" : f"{max(prob,1-prob)*100:.0f}%",
-            "P(UP)"      : f"{prob*100:.1f}%",
-            "TP"         : f"${day_tp:,.4f}" if day_tp else "—",
-            "SL"         : f"${day_sl:,.4f}" if day_sl else "—",
-        })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    n_buy_w  = sum(1 for r in rows if "BUY"  in r["Signal"])
-    n_sell_w = sum(1 for r in rows if "SELL" in r["Signal"])
-    out = "📈 BULLISH" if n_buy_w>n_sell_w else "📉 BEARISH" if n_sell_w>n_buy_w else "➡️ SIDEWAYS"
-    st.markdown(f"**Weekly Outlook: {out}** &nbsp;|&nbsp; 🟢 {n_buy_w} BUY &nbsp;🔴 {n_sell_w} SELL &nbsp;⚪ {7-n_buy_w-n_sell_w} HOLD")
-
-st.divider()
-
-# ═══════════════════════════════════════════════════════════════════
-# TABS
-# ═══════════════════════════════════════════════════════════════════
 tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
