@@ -155,8 +155,8 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
     # sentiment_score: -1.0 to +1.0 (from CryptoPanic votes)
     # Applied to all rows so model knows current sentiment context
     d["Sentiment"]      = float(sentiment_score)
-    d["Sentiment_Bull"] = (float(sentiment_score) > 0.1).astype(int)
-    d["Sentiment_Bear"] = (float(sentiment_score) < -0.1).astype(int)
+    d["Sentiment_Bull"] = int(float(sentiment_score) > 0.1)
+    d["Sentiment_Bear"] = int(float(sentiment_score) < -0.1)
 
     # ── Target ───────────────────────────────────────────────────────────────
     d["NextClose"] = C.shift(-1)
