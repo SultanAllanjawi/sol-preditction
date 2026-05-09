@@ -116,8 +116,11 @@ def dark_fig():
 # ── Session state: init from saved settings ──────────────────────
 _saved_settings = load_settings()
 if "uploaded_assets" not in st.session_state:
-    # Restore any previously uploaded CSVs from disk
-    st.session_state.uploaded_assets = load_all_uploaded_csvs()
+    try:
+        _saved_csvs = load_all_uploaded_csvs()
+        st.session_state.uploaded_assets = _saved_csvs if _saved_csvs else {}
+    except Exception:
+        st.session_state.uploaded_assets = {}
 if "selected_ticker" not in st.session_state:
     st.session_state.selected_ticker = _saved_settings.get("last_ticker","SOL-USD")
 if "portfolio_trades" not in st.session_state:
@@ -319,8 +322,10 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False,
     file_obj = io.BytesIO(_uploaded_bytes) if _uploaded_bytes else None
 
     if signal_mode == "⚡ Intraday (1h)" and is_crypto(ticker):
-        # Use hourly candles for intraday signals
-        df_raw = dm.get_hourly()
+        try:
+            df_raw = dm.get_hourly()
+        except AttributeError:
+            df_raw = None
         if df_raw is None or len(df_raw) < 100:
             df_raw = dm.get_data(uploaded_file=file_obj)
     else:
@@ -329,7 +334,10 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False,
         except TypeError:
             df_raw = dm.get_data(uploaded_file=file_obj)
 
-    df_feat  = build_features(df_raw, sentiment_score=sentiment_score)
+    try:
+        df_feat = build_features(df_raw, sentiment_score=sentiment_score)
+    except TypeError:
+        df_feat = build_features(df_raw)
     engine   = ModelEngine(df_feat)
     results  = engine.train(verbose=False, sentiment_score=sentiment_score)
     return df_raw, df_feat, results
