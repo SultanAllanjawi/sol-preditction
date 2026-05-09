@@ -309,11 +309,34 @@ _UAE_TICKERS = {"EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
 _is_uae_stock = ticker in _UAE_TICKERS
 
 if _is_uae_stock:
-    # Jump directly to DFM tab — no ML needed
+    # UAE stock: skip ML, auto-switch to DFM tab
     df_raw = df_feat = results = None
     import pandas as _pd_dummy
     sig_hist = _pd_dummy.DataFrame()
     te_df    = _pd_dummy.DataFrame()
+
+    # Pre-select the correct stock in the DFM section
+    _dfm_idx_map = {
+        "EMAAR.DFM":0,"ENBD.DFM":1,"DIB.DFM":2,"DU.DFM":3,"DEWA.DFM":4,
+        "SALIK.DFM":5,"FAB.ADX":6,"ALDAR.ADX":7,"ADCB.ADX":8,"MASQ.DFM":9,
+    }
+    st.session_state["dfm_selected"] = _dfm_idx_map.get(ticker, 0)
+
+    # Auto-click the DFM tab (last tab) via JS
+    st.markdown("""
+<script>
+(function() {
+    function clickDFMTab() {
+        var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
+        if (tabs && tabs.length > 0) {
+            tabs[tabs.length - 1].click();
+        } else {
+            setTimeout(clickDFMTab, 400);
+        }
+    }
+    setTimeout(clickDFMTab, 600);
+})();
+</script>""", unsafe_allow_html=True)
 
 with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 min after..."):
   if not _is_uae_stock:
@@ -2086,7 +2109,22 @@ if not _is_uae_stock:
         f"</div>",unsafe_allow_html=True)
 
 else:
-    # UAE stock — safe defaults, DFM charts shown below
+    # UAE stock — show guidance and auto-redirect to DFM tab
+    st.markdown(f"""
+<div style="background:#1C2128;border:2px solid #E3B341;border-radius:12px;
+     padding:20px 24px;margin:10px 0;text-align:center">
+  <div style="font-size:1.4rem;margin-bottom:6px">🇦🇪</div>
+  <div style="color:#F0F6FC;font-size:1.1rem;font-weight:700;margin-bottom:6px">
+    {ticker} — UAE Market Stock
+  </div>
+  <div style="color:#8B949E;font-size:0.88rem;margin-bottom:12px">
+    Loading live chart... Click the <b style="color:#E3B341">🇦🇪 DFM Market</b> tab above
+    if it doesn't switch automatically.
+  </div>
+  <div style="color:#6E7681;font-size:0.80rem">
+    For ML predictions: upload a CSV from Investing.com via the sidebar 📁
+  </div>
+</div>""", unsafe_allow_html=True)
     import pandas as _pd2, numpy as _np2
     _nd   = datetime.now(timezone.utc) + timedelta(hours=4)
     last_date     = __import__('pandas').Timestamp(_nd.date())
