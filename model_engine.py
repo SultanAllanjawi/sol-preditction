@@ -118,15 +118,24 @@ class ModelEngine:
         self.feat_cols=feat
         X_tr=self.tr[feat].values.astype(np.float32)
         X_te=self.te[feat].values.astype(np.float32)
-        for arr in [X_tr,X_te]:
-            med=np.nanmedian(X_tr,axis=0)
-            mask=~np.isfinite(arr)
-            arr[mask]=np.take(med,np.where(mask)[1])
+        # Fill NaN/inf with column median from training set
+        _med = np.nanmedian(X_tr, axis=0)
+        _med = np.where(np.isfinite(_med), _med, 0.0)
+        for arr in [X_tr, X_te]:
+            _mask = ~np.isfinite(arr)
+            arr[_mask] = np.take(_med, np.where(_mask)[1])
+        X_tr = np.clip(X_tr, -1e6, 1e6)
+        X_te = np.clip(X_te, -1e6, 1e6)
         self.sc=MinMaxScaler()
         self.X_tr=self.sc.fit_transform(X_tr); self.X_te=self.sc.transform(X_te)
         self.y_tr=self.tr["Target"].values.astype(int)
         self.y_te=self.te["Target"].values.astype(int)
-        self.y_ptr=self.tr["NextClose"].values; self.y_pte=self.te["NextClose"].values
+        _y_tr = self.tr["NextClose"].values.astype(np.float64)
+        _y_te = self.te["NextClose"].values.astype(np.float64)
+        # Replace NaN in targets with last valid value
+        _y_tr[~np.isfinite(_y_tr)] = np.nanmean(_y_tr)
+        _y_te[~np.isfinite(_y_te)] = np.nanmean(_y_te)
+        self.y_ptr = _y_tr; self.y_pte = _y_te
         cw=compute_class_weight("balanced",classes=np.array([0,1]),y=self.y_tr)
         self.CW={0:float(cw[0]),1:float(cw[1])}
         self.Xtr_s,self.ytr_s=self._seqs(self.X_tr,self.y_tr)
