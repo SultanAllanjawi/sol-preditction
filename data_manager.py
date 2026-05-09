@@ -243,8 +243,35 @@ class DataManager:
 
 
     def _yahoo_uae(self):
-        """Fetch UAE DFM/ADX stocks using Yahoo Finance .AE suffix."""
+        """Fetch UAE DFM/ADX stocks using yfinance library (handles auth)."""
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
+
+        # Method 1: yfinance library (handles Yahoo cookies/crumb automatically)
+        try:
+            import yfinance as _yf
+            _raw = _yf.download(yf_ticker, period="5y", interval="1d",
+                                progress=False, auto_adjust=True)
+            if _raw is not None and len(_raw) >= 30:
+                _raw = _raw.reset_index()
+                # Handle MultiIndex columns from yfinance
+                if hasattr(_raw.columns, 'levels'):
+                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
+                df = pd.DataFrame()
+                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
+                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
+                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
+                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
+                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
+                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
+                df = df.dropna(subset=["Close"])
+                df["Change_Pct"] = df["Close"].pct_change() * 100
+                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+                if len(df) >= 30:
+                    return df
+        except Exception as _e:
+            pass  # fall through to raw requests
+
+        # Method 2: Raw requests with session (fallback)
         for base in ["https://query1.finance.yahoo.com",
                      "https://query2.finance.yahoo.com"]:
             try:
@@ -473,6 +500,16 @@ class DataManager:
         # UAE stocks: use Yahoo Finance .AE suffix
         if ticker in UAE_YAHOO_MAP:
             yf_ticker = UAE_YAHOO_MAP[ticker]
+            # Try yfinance first (handles auth)
+            try:
+                import yfinance as _yf2
+                _t = _yf2.Ticker(yf_ticker)
+                _h = _t.history(period="5d")
+                if _h is not None and len(_h) > 0:
+                    return float(_h['Close'].iloc[-1])
+            except Exception:
+                pass
+            # Fallback to raw requests
             for base in ["https://query1.finance.yahoo.com",
                          "https://query2.finance.yahoo.com"]:
                 try:
