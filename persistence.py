@@ -192,3 +192,79 @@ def save_settings(settings: dict):
             json.dump(settings, f, indent=2)
     except Exception:
         pass
+
+# ── Uploaded CSV storage (survives restarts) ─────────────────────
+import base64
+
+CSV_DIR = os.path.join(DATA_DIR, "uploads")
+os.makedirs(CSV_DIR, exist_ok=True)
+
+def save_uploaded_csv(ticker: str, csv_bytes: bytes):
+    """Save uploaded CSV bytes to disk so they survive app restarts."""
+    try:
+        safe = ticker.replace("/","_").replace(".","_").replace(" ","_")
+        path = os.path.join(CSV_DIR, f"{safe}.csv")
+        with open(path, 'wb') as f:
+            f.write(csv_bytes)
+        # Update the index of saved CSVs
+        _update_csv_index(ticker, path)
+        return True
+    except Exception:
+        return False
+
+def load_uploaded_csv(ticker: str) -> bytes | None:
+    """Load a previously saved CSV from disk."""
+    try:
+        safe = ticker.replace("/","_").replace(".","_").replace(" ","_")
+        path = os.path.join(CSV_DIR, f"{safe}.csv")
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                return f.read()
+    except Exception:
+        pass
+    return None
+
+def load_all_uploaded_csvs() -> dict:
+    """Load all saved CSVs from disk. Returns {ticker: bytes}."""
+    result = {}
+    try:
+        idx_path = os.path.join(CSV_DIR, "_index.json")
+        if not os.path.exists(idx_path):
+            return result
+        with open(idx_path) as f:
+            index = json.load(f)
+        for ticker, path in index.items():
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    result[ticker] = f.read()
+    except Exception:
+        pass
+    return result
+
+def delete_uploaded_csv(ticker: str):
+    """Delete a saved CSV from disk."""
+    try:
+        safe = ticker.replace("/","_").replace(".","_").replace(" ","_")
+        path = os.path.join(CSV_DIR, f"{safe}.csv")
+        if os.path.exists(path):
+            os.remove(path)
+        _update_csv_index(ticker, None)
+    except Exception:
+        pass
+
+def _update_csv_index(ticker: str, path: str | None):
+    """Maintain an index file of ticker -> file path."""
+    idx_path = os.path.join(CSV_DIR, "_index.json")
+    try:
+        index = {}
+        if os.path.exists(idx_path):
+            with open(idx_path) as f:
+                index = json.load(f)
+        if path is None:
+            index.pop(ticker, None)
+        else:
+            index[ticker] = path
+        with open(idx_path, 'w') as f:
+            json.dump(index, f, indent=2)
+    except Exception:
+        pass
