@@ -656,7 +656,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -665,7 +665,6 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📰 News & Sentiment",
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
-    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1847,7 +1846,8 @@ with tab7:
 # ════════════════════════════════════════════════════════════════════
 # TAB 8: DFM Market — Live charts (standalone, no ML needed)
 # ════════════════════════════════════════════════════════════════════
-with tab8:
+# ── DFM Market section (below main tabs) ──────────────────────────
+if True:
     st.markdown("## 🇦🇪 UAE Market — DFM & ADX Live Charts")
     st.caption(
         "Top 10 UAE stocks · Live charts · "
