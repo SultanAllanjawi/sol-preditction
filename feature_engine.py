@@ -22,16 +22,10 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
     """
     d = df.copy()
 
-    # ── Detect intraday (hourly) vs daily ─────────────────────────────────────
-    _is_intraday = False
-    if hasattr(d.index, 'hour'):
-        _diffs = d.index.to_series().diff().dropna()
-        if len(_diffs) > 0:
-            _median_hrs = _diffs.median().total_seconds() / 3600
-            _is_intraday = _median_hrs <= 4
-
     # ── Savitzky-Golay denoising ───────────────────────────────────────────────
-    _wlen = 11 if not _is_intraday else 7
+    _is_intraday = hasattr(d.index, 'hour') and hasattr(d.index, 'minute')
+    _wlen = 11 if len(d) >= 11 else max(3, len(d)//3*2+1)
+    _wlen = _wlen if _wlen % 2 == 1 else _wlen + 1  # must be odd
     if len(d) >= _wlen:
         d["Smooth"] = scipy_signal.savgol_filter(d["Close"].values, _wlen, 3)
     else:
@@ -41,7 +35,7 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
     C = d["Close"]
 
     # ── Moving Averages ────────────────────────────────────────────────────────
-    _windows = [5, 10, 20, 50, 100] if not _is_intraday else [5, 10, 20, 48, 96]
+    _windows = [5, 10, 20, 50, 100]  # same for both daily and intraday
     for w in _windows:
         d[f"SMA{w}"] = P.rolling(w, min_periods=1).mean()
         d[f"EMA{w}"] = P.ewm(span=w, adjust=False).mean()
