@@ -5,10 +5,10 @@ Models:
   1. Vanilla RNN       (numpy BPTT)
   2. Random Forest     (sklearn, 300 trees)
   3. Gradient Boosting (sklearn, 300 trees)
-  4. XGBoost           (xgboost library — handles non-linear patterns differently)
+  4. LightGBM          (lightgbm — faster than XGBoost, works on Python 3.14)
 
 Changes vs v5:
-  • XGBoost replaces nothing — added as 4th model
+  • LightGBM replaces XGBoost (Python 3.14 compatibility)
   • Smart ensemble keeps models ≥55% accuracy only
   • Works on hourly AND daily data (auto-detects by row count)
   • Sentiment score injected as feature if available
@@ -205,34 +205,35 @@ class ModelEngine:
             print(f"  GB failed: {e}")
             all_p["Gradient Boosting"]=np.full(len(y_te),0.5); all_a["Gradient Boosting"]=0.5
 
-        # ── 4. XGBoost ────────────────────────────────────────────
-        if verbose: print("Training XGBoost...")
+        # ── 4. LightGBM (replaces XGBoost — works on Python 3.14) ──
+        if verbose: print("Training LightGBM...")
         try:
-            import xgboost as xgb
+            import lightgbm as lgb
             scale_pw = self.CW[1]/self.CW[0]
-            xgb_m = xgb.XGBClassifier(
-                n_estimators=100, max_depth=4, learning_rate=0.08,
+            lgbm_m = lgb.LGBMClassifier(
+                n_estimators=200, max_depth=5, learning_rate=0.05,
                 subsample=0.8, colsample_bytree=0.8,
                 scale_pos_weight=scale_pw,
-                eval_metric="logloss", verbosity=0,
-                random_state=42, n_jobs=-1,
-                tree_method="hist",
+                random_state=42, n_jobs=-1, verbose=-1,
             )
-            xgb_m.fit(self.X_tr, self.y_tr,
-                      eval_set=[(self.X_te, self.y_te)],
-                      verbose=False)
-            xp = xgb_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
-            xa = accuracy_score(y_te,(xp>0.5).astype(int))
-            xf = f1_score(y_te,(xp>0.5).astype(int),zero_division=0)
-            xu = roc_auc_score(y_te,xp) if len(np.unique(y_te))>1 else 0.5
-            model_data["XGBoost"]={"proba":xp,"pred":(xp>0.5).astype(int),"acc":xa,"f1":xf,"auc":xu}
-            all_p["XGBoost"]=xp; all_a["XGBoost"]=xa
-            print(f"  XGBoost: {xa*100:.2f}%")
+            lgbm_m.fit(
+                self.X_tr, self.y_tr,
+                eval_set=[(self.X_te, self.y_te)],
+                callbacks=[lgb.early_stopping(20, verbose=False),
+                           lgb.log_evaluation(-1)],
+            )
+            lp = lgbm_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
+            la = accuracy_score(y_te,(lp>0.5).astype(int))
+            lf = f1_score(y_te,(lp>0.5).astype(int),zero_division=0)
+            lu = roc_auc_score(y_te,lp) if len(np.unique(y_te))>1 else 0.5
+            model_data["LightGBM"]={"proba":lp,"pred":(lp>0.5).astype(int),"acc":la,"f1":lf,"auc":lu}
+            all_p["LightGBM"]=lp; all_a["LightGBM"]=la
+            print(f"  LightGBM: {la*100:.2f}%")
         except ImportError:
-            print("  XGBoost not installed — skipping")
+            print("  LightGBM not installed — skipping")
         except Exception as e:
-            print(f"  XGBoost failed: {e}")
-            all_p["XGBoost"]=np.full(len(y_te),0.5); all_a["XGBoost"]=0.5
+            print(f"  LightGBM failed: {e}")
+            all_p["LightGBM"]=np.full(len(y_te),0.5); all_a["LightGBM"]=0.5
 
         # ── Smart ensemble ────────────────────────────────────────
         good = {k:v for k,v in all_a.items() if v >= MIN_ACC}
@@ -263,6 +264,33 @@ class ModelEngine:
         best_name = max(all_a,key=all_a.get)
         print(f"  Best: {best_name} ({all_a[best_name]*100:.2f}%)")
         print(f"  Ensemble: {ens_acc*100:.2f}% / filtered: {ens_filt*100:.2f}%")
+
+        # ── Walk-forward validation (3 folds) ──────────────────────
+        _wf_accs = []
+        try:
+            _N      = len(self.X_tr)
+            _fsz    = _N // 4   # fold size
+            for _fi in range(3):
+                _te_s = _fsz * (_fi + 1)
+                _te_e = min(_fsz * (_fi + 2), _N)
+                if _te_e - _te_s < 10: continue
+                _Xw_tr = self.X_tr[:_te_s]
+                _yw_tr = self.y_tr[:_te_s]
+                _Xw_te = self.X_tr[_te_s:_te_e]
+                _yw_te = self.y_tr[_te_s:_te_e]
+                # Quick RF for walk-forward (fastest)
+                _wf_rf = RandomForestClassifier(
+                    n_estimators=50, max_depth=5,
+                    class_weight="balanced", random_state=42, n_jobs=-1
+                )
+                _wf_rf.fit(_Xw_tr, _yw_tr)
+                _wf_pp = _wf_rf.predict_proba(_Xw_te)[:,1]
+                _wf_accs.append(float(accuracy_score(_yw_te, (_wf_pp>0.5).astype(int))))
+            wf_acc = float(np.mean(_wf_accs)) if _wf_accs else ens_acc
+            print(f"  Walk-forward acc: {wf_acc*100:.1f}% (avg of {len(_wf_accs)} folds)")
+        except Exception as _wfe:
+            wf_acc = ens_acc
+            print(f"  Walk-forward failed: {_wfe}")
 
         # ── Price regression (Ridge on raw prices - works correctly) ─────
         try:
@@ -353,6 +381,7 @@ class ModelEngine:
             "price_pred":pp,"y_price_te":y_pte_al,"rmse":rmse,"mae":mae,
             "te_df":te_al,"signal_history":sh,
             "TF_AVAILABLE":False,
+            "wf_acc":wf_acc,
             "multi_signals":multi_signals_df,
             "sentiment_score":sentiment_score,
             "ensemble_models":list(good.keys()),"excluded_models":excluded,
