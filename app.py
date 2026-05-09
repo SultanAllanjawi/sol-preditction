@@ -1257,9 +1257,15 @@ with tab2:
 
     ax=axes[0]; ax.set_facecolor('#161B22')
     ax.plot(D2,C2,color=C_BLUE,lw=1.5,label='Actual Close',zorder=4)
-    ax.plot(D2,PP,color=C_GOLD,lw=1.2,ls='--',alpha=0.9,label='Predicted (Ridge)',zorder=3)
-    ax.fill_between(D2,C2,PP,where=(PP>=C2),alpha=0.10,color=C_UP)
-    ax.fill_between(D2,C2,PP,where=(PP<C2),alpha=0.10,color=C_DOWN)
+    # Ensure PP and D2 same length before plotting
+    _plen = min(len(D2), len(PP))
+    D2p = D2[:_plen]; PPp = PP[:_plen]
+    if len(D2p) > 0 and np.std(PPp) > 0.01:
+        ax.plot(D2p,PPp,color=C_GOLD,lw=1.8,ls='--',alpha=0.95,label='Predicted (Ridge)',zorder=5)
+    else:
+        ax.plot(D2p,PPp,color=C_GOLD,lw=1.8,alpha=0.95,label='Predicted (Ridge) [flat]',zorder=5)
+    ax.fill_between(D2p,C2[:_plen],PPp,where=(PPp>=C2[:_plen]),alpha=0.12,color=C_UP)
+    ax.fill_between(D2p,C2[:_plen],PPp,where=(PPp<C2[:_plen]),alpha=0.12,color=C_DOWN)
     ax.text(0.99,0.97,f'RMSE=${rmse:.4f}  MAE=${mae:.4f}  MAPE={mape:.2f}%',
         transform=ax.transAxes,ha='right',va='top',fontsize=9,color=C_GOLD,
         bbox=dict(fc='#161B22',ec='#30363D',boxstyle='round,pad=0.4'))
@@ -1268,10 +1274,11 @@ with tab2:
     ax.spines[['top','right']].set_visible(False); ax.grid(axis='y',alpha=0.2)
 
     ax2=axes[1]; ax2.set_facecolor('#161B22')
-    err=PP-C2
-    ax2.fill_between(D2,err,0,where=(err>=0),color=C_UP,alpha=0.55,label='Too high')
-    ax2.fill_between(D2,err,0,where=(err<0),color=C_DOWN,alpha=0.55,label='Too low')
+    err=PPp-C2[:_plen]
+    ax2.fill_between(D2p,err,0,where=(err>=0),color=C_UP,alpha=0.55,label='Too high')
+    ax2.fill_between(D2p,err,0,where=(err<0),color=C_DOWN,alpha=0.55,label='Too low')
     ax2.axhline(0,color=C_DIM,lw=0.8,ls='--')
+    ax2.set_xlim(D2p[0] if len(D2p)>0 else None, D2p[-1] if len(D2p)>0 else None)
     ax2.set_ylabel('Error'); ax2.legend(loc='upper left',ncol=2)
     ax2.xaxis.set_ticklabels([])
     ax2.spines[['top','right']].set_visible(False); ax2.grid(axis='y',alpha=0.2)
