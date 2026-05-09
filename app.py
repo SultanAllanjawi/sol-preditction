@@ -460,6 +460,7 @@ ens_filt   = results['ensemble_filt_acc']
 last_prob  = results['last_prob']
 last_sig   = results['last_signal']
 last_conf  = results['last_confidence']
+emoji      = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
 
 # Align all to same length
 n = min(len(te_df),len(ens_proba),len(ens_pred),len(y_te),
