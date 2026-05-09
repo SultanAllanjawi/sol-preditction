@@ -85,6 +85,8 @@ from persistence import (
     load_portfolio, save_portfolio,
     load_active_signals, update_signal_status,
     load_settings, save_settings,
+    save_uploaded_csv, load_uploaded_csv,
+    load_all_uploaded_csvs, delete_uploaded_csv,
 )
 
 # ── Crypto detection (self-contained, no data_manager dependency) ──
@@ -114,7 +116,8 @@ def dark_fig():
 # ── Session state: init from saved settings ──────────────────────
 _saved_settings = load_settings()
 if "uploaded_assets" not in st.session_state:
-    st.session_state.uploaded_assets = {}
+    # Restore any previously uploaded CSVs from disk
+    st.session_state.uploaded_assets = load_all_uploaded_csvs()
 if "selected_ticker" not in st.session_state:
     st.session_state.selected_ticker = _saved_settings.get("last_ticker","SOL-USD")
 if "portfolio_trades" not in st.session_state:
@@ -169,10 +172,10 @@ with st.sidebar:
                 _bytes = uploaded.read()
                 st.session_state.uploaded_assets[_ticker_for_csv] = _bytes
                 st.session_state.selected_ticker = _ticker_for_csv
-                # Also save so it persists
-                from persistence import save_settings
+                # Save CSV to disk — persists across restarts
+                save_uploaded_csv(_ticker_for_csv, _bytes)
                 save_settings({**load_settings(), "last_ticker": _ticker_for_csv})
-                st.success(f"✅ CSV applied to {_picked} ({_ticker_for_csv}) — running ML now...")
+                st.success(f"✅ Saved! {_picked} ({_ticker_for_csv}) — data saved permanently 💾")
                 st.rerun()
 
         else:
@@ -187,19 +190,23 @@ with st.sidebar:
             with _col2:
                 st.write(""); st.write("")
                 if st.button("➕ Add", use_container_width=True, key="other_csv_add") and csv_ticker:
-                    st.session_state.uploaded_assets[csv_ticker] = uploaded.read()
+                    _obytes = uploaded.read()
+                    st.session_state.uploaded_assets[csv_ticker] = _obytes
                     st.session_state.selected_ticker = csv_ticker
-                    st.success(f"✅ Added {csv_ticker}")
+                    save_uploaded_csv(csv_ticker, _obytes)
+                    st.success(f"✅ Saved! {csv_ticker} — data saved permanently 💾")
                     st.rerun()
 
-    # Show what's uploaded
+    # Show what's uploaded — with persistent save indicator
     if st.session_state.uploaded_assets:
+        st.caption("💾 These CSVs are saved permanently — survive app restarts")
         _ul = list(st.session_state.uploaded_assets.keys())
         for _ut in _ul:
             _uc1, _uc2 = st.columns([3,1])
-            _uc1.caption(f"📂 {_ut}")
+            _uc1.caption(f"💾 {_ut}")
             if _uc2.button("✕", key=f"del_{_ut}", use_container_width=True):
                 del st.session_state.uploaded_assets[_ut]
+                delete_uploaded_csv(_ut)
                 st.rerun()
 
     st.divider()
