@@ -34,6 +34,10 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
     P = d["Smooth"]
     C = d["Close"]
 
+    # Add Change_Pct if missing (when data comes from DataManager it's already there)
+    if "Change_Pct" not in d.columns:
+        d["Change_Pct"] = C.pct_change() * 100
+
     # ── Moving Averages ────────────────────────────────────────────────────────
     _windows = [5, 10, 20, 50, 100]  # same for both daily and intraday
     for w in _windows:
