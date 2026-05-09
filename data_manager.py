@@ -495,6 +495,37 @@ class DataManager:
         return df
 
     # ── Static helpers ──────────────────────────────────────────────
+    def get_hourly(self):
+        """Fetch 1h candles from Binance. Crypto only."""
+        sym = BINANCE_MAP.get(self.ticker,
+              BINANCE_MAP.get(self.ticker.replace("-USD","")))
+        if not sym:
+            return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/klines",
+                params={"symbol":sym,"interval":"1h","limit":1000},
+                headers=HDR, timeout=15)
+            if r.status_code != 200:
+                return None
+            rows = []
+            ts_list = []
+            for k in r.json():
+                ts_list.append(
+                    datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None)
+                )
+                rows.append({
+                    "Open":float(k[1]),"High":float(k[2]),
+                    "Low":float(k[3]),"Close":float(k[4]),
+                    "Volume":float(k[5]),
+                })
+            df = pd.DataFrame(rows)
+            df.index = pd.DatetimeIndex(ts_list, name="Date")
+            df["Change_Pct"] = df["Close"].pct_change() * 100
+            df = df.sort_index().drop_duplicates()
+            return df if len(df) >= 50 else None
+        except Exception:
+            return None
+
     @staticmethod
     def get_live_price(ticker: str) -> float | None:
         # UAE stocks: use Yahoo Finance .AE suffix
