@@ -157,10 +157,17 @@ class ModelEngine:
         # ── 1. Vanilla RNN ────────────────────────────────────────
         if verbose: print("Training RNN...")
         try:
+            # Forward-fill NaN in sequence data (better than median=0 for RNN)
+            _Xtr2 = self.Xtr2.copy(); _Xval = self.Xval.copy(); _Xte_s = self.Xte_s.copy()
+            for _arr in [_Xtr2, _Xval, _Xte_s]:
+                for _col in range(_arr.shape[1]):
+                    _mask = ~np.isfinite(_arr[:, _col])
+                    if _mask.any():
+                        _arr[_mask, _col] = np.nanmedian(_arr[:, _col]) if np.isfinite(_arr[:, _col]).any() else 0.0
             rnn=VanillaRNN(nf,48,5e-4)
-            rnn.fit(self.Xtr2,self.ytr2,self.Xval,self.yval,
+            rnn.fit(_Xtr2,self.ytr2,_Xval,self.yval,
                     self.CW,epochs=50,batch=64,patience=8,verbose=verbose)
-            rp=np.clip(rnn.predict_proba(self.Xte_s),0.01,0.99)
+            rp=np.clip(rnn.predict_proba(_Xte_s),0.01,0.99)
             ra=accuracy_score(y_te,(rp>0.5).astype(int))
             rf=f1_score(y_te,(rp>0.5).astype(int),zero_division=0)
             ru=roc_auc_score(y_te,rp) if len(np.unique(y_te))>1 else 0.5
