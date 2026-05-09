@@ -125,7 +125,11 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
     # ── Intraday features (hourly data only) ──────────────────────────────────
     if _is_intraday and hasattr(d.index, 'hour'):
         d["Hour"]       = d.index.hour / 23.0
-        d["DayOfWeek"]  = d.index.dayofweek / 6.0
+        try:
+            _dow2 = d.index.dayofweek
+            d["DayOfWeek"] = (pd.to_numeric(_dow2, errors='coerce').fillna(0) / 6.0)
+        except Exception:
+            d["DayOfWeek"] = 0.5
         d["IsAsiaOpen"] = ((d.index.hour >= 0) & (d.index.hour < 8)).astype(int)
         d["IsEUOpen"]   = ((d.index.hour >= 7) & (d.index.hour < 15)).astype(int)
         d["IsUSOpen"]   = ((d.index.hour >= 13) & (d.index.hour < 21)).astype(int)
@@ -135,7 +139,11 @@ def build_features(df: pd.DataFrame, sentiment_score: float = 0.0) -> pd.DataFra
         d["PosInDay"]   = (C - d["DayLow"]) / (d["DayHigh"] - d["DayLow"] + 1e-9)
     else:
         d["Hour"]       = 0.5
-        d["DayOfWeek"]  = d.index.dayofweek / 6.0 if hasattr(d.index, 'dayofweek') else 0.5
+        try:
+            _dow = d.index.dayofweek
+            d["DayOfWeek"] = (pd.to_numeric(_dow, errors='coerce').fillna(0) / 6.0)
+        except Exception:
+            d["DayOfWeek"] = 0.5
         d["IsAsiaOpen"] = 0
         d["IsEUOpen"]   = 0
         d["IsUSOpen"]   = 0
