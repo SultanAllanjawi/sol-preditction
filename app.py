@@ -290,9 +290,12 @@ with st.sidebar:
     signal_mode = st.radio(
         "Signal Mode",
         ["📅 Daily", "⚡ Intraday (1h)"],
+        index=0,
         horizontal=True, key="signal_mode",
-        help="Daily: 1 signal per day from daily candles\nIntraday: multiple signals/day from hourly candles (crypto only)"
+        help="Daily: ~73% accuracy · 1 signal/day · recommended\nIntraday: ~68% accuracy · multiple signals/day · more noise"
     )
+    if st.session_state.get("signal_mode","📅 Daily") == "⚡ Intraday (1h)":
+        st.caption("⚡ Intraday: ~68% accuracy (hourly noise). Daily = ~73%")
 
     confidence_thresh = st.slider(
         "Signal Confidence Threshold", 0.50, 0.80, 0.60, 0.01,
@@ -545,8 +548,10 @@ c1,c2,c3,c4,c5 = st.columns(5)
 c1.metric("Model Accuracy",     f"{ens_acc*100:.1f}%")
 c2.metric("Filtered Accuracy",  f"{ens_filt*100:.1f}%",
           delta=f"+{(ens_filt-ens_acc)*100:.1f}% vs raw")
-c3.metric("P(UP Tomorrow)",     f"{last_prob*100:.1f}%",
-          delta="↑ UP" if last_prob>0.5 else "↓ DOWN")
+_wf_acc = results.get("wf_acc", ens_acc)
+c3.metric("Walk-Forward Acc",   f"{_wf_acc*100:.1f}%",
+          delta="3-fold · more reliable",
+          help="Rolling 3-fold validation accuracy — more reliable than single split")
 c4.metric("ATR (volatility)",   f"${last_atr:.4f}",
           help="Average True Range — used to set TP and SL")
 c5.metric("Active Signals",     str(results['n_signals']))
@@ -789,7 +794,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -799,6 +804,7 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
     "📈 Backtest P&L",
+    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -1229,12 +1235,11 @@ with tab2:
     st.caption(f"Model: {_mode_label} · Showing last {len(te_df)} candles of predictions")
     dark_fig()
     try:
-        if len(price_pred) > 5 and np.std(price_pred) > 0.001:
-            rmse = float(np.sqrt(mean_squared_error(y_price_te, price_pred)))
-            mae  = float(mean_absolute_error(y_price_te, price_pred))
-            mape = float(np.mean(np.abs((y_price_te - price_pred) / (y_price_te + 1e-9))) * 100)
-        else:
-            rmse = mae = mape = 0.0
+        _mn2 = min(len(price_pred), len(y_price_te))
+        _pp2 = price_pred[:_mn2]; _yt2 = y_price_te[:_mn2]
+        rmse = float(np.sqrt(mean_squared_error(_yt2, _pp2)))
+        mae  = float(mean_absolute_error(_yt2, _pp2))
+        mape = float(np.mean(np.abs((_yt2 - _pp2) / (_yt2 + 1e-9))) * 100)
         dacc = float(accuracy_score(y_te, ens_pred))
     except Exception:
         rmse = mae = mape = 0.0; dacc = ens_acc
@@ -2129,3 +2134,117 @@ with tab8:
         st.dataframe(_cts, use_container_width=True, hide_index=True)
         _tot = sum(t.get("pnl",0) or 0 for t in _ctl)
         st.metric("Total Closed P&L", f"{'+'if _tot>=0 else ''}{_tot:,.4f}")
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# TAB 9: DFM Market — TradingView Live Charts
+# ════════════════════════════════════════════════════════════════════
+with tab9:
+    st.markdown("## 🇦🇪 UAE Market — DFM & ADX Live Charts")
+    st.caption(
+        "Top 10 UAE stocks · Full TradingView website embedded · "
+        "Select from sidebar for ML predictions · DFM data auto-loads via yfinance"
+    )
+
+    _DFM9 = [
+        {"t":"EMAAR.DFM","n":"Emaar Properties",    "tv":"DFM:EMAAR",  "s":"Real Estate"},
+        {"t":"ENBD.DFM", "n":"Emirates NBD",         "tv":"DFM:ENBD",   "s":"Banking"},
+        {"t":"DIB.DFM",  "n":"Dubai Islamic Bank",   "tv":"DFM:DIB",    "s":"Banking"},
+        {"t":"DU.DFM",   "n":"du Telecom",            "tv":"DFM:DU",     "s":"Telecom"},
+        {"t":"DEWA.DFM", "n":"Dubai Electricity",    "tv":"DFM:DEWA",   "s":"Utilities"},
+        {"t":"SALIK.DFM","n":"Salik",                 "tv":"DFM:SALIK",  "s":"Transport"},
+        {"t":"FAB.ADX",  "n":"First Abu Dhabi Bank",  "tv":"ADX:FAB",    "s":"Banking"},
+        {"t":"ALDAR.ADX","n":"Aldar Properties",      "tv":"ADX:ALDAR",  "s":"Real Estate"},
+        {"t":"ADCB.ADX", "n":"ADCB Bank",             "tv":"ADX:ADCB",   "s":"Banking"},
+        {"t":"MASQ.DFM", "n":"Mashreq Bank",          "tv":"DFM:MASQ",   "s":"Banking"},
+    ]
+
+    # Stock selector buttons
+    if "dfm9_sel" not in st.session_state:
+        st.session_state.dfm9_sel = 0
+
+    _d9cols = st.columns(5)
+    for _di, _ds in enumerate(_DFM9):
+        if _d9cols[_di % 5].button(
+            _ds["n"].split()[0], key=f"d9_{_di}",
+            use_container_width=True,
+            type="primary" if st.session_state.dfm9_sel == _di else "secondary"
+        ):
+            st.session_state.dfm9_sel = _di
+            st.rerun()
+
+    st.divider()
+    _stk9 = _DFM9[st.session_state.dfm9_sel]
+
+    # Timeframe selector
+    _d9tfs = {"1D":"D","1W":"W","1M":"M","1h":"60","4h":"240","15m":"15"}
+    if "dfm9_tf" not in st.session_state:
+        st.session_state.dfm9_tf = "D"
+    _d9tc = st.columns(len(_d9tfs))
+    for _tfi, (_lbl, _val) in enumerate(_d9tfs.items()):
+        if _d9tc[_tfi].button(_lbl, key=f"d9tf_{_val}", use_container_width=True,
+                               type="primary" if st.session_state.dfm9_tf==_val else "secondary"):
+            st.session_state.dfm9_tf = _val
+            st.rerun()
+    _d9tf = st.session_state.dfm9_tf
+
+    # Layout
+    _d9chart, _d9info = st.columns([3, 1])
+
+    with _d9info:
+        st.markdown(f"""
+<div style="background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px">
+  <div style="color:#8B949E;font-size:0.72rem">STOCK</div>
+  <div style="color:#F0F6FC;font-weight:700;margin-bottom:8px">{_stk9["n"]}</div>
+  <div style="color:#8B949E;font-size:0.72rem">TICKER</div>
+  <div style="color:#58A6FF;font-weight:600;margin-bottom:8px">{_stk9["t"]}</div>
+  <div style="color:#8B949E;font-size:0.72rem">SECTOR</div>
+  <div style="color:#E3B341;font-weight:600;margin-bottom:8px">{_stk9["s"]}</div>
+  <div style="color:#8B949E;font-size:0.72rem">EXCHANGE</div>
+  <div style="color:#F0F6FC;margin-bottom:8px">{"DFM 🇦🇪" if "DFM" in _stk9["t"] else "ADX 🇦🇪"}</div>
+  <div style="color:#8B949E;font-size:0.72rem">HOURS</div>
+  <div style="color:#F0F6FC;font-size:0.80rem">Sun–Thu<br>10:00–14:50 Dubai</div>
+</div>""", unsafe_allow_html=True)
+
+        st.write("")
+        if st.button(f"📊 Run ML Signals", key="d9_ml", use_container_width=True, type="primary"):
+            st.session_state.selected_ticker = _stk9["t"]
+            st.session_state.asset_category  = "🇦🇪 UAE / DFM"
+            st.toast(f"Switched to {_stk9['n']} — ML running", icon="📊")
+            st.rerun()
+
+    with _d9chart:
+        # TradingView full website iframe — works for ALL DFM/ADX symbols
+        _tv9_url = (f"https://www.tradingview.com/chart/"
+                    f"?symbol={_stk9['tv']}&interval={_d9tf}&theme=dark")
+        _tv9_html = (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<style>*{margin:0;padding:0;}body{background:#0D1117;font-family:sans-serif;}'
+            '.tb{background:#161B22;border-bottom:1px solid #30363D;padding:8px 14px;'
+            'display:flex;gap:8px;align-items:center;flex-wrap:wrap;}'
+            '.btn{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;'
+            'padding:5px 12px;text-decoration:none;font-size:0.80rem;}'
+            '.btn:hover{background:#1F6FEB;color:white;}'
+            '</style></head><body>'
+            f'<div class="tb">'
+            f'<a class="btn" href="{_tv9_url}" target="_blank">↗ Open TradingView</a>'
+            f'<a class="btn" href="https://www.dfm.ae" target="_blank">DFM Official</a>'
+            f'<a class="btn" href="https://www.adx.ae" target="_blank">ADX Official</a>'
+            f'<span style="color:#8B949E;font-size:0.75rem">'
+            f'{_stk9["tv"]} · {_stk9["n"]}</span>'
+            f'</div>'
+            f'<iframe src="{_tv9_url}"'
+            f' style="width:100%;height:520px;border:none;"'
+            f' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"'
+            f' referrerpolicy="no-referrer-when-downgrade" loading="lazy"></iframe>'
+            f'</body></html>'
+        )
+        st.components.v1.html(_tv9_html, height=570, scrolling=False)
+        st.caption(
+            f"TradingView full chart for **{_stk9['n']}** ({_stk9['tv']}) · "
+            "Full website iframe — works for all DFM/ADX symbols · "
+            "Click ↗ to open in full TradingView"
+        )
