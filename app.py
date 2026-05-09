@@ -129,39 +129,78 @@ with st.sidebar:
     st.caption("Auto-updates every 30 minutes")
     st.divider()
 
-    # ── Upload CSV FIRST (so it adds to list before selection) ────
+    # ── Upload CSV ──────────────────────────────────────────────────
     st.subheader("📁 Upload CSV Data")
-    st.caption("Upload for any asset — Investing.com or Yahoo Finance format")
+
+    # Upload mode selector
+    _umode = st.radio("Upload for:", ["🇦🇪 UAE / DFM Stock", "📈 Other Asset"],
+                      horizontal=True, key="upload_mode")
 
     uploaded = st.file_uploader(
-        "Drop CSV here",
-        type=["csv"],
-        help="After upload, give it a ticker name below (e.g. EMAAR.DFM, SOL-USD, NVDA)"
+        "Drop CSV here (Investing.com or Yahoo Finance format)",
+        type=["csv"], key="csv_uploader"
     )
 
     if uploaded is not None:
-        col_name, col_add = st.columns([2,1])
-        with col_name:
-            csv_ticker = st.text_input(
-                "Asset name for this CSV",
-                placeholder="e.g. EMAAR.DFM",
-                key="csv_ticker_input"
-            ).upper().strip()
-        with col_add:
-            st.write("")
-            st.write("")
-            if st.button("➕ Add", use_container_width=True) and csv_ticker:
-                st.session_state.uploaded_assets[csv_ticker] = uploaded.read()
-                st.session_state.selected_ticker = csv_ticker
-                st.success(f"✅ Added {csv_ticker}")
+        if _umode == "🇦🇪 UAE / DFM Stock":
+            # Show dropdown of DFM stocks — user just picks which one
+            _DFM_PICK = {
+                "Emaar Properties"    : "EMAAR.DFM",
+                "Emirates NBD"        : "ENBD.DFM",
+                "Dubai Islamic Bank"  : "DIB.DFM",
+                "du Telecom"          : "DU.DFM",
+                "Dubai Electricity"   : "DEWA.DFM",
+                "Salik"               : "SALIK.DFM",
+                "First Abu Dhabi Bank": "FAB.ADX",
+                "Aldar Properties"    : "ALDAR.ADX",
+                "ADCB Bank"           : "ADCB.ADX",
+                "Mashreq Bank"        : "MASQ.DFM",
+            }
+            _picked = st.selectbox(
+                "Which stock is this CSV for?",
+                list(_DFM_PICK.keys()),
+                key="dfm_csv_pick"
+            )
+            _ticker_for_csv = _DFM_PICK[_picked]
+            st.caption(f"Will be saved as: **{_ticker_for_csv}**")
+
+            if st.button("✅ Apply to " + _picked, use_container_width=True,
+                         type="primary", key="dfm_csv_add"):
+                _bytes = uploaded.read()
+                st.session_state.uploaded_assets[_ticker_for_csv] = _bytes
+                st.session_state.selected_ticker = _ticker_for_csv
+                # Also save so it persists
+                from persistence import save_settings
+                save_settings({**load_settings(), "last_ticker": _ticker_for_csv})
+                st.success(f"✅ CSV applied to {_picked} ({_ticker_for_csv}) — running ML now...")
                 st.rerun()
 
-    # Show uploaded assets
+        else:
+            # Other asset — user types ticker manually
+            _col1, _col2 = st.columns([2, 1])
+            with _col1:
+                csv_ticker = st.text_input(
+                    "Asset ticker",
+                    placeholder="e.g. SOL-USD, AAPL, TSLA",
+                    key="csv_ticker_input"
+                ).upper().strip()
+            with _col2:
+                st.write(""); st.write("")
+                if st.button("➕ Add", use_container_width=True, key="other_csv_add") and csv_ticker:
+                    st.session_state.uploaded_assets[csv_ticker] = uploaded.read()
+                    st.session_state.selected_ticker = csv_ticker
+                    st.success(f"✅ Added {csv_ticker}")
+                    st.rerun()
+
+    # Show what's uploaded
     if st.session_state.uploaded_assets:
-        st.caption(f"📂 Uploaded: {', '.join(st.session_state.uploaded_assets.keys())}")
-        if st.button("🗑️ Clear all uploads", use_container_width=True):
-            st.session_state.uploaded_assets = {}
-            st.rerun()
+        _ul = list(st.session_state.uploaded_assets.keys())
+        for _ut in _ul:
+            _uc1, _uc2 = st.columns([3,1])
+            _uc1.caption(f"📂 {_ut}")
+            if _uc2.button("✕", key=f"del_{_ut}", use_container_width=True):
+                del st.session_state.uploaded_assets[_ut]
+                st.rerun()
 
     st.divider()
 
