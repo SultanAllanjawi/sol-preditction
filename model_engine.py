@@ -141,7 +141,7 @@ class ModelEngine:
             Xs.append(X[i-SEQ_LEN:i]); ys.append(y[i])
         return np.array(Xs,np.float32), np.array(ys,int)
 
-    def train(self, verbose=False) -> dict:
+    def train(self, verbose=False, sentiment_score: float = 0.0) -> dict:
         nf=len(self.feat_cols); y_te=self.yte_s
         all_p={}; all_a={}; model_data={}
 
@@ -243,6 +243,14 @@ class ModelEngine:
         ens_filt  = (accuracy_score(y_te[filt],(ens_proba[filt]>=HIGH).astype(int))
                      if filt.sum()>1 else ens_acc)
         signals   = np.where(ens_proba>=HIGH,1,np.where(ens_proba<=LOW,-1,0))
+
+        # ── Multiple signals per day ──────────────────────────────────────
+        # For daily data: find ALL BUY/SELL points (not just last one)
+        # For intraday: every candle with confidence >= threshold is a signal
+        # This gives traders multiple entry opportunities
+        n_signals_total = int((signals != 0).sum())
+        buy_signals_idx  = np.where(signals == 1)[0]
+        sell_signals_idx = np.where(signals == -1)[0]
         best_name = max(all_a,key=all_a.get)
         print(f"  Best: {best_name} ({all_a[best_name]*100:.2f}%)")
         print(f"  Ensemble: {ens_acc*100:.2f}% / filtered: {ens_filt*100:.2f}%")
@@ -276,6 +284,39 @@ class ModelEngine:
         last_conf=max(last_prob,1-last_prob)*100
         print(f"  Tomorrow: {last_sig} ({last_conf:.1f}%)")
 
+        # Sentiment influence on signal confidence
+        # Bullish news boosts BUY confidence, bearish news boosts SELL confidence
+        if sentiment_score > 0.1 and last_sig == "BUY":
+            last_conf = min(99.0, last_conf * (1 + sentiment_score * 0.15))
+            print(f"  Sentiment boost: +{sentiment_score*15:.1f}% → {last_conf:.1f}%")
+        elif sentiment_score < -0.1 and last_sig == "SELL":
+            last_conf = min(99.0, last_conf * (1 + abs(sentiment_score) * 0.15))
+            print(f"  Sentiment boost: +{abs(sentiment_score)*15:.1f}% → {last_conf:.1f}%")
+
+        # ── Build multi-signal table ────────────────────────────────────
+        _te_idx = self.te.iloc[SEQ_LEN:].index
+        _all_signal_dates  = []
+        _all_signal_prices = []
+        _all_signal_types  = []
+        _all_signal_confs  = []
+        for _idx in range(len(signals)):
+            if signals[_idx] != 0:
+                _dt  = _te_idx[_idx] if _idx < len(_te_idx) else None
+                _p   = float(self.te["Close"].iloc[SEQ_LEN + _idx]) if SEQ_LEN+_idx < len(self.te) else 0
+                _sig = "BUY" if signals[_idx]==1 else "SELL"
+                _cf  = float(max(ens_proba[_idx], 1-ens_proba[_idx])) * 100
+                _all_signal_dates.append(str(_dt)[:10] if _dt is not None else "")
+                _all_signal_prices.append(_p)
+                _all_signal_types.append(_sig)
+                _all_signal_confs.append(_cf)
+
+        multi_signals_df = __import__("pandas").DataFrame({
+            "Date"      : _all_signal_dates,
+            "Price"     : [f"${p:,.4f}" for p in _all_signal_prices],
+            "Signal"    : ["🟢 BUY" if s=="BUY" else "🔴 SELL" for s in _all_signal_types],
+            "Confidence": [f"{c:.1f}%" for c in _all_signal_confs],
+        }).sort_values("Date", ascending=False).reset_index(drop=True)
+
         return {
             "model_data":model_data,"best_model":best_name,
             "ensemble_acc":ens_acc,"ensemble_filt_acc":ens_filt,
@@ -287,5 +328,7 @@ class ModelEngine:
             "price_pred":pp,"y_price_te":y_pte_al,"rmse":rmse,"mae":mae,
             "te_df":te_al,"signal_history":sh,
             "TF_AVAILABLE":False,
+            "multi_signals":multi_signals_df,
+            "sentiment_score":sentiment_score,
             "ensemble_models":list(good.keys()),"excluded_models":excluded,
         }
