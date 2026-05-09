@@ -580,67 +580,53 @@ with col_sig:
     _slc = "#F85149" if last_sig=="BUY" else "#3FB950"
     _em  = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
 
-    st.markdown(f"""
-<div style="background:{_bc};border:2px solid {_brd};border-radius:14px;padding:20px 22px;margin-bottom:10px">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
-    <div>
-      <div style="color:#8B949E;font-size:0.72rem;font-weight:600;text-transform:uppercase;
-           letter-spacing:0.08em;margin-bottom:6px">{_sig_label}</div>
-      <div style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>
-      <div style="margin-top:7px;font-size:0.85rem">
-        <span style="color:#8B949E">Confidence: </span>
-        <span style="color:#E3B341;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>
-        <span style="color:#6E7681;margin:0 6px">|</span>
-        <span style="color:#8B949E">P(UP): </span>
-        <span style="color:#58A6FF;font-weight:700">{last_prob*100:.1f}%</span>
-      </div>
-    </div>
-    <div style="text-align:right">
-      <div style="background:#0D1117;border:1px solid #30363D;border-radius:8px;padding:8px 14px">
-        <div style="color:#6E7681;font-size:0.68rem;text-transform:uppercase">Accuracy</div>
-        <div style="color:#E3B341;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>
-        <div style="color:#6E7681;font-size:0.65rem">filtered</div>
-      </div>
-    </div>
-  </div>
-  <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:14px 16px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div>
-        <div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>
-        <div style="color:#F0F6FC;font-size:1.1rem;font-weight:700">${display_price:,.4f}</div>
-      </div>
-      <div>
-        <div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>
-        <div style="color:#58A6FF;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div>
-      </div>
-      <div>
-        <div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>
-        <div style="color:{_tc};font-size:1.05rem;font-weight:700">
-          {f'${tp_price:,.4f}' if tp_price else '—'}
-          {f'<span style="color:#8B949E;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ''}
-        </div>
-      </div>
-      <div>
-        <div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>
-        <div style="color:{_slc};font-size:1.05rem;font-weight:700">
-          {f'${sl_price:,.4f}' if sl_price else '—'}
-          {f'<span style="color:#8B949E;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ''}
-        </div>
-      </div>
-    </div>
-    <div style="border-top:1px solid #30363D;margin-top:12px;padding-top:10px;
-         display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <span style="color:#6E7681;font-size:0.78rem">R/R: </span>
-        <span style="color:#F0F6FC;font-weight:700">1 : {rr:.2f}</span>
-        <span style="color:#6E7681;font-size:0.72rem;margin-left:10px">
-          ATR {atr_pct*100:.2f}%
-        </span>
-      </div>
-      <div style="color:#6E7681;font-size:0.68rem">Not financial advice</div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
+    # Pre-compute all values to avoid nested f-strings with quotes
+    _tp_disp  = f"${tp_price:,.4f}" if tp_price else "—"
+    _tp_pct_s = f'<span style="color:#8B949E;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ""
+    _sl_disp  = f"${sl_price:,.4f}" if sl_price else "—"
+    _sl_pct_s = f'<span style="color:#8B949E;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ""
+
+    st.markdown(
+        f'<div style="background:{_bc};border:2px solid {_brd};border-radius:14px;'
+        f'padding:20px 22px;margin-bottom:10px">'
+        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
+        f'<div>'
+        f'<div style="color:#8B949E;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
+        f'letter-spacing:0.08em;margin-bottom:6px">{_sig_label}</div>'
+        f'<div style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>'
+        f'<div style="margin-top:7px;font-size:0.85rem">'
+        f'<span style="color:#8B949E">Confidence: </span>'
+        f'<span style="color:#E3B341;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
+        f'<span style="color:#6E7681;margin:0 6px">|</span>'
+        f'<span style="color:#8B949E">P(UP): </span>'
+        f'<span style="color:#58A6FF;font-weight:700">{last_prob*100:.1f}%</span>'
+        f'</div></div>'
+        f'<div style="text-align:right">'
+        f'<div style="background:#0D1117;border:1px solid #30363D;border-radius:8px;padding:8px 14px">'
+        f'<div style="color:#6E7681;font-size:0.68rem;text-transform:uppercase">Accuracy</div>'
+        f'<div style="color:#E3B341;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>'
+        f'<div style="color:#6E7681;font-size:0.65rem">filtered</div>'
+        f'</div></div></div>'
+        f'<div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:14px 16px">'
+        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>'
+        f'<div style="color:#F0F6FC;font-size:1.1rem;font-weight:700">${display_price:,.4f}</div></div>'
+        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>'
+        f'<div style="color:#58A6FF;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div></div>'
+        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>'
+        f'<div style="color:{_tc};font-size:1.05rem;font-weight:700">{_tp_disp}{_tp_pct_s}</div></div>'
+        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>'
+        f'<div style="color:{_slc};font-size:1.05rem;font-weight:700">{_sl_disp}{_sl_pct_s}</div></div>'
+        f'</div>'
+        f'<div style="border-top:1px solid #30363D;margin-top:12px;padding-top:10px;'
+        f'display:flex;justify-content:space-between;align-items:center">'
+        f'<div><span style="color:#6E7681;font-size:0.78rem">R/R: </span>'
+        f'<span style="color:#F0F6FC;font-weight:700">1 : {rr:.2f}</span>'
+        f'<span style="color:#6E7681;font-size:0.72rem;margin-left:10px">ATR {atr_pct*100:.2f}%</span></div>'
+        f'<div style="color:#6E7681;font-size:0.68rem">Not financial advice</div>'
+        f'</div></div></div>',
+        unsafe_allow_html=True
+    )
 
     # Signal status badge
     _sig_status = update_signal_status(
