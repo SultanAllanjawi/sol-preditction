@@ -393,14 +393,16 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
             st.markdown("""
 <div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
   <div style="color:#E3B341;font-weight:bold;margin-bottom:10px">
-    🇦🇪 UAE Stock — Auto-loading via yfinance
+    🇦🇪 UAE Stock — Upload a CSV to get predictions
   </div>
   <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.9">
-    UAE stocks load automatically from Yahoo Finance using the <b>yfinance</b> library.<br>
-    This works on Streamlit Cloud. If you see this error, try these steps:<br>
-    1. Click <b>Force Refresh Data</b> button in the sidebar<br>
-    2. Make sure <b>data_manager.py</b> is updated on GitHub (latest version)<br>
-    3. If still failing: go to <b>🇦🇪 DFM Market</b> tab to see the live chart while data loads
+    <b>Note:</b> Streamlit Cloud resets uploaded files on reboot — you may need to re-upload.<br><br>
+    <b>To fix:</b><br>
+    1. In the sidebar, select <b>Upload for: 🇦🇪 UAE / DFM Stock</b><br>
+    2. Upload a CSV from <a href="https://www.investing.com" target="_blank" style="color:#58A6FF">Investing.com</a>
+       → search stock → Historical Data → Download<br>
+    3. Pick the stock from the dropdown and click <b>Apply</b><br>
+    4. ML predictions will run immediately
   </div>
 </div>""", unsafe_allow_html=True)
         else:
@@ -792,7 +794,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -802,7 +804,6 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9 = st.tabs([
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
     "📈 Backtest P&L",
-    "🇦🇪 DFM Market",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -2139,110 +2140,3 @@ with tab8:
 
 # ════════════════════════════════════════════════════════════════════
 # TAB 9: DFM Market — TradingView Live Charts
-# ════════════════════════════════════════════════════════════════════
-with tab9:
-    st.markdown("## 🇦🇪 UAE Market — DFM & ADX Live Charts")
-    st.caption(
-        "Top 10 UAE stocks · Full TradingView website embedded · "
-        "Select from sidebar for ML predictions · DFM data auto-loads via yfinance"
-    )
-
-    _DFM9 = [
-        {"t":"EMAAR.DFM","n":"Emaar Properties",    "tv":"DFM:EMAAR",  "s":"Real Estate"},
-        {"t":"ENBD.DFM", "n":"Emirates NBD",         "tv":"DFM:ENBD",   "s":"Banking"},
-        {"t":"DIB.DFM",  "n":"Dubai Islamic Bank",   "tv":"DFM:DIB",    "s":"Banking"},
-        {"t":"DU.DFM",   "n":"du Telecom",            "tv":"DFM:DU",     "s":"Telecom"},
-        {"t":"DEWA.DFM", "n":"Dubai Electricity",    "tv":"DFM:DEWA",   "s":"Utilities"},
-        {"t":"SALIK.DFM","n":"Salik",                 "tv":"DFM:SALIK",  "s":"Transport"},
-        {"t":"FAB.ADX",  "n":"First Abu Dhabi Bank",  "tv":"ADX:FAB",    "s":"Banking"},
-        {"t":"ALDAR.ADX","n":"Aldar Properties",      "tv":"ADX:ALDAR",  "s":"Real Estate"},
-        {"t":"ADCB.ADX", "n":"ADCB Bank",             "tv":"ADX:ADCB",   "s":"Banking"},
-        {"t":"MASQ.DFM", "n":"Mashreq Bank",          "tv":"DFM:MASQ",   "s":"Banking"},
-    ]
-
-    # Stock selector buttons
-    if "dfm9_sel" not in st.session_state:
-        st.session_state.dfm9_sel = 0
-
-    _d9cols = st.columns(5)
-    for _di, _ds in enumerate(_DFM9):
-        if _d9cols[_di % 5].button(
-            _ds["n"].split()[0], key=f"d9_{_di}",
-            use_container_width=True,
-            type="primary" if st.session_state.dfm9_sel == _di else "secondary"
-        ):
-            st.session_state.dfm9_sel = _di
-            st.rerun()
-
-    st.divider()
-    _stk9 = _DFM9[st.session_state.dfm9_sel]
-
-    # Timeframe selector
-    _d9tfs = {"1D":"D","1W":"W","1M":"M","1h":"60","4h":"240","15m":"15"}
-    if "dfm9_tf" not in st.session_state:
-        st.session_state.dfm9_tf = "D"
-    _d9tc = st.columns(len(_d9tfs))
-    for _tfi, (_lbl, _val) in enumerate(_d9tfs.items()):
-        if _d9tc[_tfi].button(_lbl, key=f"d9tf_{_val}", use_container_width=True,
-                               type="primary" if st.session_state.dfm9_tf==_val else "secondary"):
-            st.session_state.dfm9_tf = _val
-            st.rerun()
-    _d9tf = st.session_state.dfm9_tf
-
-    # Layout
-    _d9chart, _d9info = st.columns([3, 1])
-
-    with _d9info:
-        st.markdown(f"""
-<div style="background:#161B22;border:1px solid #30363D;border-radius:10px;padding:16px">
-  <div style="color:#8B949E;font-size:0.72rem">STOCK</div>
-  <div style="color:#F0F6FC;font-weight:700;margin-bottom:8px">{_stk9["n"]}</div>
-  <div style="color:#8B949E;font-size:0.72rem">TICKER</div>
-  <div style="color:#58A6FF;font-weight:600;margin-bottom:8px">{_stk9["t"]}</div>
-  <div style="color:#8B949E;font-size:0.72rem">SECTOR</div>
-  <div style="color:#E3B341;font-weight:600;margin-bottom:8px">{_stk9["s"]}</div>
-  <div style="color:#8B949E;font-size:0.72rem">EXCHANGE</div>
-  <div style="color:#F0F6FC;margin-bottom:8px">{"DFM 🇦🇪" if "DFM" in _stk9["t"] else "ADX 🇦🇪"}</div>
-  <div style="color:#8B949E;font-size:0.72rem">HOURS</div>
-  <div style="color:#F0F6FC;font-size:0.80rem">Sun–Thu<br>10:00–14:50 Dubai</div>
-</div>""", unsafe_allow_html=True)
-
-        st.write("")
-        if st.button(f"📊 Run ML Signals", key="d9_ml", use_container_width=True, type="primary"):
-            st.session_state.selected_ticker = _stk9["t"]
-            st.session_state.asset_category  = "🇦🇪 UAE / DFM"
-            st.toast(f"Switched to {_stk9['n']} — ML running", icon="📊")
-            st.rerun()
-
-    with _d9chart:
-        # TradingView full website iframe — works for ALL DFM/ADX symbols
-        _tv9_url = (f"https://www.tradingview.com/chart/"
-                    f"?symbol={_stk9['tv']}&interval={_d9tf}&theme=dark")
-        _tv9_html = (
-            '<!DOCTYPE html><html><head><meta charset="utf-8">'
-            '<style>*{margin:0;padding:0;}body{background:#0D1117;font-family:sans-serif;}'
-            '.tb{background:#161B22;border-bottom:1px solid #30363D;padding:8px 14px;'
-            'display:flex;gap:8px;align-items:center;flex-wrap:wrap;}'
-            '.btn{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;'
-            'padding:5px 12px;text-decoration:none;font-size:0.80rem;}'
-            '.btn:hover{background:#1F6FEB;color:white;}'
-            '</style></head><body>'
-            f'<div class="tb">'
-            f'<a class="btn" href="{_tv9_url}" target="_blank">↗ Open TradingView</a>'
-            f'<a class="btn" href="https://www.dfm.ae" target="_blank">DFM Official</a>'
-            f'<a class="btn" href="https://www.adx.ae" target="_blank">ADX Official</a>'
-            f'<span style="color:#8B949E;font-size:0.75rem">'
-            f'{_stk9["tv"]} · {_stk9["n"]}</span>'
-            f'</div>'
-            f'<iframe src="{_tv9_url}"'
-            f' style="width:100%;height:520px;border:none;"'
-            f' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"'
-            f' referrerpolicy="no-referrer-when-downgrade" loading="lazy"></iframe>'
-            f'</body></html>'
-        )
-        st.components.v1.html(_tv9_html, height=570, scrolling=False)
-        st.caption(
-            f"TradingView full chart for **{_stk9['n']}** ({_stk9['tv']}) · "
-            "Full website iframe — works for all DFM/ADX symbols · "
-            "Click ↗ to open in full TradingView"
-        )
