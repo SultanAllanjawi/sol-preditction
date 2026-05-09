@@ -548,10 +548,8 @@ c1,c2,c3,c4,c5 = st.columns(5)
 c1.metric("Model Accuracy",     f"{ens_acc*100:.1f}%")
 c2.metric("Filtered Accuracy",  f"{ens_filt*100:.1f}%",
           delta=f"+{(ens_filt-ens_acc)*100:.1f}% vs raw")
-_wf_acc = results.get("wf_acc", ens_acc)
-c3.metric("Walk-Forward Acc",   f"{_wf_acc*100:.1f}%",
-          delta="3-fold · more reliable",
-          help="Rolling 3-fold validation accuracy — more reliable than single split")
+c3.metric("P(UP Tomorrow)",     f"{last_prob*100:.1f}%",
+          delta="↑ UP" if last_prob>0.5 else "↓ DOWN")
 c4.metric("ATR (volatility)",   f"${last_atr:.4f}",
           help="Average True Range — used to set TP and SL")
 c5.metric("Active Signals",     str(results['n_signals']))
