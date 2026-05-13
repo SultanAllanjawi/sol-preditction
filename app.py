@@ -887,7 +887,7 @@ body{{background:#0D1117}}
       "toolbar_bg"        : "#161B22",
       "hide_side_toolbar" : false,
       "hide_top_toolbar"  : false,
-      "allow_symbol_change": false,
+      "allow_symbol_change": true,
       "save_image"        : false,
       "backgroundColor"   : "#0D1117",
       "studies"           : [
@@ -965,33 +965,7 @@ body{{background:#0D1117}}
   </div>
 </div>
 """
-    # UAE/DFM stocks: use full TradingView website iframe (widget doesn't support DFM)
-    _UAE_SET = {"EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
-                "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"}
-    if ticker in _UAE_SET:
-        _tv_full_url = f"https://www.tradingview.com/chart/?symbol={_tv_sym}&interval={_tf_val}&theme=dark"
-        _tv_iframe_html = (
-            '<!DOCTYPE html><html><head><meta charset="utf-8">'
-            '<style>*{margin:0;padding:0;}body{background:#0D1117;}'
-            '.tb{background:#161B22;border-bottom:1px solid #30363D;padding:7px 14px;'
-            'display:flex;gap:8px;align-items:center;}'
-            '.btn{background:#21262D;color:#C9D1D9;border:1px solid #30363D;border-radius:5px;'
-            'padding:4px 10px;text-decoration:none;font-size:0.78rem;}'
-            '.btn:hover{background:#1F6FEB;color:white;}</style>'
-            '</head><body>'
-            f'<div class="tb">'
-            f'<a class="btn" href="{_tv_full_url}" target="_blank">↗ Open TradingView</a>'
-            f'<span style="color:#8B949E;font-size:0.73rem">{_tv_sym}</span>'
-            f'</div>'
-            f'<iframe src="{_tv_full_url}"'
-            f' style="width:100%;height:630px;border:none;"'
-            f' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"'
-            f' referrerpolicy="no-referrer-when-downgrade" loading="lazy"></iframe>'
-            f'</body></html>'
-        )
-        st.components.v1.html(_tv_iframe_html, height=670, scrolling=False)
-    else:
-        st.components.v1.html(_tv_live_html, height=670, scrolling=False)
+    st.components.v1.html(_tv_live_html, height=670, scrolling=False)
 
     # ── Signal history table under the live chart ─────────────────
     if not sig_hist.empty:
