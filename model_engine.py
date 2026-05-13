@@ -150,7 +150,7 @@ class ModelEngine:
             Xs.append(X[i-SEQ_LEN:i]); ys.append(y[i])
         return np.array(Xs,np.float32), np.array(ys,int)
 
-    def train(self, verbose=False, sentiment_score: float = 0.0) -> dict:
+    def train(self, verbose=False, sentiment_score: float = 0.0, is_crypto: bool = True) -> dict:
         nf=len(self.feat_cols); y_te=self.yte_s
         all_p={}; all_a={}; model_data={}
 
@@ -166,11 +166,12 @@ class ModelEngine:
                         _arr[_mask, _col] = np.nanmedian(_arr[:, _col]) if np.isfinite(_arr[:, _col]).any() else 0.0
             # Run 3 times with fixed seeds, keep best → removes variance
             _best_rp=None; _best_ra=0.0
+            _epochs = 50 if is_crypto else 30  # fewer epochs for stocks (less data)
             for _seed in [42, 7, 13]:
                 np.random.seed(_seed)
                 _rnn=VanillaRNN(nf,64,4e-4)
                 _rnn.fit(_Xtr2,self.ytr2,_Xval,self.yval,
-                         self.CW,epochs=50,batch=64,patience=8,verbose=False)
+                         self.CW,epochs=_epochs,batch=64,patience=8,verbose=False)
                 _rp_try=np.clip(_rnn.predict_proba(_Xte_s),0.01,0.99)
                 _ra_try=accuracy_score(y_te,(_rp_try>0.5).astype(int))
                 if _ra_try>_best_ra:
