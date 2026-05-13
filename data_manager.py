@@ -142,12 +142,12 @@ class DataManager:
                     return self._clean(fresh)
 
             fresh = self._fetch_daily()
-            if fresh is not None and len(fresh) >= 80:
+            if fresh is not None and len(fresh) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
                 return self._clean(merged)
 
-        if cached is not None and len(cached) >= 80:
+        if cached is not None and len(cached) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
             return self._clean(cached)
 
         raise RuntimeError(
@@ -177,6 +177,11 @@ class DataManager:
     def _fetch_daily(self):
         t = self.ticker.upper()
         clean = t.replace("-USD","")
+
+        # UAE/DFM stocks — use dedicated multi-source fetcher
+        if self.ticker in UAE_YAHOO_MAP:
+            return self._yahoo_uae()
+
         if t in BINANCE_MAP or clean in BINANCE_MAP:
             df = self._binance_daily()
             if df is not None: return df
