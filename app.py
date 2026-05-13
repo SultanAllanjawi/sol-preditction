@@ -52,26 +52,24 @@ C_GOLD='#E3B341';C_GREY='#6E7681';C_WHITE='#F0F6FC';C_DIM='#8B949E'
 
 
 
-def get_tv_symbol(ticker):
-    t = ticker.upper()
-    if t in TRADINGVIEW_MAP:
-        return TRADINGVIEW_MAP[t]
-    # Auto-detect: crypto ending in -USD → Binance
-    if t.endswith("-USD"):
-        return f"BINANCE:{t.replace('-USD','USDT')}"
-    return t
-
-
 # ── TradingView symbol map ─────────────────────────────────────────────────────
 _TV_MAP = {
+    # Crypto
     "SOL-USD":"BINANCE:SOLUSDT","BTC-USD":"BINANCE:BTCUSDT",
     "ETH-USD":"BINANCE:ETHUSDT","ADA-USD":"BINANCE:ADAUSDT",
     "BNB-USD":"BINANCE:BNBUSDT","XRP-USD":"BINANCE:XRPUSDT",
     "DOGE-USD":"BINANCE:DOGEUSDT","AVAX-USD":"BINANCE:AVAXUSDT",
     "MATIC-USD":"BINANCE:MATICUSDT","LINK-USD":"BINANCE:LINKUSDT",
-    "EMAAR.DFM":"DFM:EMAAR","AAPL":"NASDAQ:AAPL","TSLA":"NASDAQ:TSLA",
-    "MSFT":"NASDAQ:MSFT","NVDA":"NASDAQ:NVDA","AMZN":"NASDAQ:AMZN",
-    "GOOGL":"NASDAQ:GOOGL",
+    # US Stocks
+    "AAPL":"NASDAQ:AAPL","TSLA":"NASDAQ:TSLA","MSFT":"NASDAQ:MSFT",
+    "NVDA":"NASDAQ:NVDA","AMZN":"NASDAQ:AMZN","GOOGL":"NASDAQ:GOOGL",
+    # Commodities & Indices
+    "GC=F":"COMEX:GC1!","SI=F":"COMEX:SI1!",
+    "SPY":"AMEX:SPY","QQQ":"NASDAQ:QQQ",
+    # UAE
+    "EMAAR.DFM":"DFM:EMAAR","ENBD.DFM":"DFM:ENBD","DIB.DFM":"DFM:DIB",
+    "DU.DFM":"DFM:DU","DEWA.DFM":"DFM:DEWA","SALIK.DFM":"DFM:SALIK",
+    "FAB.ADX":"ADX:FAB","ALDAR.ADX":"ADX:ALDAR","ADCB.ADX":"ADX:ADCB","MASQ.DFM":"DFM:MASQ",
 }
 def get_tv_symbol(t):
     t = t.upper()
@@ -217,28 +215,33 @@ with st.sidebar:
     # ── Asset Selection — base list + any uploaded CSVs ────────────
     st.subheader("📊 Asset Selection")
 
-    _CRYPTO = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
-    _US     = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
-    _UAE    = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
-               "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+    _CRYPTO  = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
+    _US      = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
+    _INDICES = ["GC=F","SI=F","SPY","QQQ"]   # Gold, Silver, S&P500, Nasdaq
+    _UAE     = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
     _UAE_NAMES = {
         "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
         "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
         "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
         "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
         "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
+        # Commodities & Indices
+        "GC=F":"Gold (Futures)","SI=F":"Silver (Futures)",
+        "SPY":"S&P 500 ETF","QQQ":"Nasdaq 100 ETF",
     }
-    BASE_ASSETS = _CRYPTO + _US + _UAE
+    BASE_ASSETS = _CRYPTO + _US + _INDICES + _UAE
 
     _cat = st.radio("Category",
-        ["🔵 Crypto","🟢 US Stocks","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
+        ["🔵 Crypto","🟢 US Stocks","📊 Commodities & Indices","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
         horizontal=False, key="asset_category")
 
-    if   _cat == "🔵 Crypto":     _asset_list = _CRYPTO
-    elif _cat == "🟢 US Stocks":  _asset_list = _US
-    elif _cat == "🇦🇪 UAE / DFM": _asset_list = _UAE
-    elif _cat == "📁 Uploaded":   _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
-    else:                          _asset_list = []
+    if   _cat == "🔵 Crypto":                _asset_list = _CRYPTO
+    elif _cat == "🟢 US Stocks":             _asset_list = _US
+    elif _cat == "📊 Commodities & Indices": _asset_list = _INDICES
+    elif _cat == "🇦🇪 UAE / DFM":            _asset_list = _UAE
+    elif _cat == "📁 Uploaded":              _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
+    else:                                     _asset_list = []
 
     if _cat == "✏️ Custom":
         all_assets = ["✏️ Custom ticker..."]
@@ -278,6 +281,9 @@ with st.sidebar:
     # Show source badge
     if ticker in st.session_state.uploaded_assets:
         st.success(f"📂 Using uploaded CSV for **{ticker}**")
+    elif ticker in _INDICES:
+        _idx_names = {"GC=F":"Gold","SI=F":"Silver","SPY":"S&P 500","QQQ":"Nasdaq 100"}
+        st.info(f"📡 **{_idx_names.get(ticker,ticker)}** · Yahoo Finance · Updates every 30 min")
     elif ticker in _UAE:
         st.info(f"📡 Yahoo Finance (.AE suffix) · UAE market · Updates every 30 min")
     else:
