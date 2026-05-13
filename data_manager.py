@@ -73,6 +73,14 @@ UAE_YAHOO_MAP = {
     "MASQ.DFM"  : "MASQ.AE",
 }
 
+# Alternative ticker formats to try if primary fails
+UAE_ALT_TICKERS = {
+    "ENBD.DFM"  : ["EMIRATESNBD.AE", "ENBD.AE", "EBI.AE"],
+    "MASQ.DFM"  : ["MASQ.AE", "MASHREQBANK.AE", "MASQBANK.AE"],
+    "DU.DFM"    : ["DU.AE", "EITC.AE", "EMIRATESIT.AE"],
+    "SALIK.DFM" : ["SALIK.AE", "SALIKTOP.AE"],
+}
+
 HDR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
@@ -276,12 +284,24 @@ class DataManager:
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
         _base_sym = yf_ticker.replace(".AE","").replace(".DFM","").replace(".ADX","")
 
-        # ── Method 1: Stooq (no auth, reliable for UAE .ae tickers) ─
+        # ── Method 1: Stooq — try multiple symbol formats ─────────
         try:
-            stooq_sym = _base_sym.lower() + ".ae"
-            r = requests.get(
-                f"https://stooq.com/q/d/l/?s={stooq_sym}&i=d&d1=20200101",
-                headers={**HDR,"Referer":"https://stooq.com/"}, timeout=12)
+            _stooq_syms = [_base_sym.lower() + ".ae"]
+            # Add alt base symbols for tricky tickers
+            if self.ticker in UAE_ALT_TICKERS:
+                for _alt in UAE_ALT_TICKERS[self.ticker]:
+                    _alt_base = _alt.replace(".AE","").replace(".ae","").lower()
+                    _stooq_syms.append(_alt_base + ".ae")
+            _stooq_data = None
+            for _ssym in _stooq_syms:
+                _sr = requests.get(
+                    f"https://stooq.com/q/d/l/?s={_ssym}&i=d&d1=20200101",
+                    headers={**HDR,"Referer":"https://stooq.com/"}, timeout=12)
+                if _sr.status_code == 200 and len(_sr.text) > 200 and "Date" in _sr.text:
+                    _stooq_data = _sr.text
+                    break
+            r = type('obj', (object,), {'status_code': 200 if _stooq_data else 404,
+                                         'text': _stooq_data or ""})()
             if r.status_code == 200 and len(r.text) > 200 and "Date" in r.text:
                 from io import StringIO
                 df = pd.read_csv(StringIO(r.text))
@@ -299,11 +319,19 @@ class DataManager:
         except Exception:
             pass
 
-        # ── Method 2: yfinance (handles auth automatically) ─
+        # ── Method 2: yfinance — try primary + alternative tickers ─
         try:
             import yfinance as _yf
-            _raw = _yf.download(yf_ticker, period="5y", interval="1d",
-                                progress=False, auto_adjust=True, threads=False)
+            _yf_tickers = [yf_ticker] + UAE_ALT_TICKERS.get(self.ticker, [])
+            _raw = None
+            for _yt in _yf_tickers:
+                try:
+                    _raw = _yf.download(_yt, period="5y", interval="1d",
+                                        progress=False, auto_adjust=True, threads=False)
+                    if _raw is not None and len(_raw) >= 30:
+                        break
+                except Exception:
+                    _raw = None
             if _raw is not None and len(_raw) >= 30:
                 _raw = _raw.reset_index()
                 if hasattr(_raw.columns, 'levels'):
@@ -354,7 +382,25 @@ class DataManager:
         except Exception:
             pass
 
-        # ── Method 4: Yahoo raw requests ────────────────────────────
+        # ── Method 4: Yahoo CSV download (sometimes bypasses auth) ─
+        try:
+            import time as _time
+            _csv_url = f"https://query1.finance.yahoo.com/v7/finance/download/{yf_ticker}?interval=1d&range=5y&events=history"
+            _csv_hdrs = {**HDR, 'Referer': f'https://finance.yahoo.com/quote/{yf_ticker}'}
+            r = requests.get(_csv_url, headers=_csv_hdrs, timeout=15, allow_redirects=True)
+            if r.status_code == 200 and 'Date' in r.text and 'Close' in r.text:
+                from io import StringIO as _SIO
+                df = pd.read_csv(_SIO(r.text))
+                df['Date'] = pd.to_datetime(df['Date'])
+                df = df.dropna(subset=['Close'])
+                df['Change_Pct'] = df['Close'].pct_change() * 100
+                df = df.sort_values('Date').drop_duplicates('Date').reset_index(drop=True)
+                if len(df) >= 30:
+                    return df
+        except Exception:
+            pass
+
+        # ── Method 5: Yahoo raw chart API ────────────────────────────
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5y",
