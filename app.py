@@ -356,7 +356,7 @@ def load_and_train(ticker, _uploaded_bytes=None, _force=False,
     except TypeError:
         df_feat = build_features(df_raw)
     engine   = ModelEngine(df_feat)
-    results  = engine.train(verbose=False, sentiment_score=sentiment_score)
+    results  = engine.train(verbose=False, sentiment_score=sentiment_score, is_crypto=is_crypto(ticker))
     return df_raw, df_feat, results
 
 # Get uploaded bytes for the selected ticker (if any)
@@ -462,7 +462,9 @@ day_chg     = (last_close - prev_close) / prev_close * 100
 
 # Get LIVE price (may differ from yesterday's close)
 live_price = DataManager.get_live_price(ticker)
-display_price = live_price if live_price else last_close
+display_price = live_price if (live_price and live_price > 0) else last_close
+if not display_price or display_price != display_price:  # NaN check
+    display_price = float(df_feat['Close'].dropna().iloc[-1]) if len(df_feat['Close'].dropna()) > 0 else 1.0
 
 ens_proba  = results['ens_proba']
 ens_pred   = results['ens_pred']
@@ -507,8 +509,9 @@ st.session_state[f"prev_signal_{ticker}"] = _current_sig
 
 # ── ATR-based TP / SL ─────────────────────────────────────────────
 # Use the last ATR value to set realistic TP and SL
-last_atr    = float(df_feat['ATR'].iloc[-1]) if 'ATR' in df_feat.columns else display_price * 0.03
-atr_pct     = last_atr / display_price
+_atr_raw = float(df_feat['ATR'].dropna().iloc[-1]) if ('ATR' in df_feat.columns and len(df_feat['ATR'].dropna()) > 0) else 0
+last_atr = _atr_raw if (_atr_raw > 0 and _atr_raw == _atr_raw) else display_price * 0.025
+atr_pct  = last_atr / max(display_price, 0.0001)
 
 # BUY: TP = price + 2×ATR  |  SL = price - 1.5×ATR
 # SELL: TP = price - 2×ATR  |  SL = price + 1.5×ATR
@@ -983,35 +986,22 @@ body{{background:#0D1117}}
 </div>
 """
     if _is_uae_chart:
-        # Investing.com iframe — XFO not set, embeds without login
-        _inv_slug = _INV_SLUGS[ticker]
-        _inv_url  = f"https://www.investing.com/equities/{_inv_slug}-chart"
-        _inv_html = (
-            f'<!DOCTYPE html><html><head><meta charset="utf-8">'
-            f'<style>'
-            f'*{{margin:0;padding:0;box-sizing:border-box;}}'
-            f'body{{background:#0D1117;font-family:sans-serif;}}'
-            f'.tb{{background:#161B22;border-bottom:1px solid #30363D;'
-            f'padding:8px 16px;display:flex;gap:8px;align-items:center;}}'
-            f'.btn{{background:#21262D;color:#C9D1D9;border:1px solid #30363D;'
-            f'border-radius:5px;padding:5px 12px;text-decoration:none;font-size:0.79rem;}}'
-            f'.btn:hover{{background:#1F6FEB;color:#fff;}}'
-            f'</style></head><body>'
-            f'<div class="tb">'
-            f'<a class="btn" href="{_inv_url}" target="_blank">↗ Open on Investing.com</a>'
-            f'<a class="btn" href="https://www.dfm.ae" target="_blank">DFM Official</a>'
-            f'<span style="color:#8B949E;font-size:0.75rem">'
-            f'{name} · {ticker}</span>'
-            f'</div>'
-            f'<iframe src="{_inv_url}"'
-            f' style="width:100%;height:625px;border:none;"'
-            f' sandbox="allow-scripts allow-same-origin allow-forms'
-            f' allow-popups allow-top-navigation"'
-            f' referrerpolicy="no-referrer-when-downgrade"'
-            f' loading="lazy"></iframe>'
-            f'</body></html>'
+        # TradingView widget for UAE (fast, no external iframe lag)
+        # Investing.com chart available via the button below
+        _inv_url = f"https://www.investing.com/equities/{_INV_SLUGS[ticker]}-chart"
+        st.components.v1.html(_tv_live_html, height=670, scrolling=False)
+        st.markdown(
+            f'<div style="text-align:center;margin-top:4px">'
+            f'<a href="{_inv_url}" target="_blank" style="background:#21262D;color:#C9D1D9;'
+            f'border:1px solid #30363D;border-radius:5px;padding:6px 16px;'
+            f'text-decoration:none;font-size:0.82rem;margin-right:8px">'
+            f'↗ Live Chart on Investing.com</a>'
+            f'<a href="https://www.dfm.ae" target="_blank" style="background:#21262D;color:#C9D1D9;'
+            f'border:1px solid #30363D;border-radius:5px;padding:6px 16px;'
+            f'text-decoration:none;font-size:0.82rem">📊 DFM Official</a>'
+            f'</div>',
+            unsafe_allow_html=True
         )
-        st.components.v1.html(_inv_html, height=670, scrolling=False)
     else:
         st.components.v1.html(_tv_live_html, height=670, scrolling=False)
 
