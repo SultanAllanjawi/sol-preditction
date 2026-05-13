@@ -222,6 +222,30 @@ class DataManager:
         except Exception: return None
 
     def _yahoo(self):
+        # Also try yfinance for commodities/indices (better auth handling)
+        if self.ticker in ("GC=F","SI=F","^GSPC","^IXIC","SPY","QQQ","GLD","SLV"):
+            try:
+                import yfinance as _yf_c
+                _raw = _yf_c.download(self.ticker, period="5y", interval="1d",
+                                      progress=False, auto_adjust=True, threads=False)
+                if _raw is not None and len(_raw) >= 60:
+                    _raw = _raw.reset_index()
+                    if hasattr(_raw.columns,'levels'):
+                        _raw.columns = [c[0] if isinstance(c,tuple) else c for c in _raw.columns]
+                    df = pd.DataFrame({
+                        "Date"  : pd.to_datetime(_raw.get("Date",_raw.index)),
+                        "Open"  : pd.to_numeric(_raw.get("Open",None),  errors="coerce"),
+                        "High"  : pd.to_numeric(_raw.get("High",None),  errors="coerce"),
+                        "Low"   : pd.to_numeric(_raw.get("Low",None),   errors="coerce"),
+                        "Close" : pd.to_numeric(_raw.get("Close",None), errors="coerce"),
+                        "Volume": pd.to_numeric(_raw.get("Volume",None),errors="coerce").fillna(0)/1e6,
+                    })
+                    df = df.dropna(subset=["Close"])
+                    df["Change_Pct"] = df["Close"].pct_change() * 100
+                    df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+                    if len(df) >= 60: return df
+            except Exception: pass
+
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=5y",
