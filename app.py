@@ -292,7 +292,8 @@ with st.sidebar:
         _idx_names = {"GC=F":"Gold","SI=F":"Silver","SPY":"S&P 500","QQQ":"Nasdaq 100"}
         st.info(f"📡 **{_idx_names.get(ticker,ticker)}** · Yahoo Finance · Updates every 30 min")
     elif ticker in _UAE:
-        st.info(f"📡 Yahoo Finance (.AE suffix) · UAE market · Updates every 30 min")
+        st.info("📡 **UAE / DFM** · Auto-fetching from Yahoo Finance · No CSV needed")
+        st.caption("Auto-updates every 6h · Sources: yfinance → Stooq → Alpha Vantage")
     else:
         _src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","XRP","LTC"] else "Yahoo Finance"
         st.info(f"📡 Auto-fetching from **{_src}** · Updates every 30 min")
@@ -403,21 +404,22 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
   <div style="color:#F0F6FC;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
 </div>""", unsafe_allow_html=True)
         if _is_uae_err:
-            st.markdown("""
+            st.markdown(f"""
 <div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
   <div style="color:#E3B341;font-weight:bold;margin-bottom:10px">
-    🇦🇪 UAE Stock — Upload a CSV to get predictions
+    🇦🇪 {ticker} — Fetching data automatically...
   </div>
   <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.9">
-    <b>Note:</b> Streamlit Cloud resets uploaded files on reboot — you may need to re-upload.<br><br>
-    <b>To fix:</b><br>
-    1. In the sidebar, select <b>Upload for: 🇦🇪 UAE / DFM Stock</b><br>
-    2. Upload a CSV from <a href="https://www.investing.com" target="_blank" style="color:#58A6FF">Investing.com</a>
-       → search stock → Historical Data → Download<br>
-    3. Pick the stock from the dropdown and click <b>Apply</b><br>
-    4. ML predictions will run immediately
+    UAE stocks load automatically from <b>Yahoo Finance</b>.<br>
+    This usually works on Streamlit Cloud — please try:<br><br>
+    1. Click <b>Force Refresh Data</b> in the sidebar<br>
+    2. Wait 10–15 seconds for the data to load<br>
+    3. If it keeps failing after 2 retries, click the button below
   </div>
 </div>""", unsafe_allow_html=True)
+            if st.button("🔄 Retry fetching data", type="primary", key="dfm_retry"):
+                st.cache_data.clear()
+                st.rerun()
         else:
             st.markdown("""
 <div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
@@ -2156,6 +2158,7 @@ with tab8:
         st.caption("⚠️ Backtest uses model's historical accuracy to simulate win/loss. Not financial advice.")
 
     st.divider()
+    
     st.markdown("**💼 Closed Trades History**")
     _ctl = st.session_state.get("closed_trades_log",[])
     if not _ctl:
@@ -2185,3 +2188,22 @@ with tab8:
 
 # ════════════════════════════════════════════════════════════════════
 # TAB 9: DFM Market — TradingView Live Charts
+
+# ════════════════════════════════════════════════════════════════════
+# AUTO-REFRESH (time-based, no external package needed)
+# DFM/Stocks: every 6 hours | Crypto: every 5 minutes
+# ════════════════════════════════════════════════════════════════════
+import time as _time
+_UAE_SET_AR = {"EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+               "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"}
+_IDX_SET_AR = {"GC=F","SI=F","SPY","QQQ"}
+
+_refresh_secs = (6*3600 if ticker in _UAE_SET_AR or ticker in _IDX_SET_AR else 300)
+_last_key     = f"last_refresh_{ticker}"
+_now_ts       = _time.time()
+_last_ts      = st.session_state.get(_last_key, _now_ts)
+st.session_state[_last_key] = _now_ts
+
+if (_now_ts - _last_ts) > _refresh_secs and _last_ts != _now_ts:
+    st.cache_data.clear()
+    st.rerun()
