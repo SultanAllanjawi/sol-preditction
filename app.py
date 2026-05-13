@@ -809,6 +809,21 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
 with tab0:
     _tv_sym = get_tv_symbol(ticker)
 
+    # Investing.com chart slugs for UAE/DFM stocks
+    _INV_SLUGS = {
+        "EMAAR.DFM" : "emaar-properties",
+        "ENBD.DFM"  : "emirates-nbd",
+        "DIB.DFM"   : "dubai-islamic-bank",
+        "DU.DFM"    : "emirates-integrated-telecom",
+        "DEWA.DFM"  : "dubai-electricity-water",
+        "SALIK.DFM" : "salik-pjsc",
+        "FAB.ADX"   : "first-abu-dhabi-bank",
+        "ALDAR.ADX" : "aldar-properties",
+        "ADCB.ADX"  : "abu-dhabi-commercial-bank",
+        "MASQ.DFM"  : "mashreqbank",
+    }
+    _is_uae_chart = ticker in _INV_SLUGS
+
     # Timeframe selector — renders above the chart
     _tf_options = {
         "1 min":"1","5 min":"5","10 min":"10","15 min":"15",
@@ -965,7 +980,38 @@ body{{background:#0D1117}}
   </div>
 </div>
 """
-    st.components.v1.html(_tv_live_html, height=670, scrolling=False)
+    if _is_uae_chart:
+        # Investing.com iframe — XFO not set, embeds without login
+        _inv_slug = _INV_SLUGS[ticker]
+        _inv_url  = f"https://www.investing.com/equities/{_inv_slug}-chart"
+        _inv_html = (
+            f'<!DOCTYPE html><html><head><meta charset="utf-8">'
+            f'<style>'
+            f'*{{margin:0;padding:0;box-sizing:border-box;}}'
+            f'body{{background:#0D1117;font-family:sans-serif;}}'
+            f'.tb{{background:#161B22;border-bottom:1px solid #30363D;'
+            f'padding:8px 16px;display:flex;gap:8px;align-items:center;}}'
+            f'.btn{{background:#21262D;color:#C9D1D9;border:1px solid #30363D;'
+            f'border-radius:5px;padding:5px 12px;text-decoration:none;font-size:0.79rem;}}'
+            f'.btn:hover{{background:#1F6FEB;color:#fff;}}'
+            f'</style></head><body>'
+            f'<div class="tb">'
+            f'<a class="btn" href="{_inv_url}" target="_blank">↗ Open on Investing.com</a>'
+            f'<a class="btn" href="https://www.dfm.ae" target="_blank">DFM Official</a>'
+            f'<span style="color:#8B949E;font-size:0.75rem">'
+            f'{name} · {ticker}</span>'
+            f'</div>'
+            f'<iframe src="{_inv_url}"'
+            f' style="width:100%;height:625px;border:none;"'
+            f' sandbox="allow-scripts allow-same-origin allow-forms'
+            f' allow-popups allow-top-navigation"'
+            f' referrerpolicy="no-referrer-when-downgrade"'
+            f' loading="lazy"></iframe>'
+            f'</body></html>'
+        )
+        st.components.v1.html(_inv_html, height=670, scrolling=False)
+    else:
+        st.components.v1.html(_tv_live_html, height=670, scrolling=False)
 
     # ── Signal history table under the live chart ─────────────────
     if not sig_hist.empty:
