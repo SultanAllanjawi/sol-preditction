@@ -66,10 +66,17 @@ _TV_MAP = {
     # Commodities & Indices
     "GC=F":"OANDA:XAUUSD","SI=F":"OANDA:XAGUSD",
     "SPY":"AMEX:SPY","QQQ":"NASDAQ:QQQ",
-    # UAE
-    "EMAAR.DFM":"DFM:EMAAR","ENBD.DFM":"DFM:ENBD","DIB.DFM":"DFM:DIB",
-    "DU.DFM":"DFM:DU","DEWA.DFM":"DFM:DEWA","SALIK.DFM":"DFM:SALIK",
-    "FAB.ADX":"ADX:FAB","ALDAR.ADX":"ADX:ALDAR","ADCB.ADX":"ADX:ADCB","MASQ.DFM":"DFM:MASQ",
+    # UAE — verified TradingView symbols
+    "EMAAR.DFM":"DFM:EMAAR",
+    "ENBD.DFM":"DFM:ENBD",
+    "DIB.DFM":"DFM:DIB",
+    "DU.DFM":"DFM:DU",
+    "DEWA.DFM":"DFM:DEWA",
+    "SALIK.DFM":"DFM:SALIK",
+    "FAB.ADX":"ADX:FAB",
+    "ALDAR.ADX":"ADX:ALDAR",
+    "ADCB.ADX":"ADX:ADCB",
+    "MASQ.DFM":"DFM:MASQ",
 }
 def get_tv_symbol(t):
     t = t.upper()
