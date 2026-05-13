@@ -68,7 +68,7 @@ _TV_MAP = {
     "SPY":"AMEX:SPY","QQQ":"NASDAQ:QQQ",
     # UAE — verified TradingView symbols
     "EMAAR.DFM":"DFM:EMAAR",
-    "ENBD.DFM":"DFM:ENBD",
+    "ENBD.DFM":"DFM:EMIRATESNBD",
     "DIB.DFM":"DFM:DIB",
     "DU.DFM":"DFM:DU",
     "DEWA.DFM":"DFM:DEWA",
