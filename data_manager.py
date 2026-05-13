@@ -272,11 +272,34 @@ class DataManager:
 
 
     def _yahoo_uae(self):
-        """Fetch UAE DFM/ADX stocks. Chain: yfinance → Stooq → Alpha Vantage → None"""
+        """Fetch UAE DFM/ADX stocks. Chain: Stooq → yfinance → Alpha Vantage → None"""
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
         _base_sym = yf_ticker.replace(".AE","").replace(".DFM","").replace(".ADX","")
 
-        # ── Method 1: yfinance (best — handles auth automatically) ─
+        # ── Method 1: Stooq (no auth, reliable for UAE .ae tickers) ─
+        try:
+            stooq_sym = _base_sym.lower() + ".ae"
+            r = requests.get(
+                f"https://stooq.com/q/d/l/?s={stooq_sym}&i=d&d1=20200101",
+                headers={**HDR,"Referer":"https://stooq.com/"}, timeout=12)
+            if r.status_code == 200 and len(r.text) > 200 and "Date" in r.text:
+                from io import StringIO
+                df = pd.read_csv(StringIO(r.text))
+                df.columns = [c.strip() for c in df.columns]
+                df["Date"] = pd.to_datetime(df["Date"])
+                for col in ["Open","High","Low","Close"]:
+                    if col not in df.columns and col.lower() in df.columns:
+                        df[col] = df[col.lower()]
+                df["Volume"] = df.get("Volume", pd.Series(1.0, index=df.index))
+                df = df.dropna(subset=["Close"])
+                df["Change_Pct"] = df["Close"].pct_change()*100
+                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+                if len(df) >= 30:
+                    return df
+        except Exception:
+            pass
+
+        # ── Method 2: yfinance (handles auth automatically) ─
         try:
             import yfinance as _yf
             _raw = _yf.download(yf_ticker, period="5y", interval="1d",
@@ -293,29 +316,6 @@ class DataManager:
                     "Close" : pd.to_numeric(_raw.get("Close", None), errors="coerce"),
                     "Volume": pd.to_numeric(_raw.get("Volume",None), errors="coerce").fillna(0)/1e6,
                 })
-                df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change()*100
-                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                if len(df) >= 30:
-                    return df
-        except Exception:
-            pass
-
-        # ── Method 2: Stooq (free, no API key) ─────────────────────
-        try:
-            stooq_sym = _base_sym.lower() + ".ae"
-            r = requests.get(
-                f"https://stooq.com/q/d/l/?s={stooq_sym}&i=d&d1=20200101",
-                headers={**HDR,"Referer":"https://stooq.com/"}, timeout=12)
-            if r.status_code == 200 and len(r.text) > 200 and "Date" in r.text:
-                from io import StringIO
-                df = pd.read_csv(StringIO(r.text))
-                df.columns = [c.strip() for c in df.columns]
-                df["Date"] = pd.to_datetime(df["Date"])
-                for col in ["Open","High","Low","Close"]:
-                    if col not in df.columns and col.lower() in df.columns:
-                        df[col] = df[col.lower()]
-                df["Volume"] = df.get("Volume", 1.0)
                 df = df.dropna(subset=["Close"])
                 df["Change_Pct"] = df["Close"].pct_change()*100
                 df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
