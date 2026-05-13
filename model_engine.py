@@ -164,7 +164,7 @@ class ModelEngine:
                     _mask = ~np.isfinite(_arr[:, _col])
                     if _mask.any():
                         _arr[_mask, _col] = np.nanmedian(_arr[:, _col]) if np.isfinite(_arr[:, _col]).any() else 0.0
-            rnn=VanillaRNN(nf,48,5e-4)
+            rnn=VanillaRNN(nf,64,4e-4)  # larger hidden, slightly lower lr
             rnn.fit(_Xtr2,self.ytr2,_Xval,self.yval,
                     self.CW,epochs=50,batch=64,patience=8,verbose=verbose)
             rp=np.clip(rnn.predict_proba(_Xte_s),0.01,0.99)
@@ -181,8 +181,8 @@ class ModelEngine:
         # ── 2. Random Forest ──────────────────────────────────────
         if verbose: print("Training RF...")
         try:
-            rf_m=RandomForestClassifier(n_estimators=80,max_depth=5,
-                class_weight="balanced",random_state=42,n_jobs=-1)
+            rf_m=RandomForestClassifier(n_estimators=150,max_depth=6,min_samples_leaf=3,
+                class_weight="balanced",max_features="sqrt",random_state=42,n_jobs=-1)
             rf_m.fit(self.X_tr,self.y_tr)
             rfp=rf_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             rfa=accuracy_score(y_te,(rfp>0.5).astype(int))
@@ -198,8 +198,8 @@ class ModelEngine:
         # ── 3. Gradient Boosting ──────────────────────────────────
         if verbose: print("Training GB...")
         try:
-            gb=GradientBoostingClassifier(n_estimators=80,max_depth=3,
-                learning_rate=0.10,subsample=0.8,random_state=42)
+            gb=GradientBoostingClassifier(n_estimators=150,max_depth=4,
+                learning_rate=0.06,subsample=0.80,max_features="sqrt",random_state=42)
             gb.fit(self.X_tr,self.y_tr)
             gbp=gb.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             ga=accuracy_score(y_te,(gbp>0.5).astype(int))
