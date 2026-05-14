@@ -143,6 +143,14 @@ class ModelEngine:
         sp2=int(len(self.Xtr_s)*.80)
         self.Xtr2=self.Xtr_s[:sp2]; self.ytr2=self.ytr_s[:sp2]
         self.Xval=self.Xtr_s[sp2:]; self.yval=self.ytr_s[sp2:]
+        # Recent 2000-row subset for GB+RNN (fast, recent patterns)
+        _recent_rows = min(2000, len(self.X_tr))
+        self.X_tr_r = self.X_tr[-_recent_rows:]
+        self.y_tr_r = self.y_tr[-_recent_rows:]
+        _Xr_seq, _yr_seq = self._seqs(self.X_tr_r, self.y_tr_r)
+        _sp_r = int(len(_Xr_seq)*0.85)
+        self.Xtr2  = _Xr_seq[:_sp_r]; self.ytr2  = _yr_seq[:_sp_r]
+        self.Xval  = _Xr_seq[_sp_r:]; self.yval  = _yr_seq[_sp_r:]
 
     def _seqs(self, X, y):
         Xs,ys=[],[]
@@ -209,7 +217,7 @@ class ModelEngine:
         try:
             gb=GradientBoostingClassifier(n_estimators=150,max_depth=4,
                 learning_rate=0.06,subsample=0.80,max_features="sqrt",random_state=42)
-            gb.fit(self.X_tr,self.y_tr)
+            gb.fit(self.X_tr_r,self.y_tr_r)  # recent 2000 rows
             gbp=gb.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             ga=accuracy_score(y_te,(gbp>0.5).astype(int))
             gf=f1_score(y_te,(gbp>0.5).astype(int),zero_division=0)
