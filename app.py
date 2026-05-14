@@ -534,40 +534,44 @@ if _prev_sig is not None and _prev_sig != _current_sig:
 # Store current signal for next refresh
 st.session_state[f"prev_signal_{ticker}"] = _current_sig
 
-# ── ATR-based TP / SL ─────────────────────────────────────────────
-# Use the last ATR value to set realistic TP and SL
+# ── Dynamic 1:1 R/R TP/SL — confidence-adjusted ──────────────────
+# ATR gives the "natural" move size for this asset
+# Confidence adjusts the multiplier: higher confidence = wider TP
+# 1:1 R/R means TP distance = SL distance
 _atr_raw = float(df_feat['ATR'].dropna().iloc[-1]) if ('ATR' in df_feat.columns and len(df_feat['ATR'].dropna()) > 0) else 0
 last_atr = _atr_raw if (_atr_raw > 0 and _atr_raw == _atr_raw) else display_price * 0.025
 atr_pct  = last_atr / max(display_price, 0.0001)
 
-# BUY: TP = price + 2×ATR  |  SL = price - 1.5×ATR
-# SELL: TP = price - 2×ATR  |  SL = price + 1.5×ATR
+# Confidence-based multiplier: 60%=0.8×ATR, 70%=1.0×ATR, 80%+=1.2×ATR
+_conf_mult = 0.8 + (last_conf - 60) / 100  # scales from 0.8 to 1.2+
+_conf_mult = max(0.6, min(1.5, _conf_mult))  # clamp 0.6–1.5
+
+# TP = 1.0× multiplier, SL = 1.0× multiplier → perfect 1:1 R/R
+# Vary slightly: TP a touch wider to encourage holding
+_tp_mult = round(_conf_mult, 2)
+_sl_mult = round(_conf_mult * 0.9, 2)  # SL slightly tighter = 1:0.9 ≈ 1:1
+
 if last_sig == "BUY":
-    entry_p  = round(display_price * 0.999, 4)  # slight dip entry
-    tp_price = round(display_price + 2.0 * last_atr, 4)
-    sl_price = round(display_price - 1.5 * last_atr, 4)
+    entry_p  = round(display_price, 4)
+    tp_price = round(display_price + _tp_mult * last_atr, 4)
+    sl_price = round(display_price - _sl_mult * last_atr, 4)
 elif last_sig == "SELL":
-    entry_p  = round(display_price * 1.001, 4)
-    tp_price = round(display_price - 2.0 * last_atr, 4)
-    sl_price = round(display_price + 1.5 * last_atr, 4)
+    entry_p  = round(display_price, 4)
+    tp_price = round(display_price - _tp_mult * last_atr, 4)
+    sl_price = round(display_price + _sl_mult * last_atr, 4)
 else:
-    # HOLD — no trade, so no entry/TP/SL
     entry_p  = display_price
     tp_price = None
     sl_price = None
 
 if last_sig == "HOLD":
-    rr = 0.0
-    tp_pct = 0.0
-    sl_pct = 0.0
-    tp_str = "— (No signal)"
-    sl_str = "— (No signal)"
+    rr = 0.0; tp_pct = 0.0; sl_pct = 0.0
+    tp_str = "— (No signal)"; sl_str = "— (No signal)"
 else:
-    rr = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
+    rr     = abs(tp_price - entry_p) / max(abs(entry_p - sl_price), 0.0001)
     tp_pct = (tp_price - display_price) / display_price * 100
     sl_pct = (sl_price - display_price) / display_price * 100
-    tp_str = f"${tp_price:,.4f}"
-    sl_str = f"${sl_price:,.4f}" 
+    tp_str = f"${tp_price:,.4f}"; sl_str = f"${sl_price:,.4f}" 
 
 # ═══════════════════════════════════════════════════════════════════
 # HEADER
@@ -1053,37 +1057,59 @@ body{{background:#0D1117}}
             "Signals from backtest where model confidence ≥60% · "
             "TP/SL calculated using ATR at time of signal"
         )
-        # Build display table with TP/SL per signal
+        # Per-signal TP/SL with Result (HIT TP / HIT SL / Active)
         _hist_rows = []
+        _closes_arr = te_df['Close'].values if te_df is not None and 'Close' in te_df.columns else []
+        _dates_arr  = list(te_df.index.strftime('%Y-%m-%d')) if te_df is not None else []
         for _, _row in sig_hist.head(20).iterrows():
             try:
                 _p  = float(str(_row.get("Price","0")).replace("$","").replace(",",""))
+                if _p <= 0: continue
                 _is = "BUY" in str(_row.get("Signal",""))
-                _tp = round(_p + 2.0*last_atr, 4) if _is else round(_p - 2.0*last_atr, 4)
-                _sl = round(_p - 1.5*last_atr, 4) if _is else round(_p + 1.5*last_atr, 4)
+                _cf = float(str(_row.get("Confidence","60%")).replace("%",""))
+                _m  = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
+                _tp = round(_p + _m*last_atr, 4) if _is else round(_p - _m*last_atr, 4)
+                _sl = round(_p - _m*0.9*last_atr, 4) if _is else round(_p + _m*0.9*last_atr, 4)
                 _rr_val = abs(_tp-_p)/max(abs(_p-_sl),0.0001)
+                # Check result in next 5 candles
+                _result = "⏳ Active"
+                _sd = _row.get("Date","")
+                if _sd in _dates_arr and len(_closes_arr) > 0:
+                    _si = _dates_arr.index(_sd)
+                    for _fc in _closes_arr[_si+1:_si+6]:
+                        if _is:
+                            if _fc >= _tp: _result = "🎯 HIT TP"; break
+                            elif _fc <= _sl: _result = "🛑 HIT SL"; break
+                        else:
+                            if _fc <= _tp: _result = "🎯 HIT TP"; break
+                            elif _fc >= _sl: _result = "🛑 HIT SL"; break
                 _hist_rows.append({
-                    "Date"       : _row.get("Date",""),
-                    "Signal"     : _row.get("Signal",""),
-                    "Price"      : _row.get("Price",""),
-                    "Take Profit": f"${_tp:,.4f}",
-                    "Stop Loss"  : f"${_sl:,.4f}",
-                    "R/R"        : f"1:{_rr_val:.2f}",
-                    "Confidence" : _row.get("Confidence",""),
+                    "Date"   : _sd, "Signal": _row.get("Signal",""),
+                    "Entry"  : f"${_p:,.4f}",
+                    "TP"     : f"${_tp:,.4f}", "SL": f"${_sl:,.4f}",
+                    "R/R"    : f"1:{_rr_val:.2f}",
+                    "Conf"   : _row.get("Confidence",""),
+                    "Result" : _result,
                 })
-            except Exception:
-                pass
+            except Exception: pass
         if _hist_rows:
             _hist_df = pd.DataFrame(_hist_rows)
-            def _color_sig(val):
-                if 'BUY'  in str(val): return 'color:#3FB950;font-weight:bold'
-                if 'SELL' in str(val): return 'color:#F85149;font-weight:bold'
+            def _csig(v):
+                if 'BUY'  in str(v): return 'color:#3FB950;font-weight:bold'
+                if 'SELL' in str(v): return 'color:#F85149;font-weight:bold'
                 return 'color:#6E7681'
+            def _cres(v):
+                if 'HIT TP' in str(v): return 'color:#3FB950;font-weight:700'
+                if 'HIT SL' in str(v): return 'color:#F85149;font-weight:700'
+                return 'color:#8B949E'
             try:
-                styled = _hist_df.style.map(_color_sig, subset=['Signal'])
+                styled = _hist_df.style.map(_csig,subset=['Signal']).map(_cres,subset=['Result'])
             except Exception:
                 styled = _hist_df
             st.dataframe(styled, use_container_width=True, hide_index=True, height=420)
+            _tp_n = sum(1 for r in _hist_rows if 'HIT TP' in r['Result'])
+            _sl_n = sum(1 for r in _hist_rows if 'HIT SL' in r['Result'])
+            st.caption(f"🎯 {_tp_n} Hit TP · 🛑 {_sl_n} Hit SL · Win rate: {_tp_n/max(_tp_n+_sl_n,1)*100:.0f}% · 1:1 R/R per signal")
 
 
 # ── TAB 1: Price & Signals — Professional Candlestick Chart ────────
