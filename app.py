@@ -826,6 +826,56 @@ with col_sig:
                     f'{"<span style=color:#F85149> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
                     f'</div>', unsafe_allow_html=True)
 
+# ── Ask Signal Chat ──────────────────────────────────────────────
+_chat_q = st.chat_input(
+    f"Ask: Is there a signal for {name} right now?",
+    key="signal_ask"
+)
+if _chat_q:
+    with st.chat_message("user"):
+        st.write(_chat_q)
+    with st.chat_message("assistant"):
+        _ask_conf_thresh = 70.0
+        _is_high_conf = last_conf >= _ask_conf_thresh
+        _is_strong    = abs(last_prob - 0.5) >= 0.20
+        _has_signal   = last_sig in ("BUY","SELL") and _is_high_conf and _is_strong
+
+        if _has_signal:
+            _ac = "#3FB950" if last_sig=="BUY" else "#F85149"
+            _ae = "🟢" if last_sig=="BUY" else "🔴"
+            st.markdown(
+                f'<div style="background:#0D1117;border:2px solid {_ac};border-radius:10px;padding:14px 18px">'
+                f'<div style="color:{_ac};font-size:1.2rem;font-weight:800">{_ae} YES — {last_sig} signal right now!</div>'
+                f'<div style="color:#C9D1D9;margin-top:8px;line-height:1.8">'
+                f'📊 <b>Confidence:</b> {last_conf:.1f}% (threshold: 70%+)<br>'
+                f'🎯 <b>Accuracy:</b> {ens_filt*100:.1f}% filtered<br>'
+                f'💰 <b>Entry:</b> ${display_price:,.4f}<br>'
+                f'✅ <b>Take Profit:</b> ${tp_price:,.4f} ({tp_pct:+.2f}%)<br>'
+                f'🛑 <b>Stop Loss:</b> ${sl_price:,.4f} ({sl_pct:+.2f}%)<br>'
+                f'⚖️ <b>R/R:</b> 1:{rr:.2f}</div>'
+                f'<div style="color:#6E7681;margin-top:6px;font-size:0.75rem">Not financial advice</div>'
+                f'</div>', unsafe_allow_html=True
+            )
+        elif last_sig in ("BUY","SELL") and last_conf >= 60:
+            st.markdown(
+                f'<div style="background:#0D1117;border:1px solid #E3B341;border-radius:10px;padding:14px 18px">'
+                f'<div style="color:#E3B341;font-weight:700">⚠️ Weak {last_sig} — confidence too low for entry</div>'
+                f'<div style="color:#8B949E;margin-top:6px">'
+                f'Confidence is {last_conf:.1f}% — need 70%+ for a high-accuracy entry. '
+                f'Wait for stronger signal or try Intraday mode.</div></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f'<div style="background:#0D1117;border:1px solid #30363D;border-radius:10px;padding:14px 18px">'
+                f'<div style="color:#8B949E;font-weight:700">⚪ No signal right now</div>'
+                f'<div style="color:#6E7681;margin-top:6px">'
+                f'Current: **{last_sig}** at {last_conf:.1f}% confidence. '
+                f'Need 70%+ with strong directional conviction. '
+                f'Check back later or switch to Intraday (1h) mode.</div></div>',
+                unsafe_allow_html=True
+            )
+
 with col_7d:
     st.markdown("**📅 7-Day Forward Outlook**")
     st.caption("Each day shows its own signal, entry, TP and SL · Confidence decays further out")
@@ -1102,11 +1152,13 @@ body{{background:#0D1117}}
             "Signals from backtest where model confidence ≥60% · "
             "TP/SL calculated using ATR at time of signal"
         )
-        # Per-signal TP/SL with Result (HIT TP / HIT SL / Active)
+        # Per-signal TP/SL with Result — only signals from 2026-05-06 onward
         _hist_rows = []
         _closes_arr = te_df['Close'].values if te_df is not None and 'Close' in te_df.columns else []
         _dates_arr  = list(te_df.index.strftime('%Y-%m-%d')) if te_df is not None else []
-        for _, _row in sig_hist.head(20).iterrows():
+        _sig_filter_date = "2026-05-06"
+        _filtered_hist = sig_hist[sig_hist['Date'].astype(str).str[:10] >= _sig_filter_date] if 'Date' in sig_hist.columns else sig_hist
+        for _, _row in _filtered_hist.head(20).iterrows():
             try:
                 _p  = float(str(_row.get("Price","0")).replace("$","").replace(",",""))
                 if _p <= 0: continue
@@ -1564,7 +1616,9 @@ with tab4:
             _sh_rows = []
             _closes_arr = te_df['Close'].values if te_df is not None and 'Close' in te_df.columns else []
             _dates_arr  = list(te_df.index.strftime('%Y-%m-%d')) if te_df is not None else []
-            for _, _row in _src_sigs.head(150).iterrows():
+            _sig_filter = "2026-05-06"
+            _src_filtered = _src_sigs[_src_sigs['Date'].astype(str).str[:10] >= _sig_filter] if 'Date' in _src_sigs.columns else _src_sigs
+            for _, _row in _src_filtered.head(150).iterrows():
                 try:
                     _p  = float(str(_row.get("Price","0")).replace("$","").replace(",",""))
                     if _p <= 0: continue
@@ -1574,12 +1628,14 @@ with tab4:
                     _tp = round(_p + _m*last_atr, 4) if _is else round(_p - _m*last_atr, 4)
                     _sl = round(_p - _m*0.9*last_atr, 4) if _is else round(_p + _m*0.9*last_atr, 4)
                     _rr_v = abs(_tp-_p)/max(abs(_p-_sl), 0.0001)
-                    # Check result in next 5 candles
+                    # Check result in next 5 candles (date-only match)
                     _result = "⏳ Active"
-                    _sd = _row.get("Date","")
-                    if _sd in _dates_arr and len(_closes_arr) > 0:
-                        _si = _dates_arr.index(_sd)
+                    _sd = str(_row.get("Date",""))
+                    _sd10 = _sd[:10]
+                    if _sd10 in _dates_arr and len(_closes_arr) > 0:
+                        _si = _dates_arr.index(_sd10)
                         for _fc in _closes_arr[_si+1:_si+6]:
+                            if not (_fc == _fc): continue  # skip NaN
                             if _is:
                                 if _fc >= _tp:   _result = "🎯 HIT TP"; break
                                 elif _fc <= _sl: _result = "🛑 HIT SL"; break
