@@ -147,16 +147,19 @@ class DataManager:
                         return merged
                     self._save_hourly(fresh)
                     self._save_meta()
-                    return self._clean(fresh)
+                    _d = self._clean(fresh)
+            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
             fresh = self._fetch_daily()
             if fresh is not None and len(fresh) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
-                return self._clean(merged)
+                _d = self._clean(merged)
+                return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
         if cached is not None and len(cached) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
-            return self._clean(cached)
+            _d = self._clean(cached)
+            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
         raise RuntimeError(
             f"❌ Could not load data for **{self.ticker}**.\n\n"
@@ -239,7 +242,7 @@ class DataManager:
         if self.ticker in ("GC=F","SI=F","^GSPC","^IXIC","SPY","QQQ","GLD","SLV"):
             try:
                 import yfinance as _yf_c
-                _raw = _yf_c.download(self.ticker, period="max", interval="1d",
+                _raw = _yf_c.download(self.ticker, period="20y", interval="1d",
                                       progress=False, auto_adjust=True, threads=False)
                 if _raw is not None and len(_raw) >= 60:
                     _raw = _raw.reset_index()
@@ -261,7 +264,7 @@ class DataManager:
 
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=max",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=20y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -315,6 +318,7 @@ class DataManager:
                 df["Change_Pct"] = df["Close"].pct_change()*100
                 df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
                 if len(df) >= 30:
+                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
                     return df
         except Exception:
             pass
@@ -326,7 +330,7 @@ class DataManager:
             _raw = None
             for _yt in _yf_tickers:
                 try:
-                    _raw = _yf.download(_yt, period="max", interval="1d",
+                    _raw = _yf.download(_yt, period="20y", interval="1d",
                                         progress=False, auto_adjust=True, threads=False)
                     if _raw is not None and len(_raw) >= 30:
                         break
@@ -348,6 +352,7 @@ class DataManager:
                 df["Change_Pct"] = df["Close"].pct_change()*100
                 df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
                 if len(df) >= 30:
+                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
                     return df
         except Exception:
             pass
@@ -396,6 +401,7 @@ class DataManager:
                 df['Change_Pct'] = df['Close'].pct_change() * 100
                 df = df.sort_values('Date').drop_duplicates('Date').reset_index(drop=True)
                 if len(df) >= 30:
+                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
                     return df
         except Exception:
             pass
@@ -403,7 +409,7 @@ class DataManager:
         # ── Method 5: Yahoo raw chart API ────────────────────────────
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=max",
+                r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=20y",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
                 res = r.json()["chart"]["result"][0]
