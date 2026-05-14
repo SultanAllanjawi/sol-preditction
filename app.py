@@ -736,41 +736,71 @@ with col_sig:
     if _intraday and results and "multi_signals" in results:
         _ms = results["multi_signals"]
         if _ms is not None and not _ms.empty:
-            # Group by date to show multiple signals per day
-            _ms_today = _ms.head(20)
-            _dates_seen = {}
-            for _, _ir in _ms_today.iterrows():
-                _d = str(_ir.get("Date",""))[:10]
-                _dates_seen.setdefault(_d, []).append(_ir)
+            from datetime import datetime as _dt_cls, timezone as _tz_cls, timedelta as _td_cls
+            _now_sig = _dt_cls.now(_tz_cls.utc) + _td_cls(hours=4)  # Dubai time
 
-            st.markdown(f"**⚡ Intraday Signals (1h) — {len(_ms_today)} signals**")
-            for _day, _day_sigs in list(_dates_seen.items())[:5]:
+            # Group all signals by date
+            _ms_all = _ms.head(30)
+            _days_map = {}
+            for _, _ir in _ms_all.iterrows():
+                _full_date = str(_ir.get("Date",""))
+                _day_key   = _full_date[:10]
+                _days_map.setdefault(_day_key, []).append(_ir)
+
+            total_sigs = sum(len(v) for v in _days_map.values())
+            st.markdown(f"**⚡ Intraday Signals (1h) — {total_sigs} signals across {len(_days_map)} days**")
+
+            for _day, _day_sigs in list(_days_map.items())[:7]:
+                n = len(_day_sigs)
                 st.markdown(
-                    f'<div style="color:#8B949E;font-size:0.75rem;'
-                    f'margin:6px 0 2px 0;font-weight:600">{_day} '
-                    f'— {len(_day_sigs)} signal{"s" if len(_day_sigs)>1 else ""}</div>',
+                    f'<div style="color:#8B949E;font-size:0.74rem;margin:8px 0 3px 0;'
+                    f'font-weight:600;border-bottom:1px solid #21262D;padding-bottom:3px">'
+                    f'📅 {_day} — <span style="color:#58A6FF">{n} signal{"s" if n>1 else ""}</span></div>',
                     unsafe_allow_html=True)
                 for _ir in _day_sigs:
                     try:
-                        _ip  = float(str(_ir.get("Price","0")).replace("$","").replace(",",""))
-                        _ibs = "BUY" in str(_ir.get("Signal",""))
-                        _icf = float(str(_ir.get("Confidence","60%")).replace("%",""))
-                        _im  = max(0.6, min(1.5, 0.8 + (_icf-60)/100))
-                        _itp = round(_ip + _im*last_atr, 4) if _ibs else round(_ip - _im*last_atr, 4)
-                        _isl = round(_ip - _im*0.9*last_atr,4) if _ibs else round(_ip + _im*0.9*last_atr, 4)
-                        _ic  = "#3FB950" if _ibs else "#F85149"
-                        _time = str(_ir.get("Date",""))[11:16] or "—"
+                        _ip   = float(str(_ir.get("Price","0")).replace("$","").replace(",",""))
+                        _ibs  = "BUY" in str(_ir.get("Signal",""))
+                        _icf  = float(str(_ir.get("Confidence","60%")).replace("%",""))
+                        _im   = max(0.6, min(1.5, 0.8 + (_icf-60)/100))
+                        _itp  = round(_ip + _im*last_atr, 4) if _ibs else round(_ip - _im*last_atr, 4)
+                        _isl  = round(_ip - _im*0.9*last_atr, 4) if _ibs else round(_ip + _im*0.9*last_atr, 4)
+                        _ic   = "#3FB950" if _ibs else "#F85149"
+                        _full = str(_ir.get("Date",""))
+                        _time = _full[11:16] if len(_full) > 10 else "00:00"
+
+                        # Expiry: signal valid for 2 hours after signal time
+                        _expired = False
+                        try:
+                            _sig_dt  = _dt_cls.strptime(_full[:16], "%Y-%m-%d %H:%M")
+                            _exp_dt  = _sig_dt + _td_cls(hours=2)
+                            _now_naive = _now_sig.replace(tzinfo=None)
+                            _expired = _now_naive > _exp_dt
+                        except Exception:
+                            pass
+
+                        _status_badge = (
+                            '<span style="color:#6E7681;font-size:0.72rem">⏰ EXPIRED</span>'
+                            if _expired else
+                            '<span style="color:#3FB950;font-size:0.72rem">✅ LIVE</span>'
+                            if _day == str(_now_sig.date()) else
+                            '<span style="color:#8B949E;font-size:0.72rem">📋 PAST</span>'
+                        )
+
                         st.markdown(
-                            f'<div style="background:#161B22;border-left:3px solid {_ic};'
-                            f'border-radius:5px;padding:5px 12px;margin-bottom:2px;'
+                            f'<div style="background:{"#1C1C1C" if _expired else "#161B22"};'
+                            f'border-left:3px solid {"#30363D" if _expired else _ic};'
+                            f'border-radius:5px;padding:6px 12px;margin-bottom:2px;'
                             f'display:flex;justify-content:space-between;flex-wrap:wrap;'
-                            f'font-size:0.80rem;gap:4px">'
-                            f'<span style="color:{_ic};font-weight:700">{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
-                            f'<span style="color:#6E7681">{_time}</span>'
-                            f'<span style="color:#F0F6FC;font-weight:600">{_ir.get("Price","")}</span>'
-                            f'<span style="color:#3FB950">TP ${_itp:,.4f}</span>'
-                            f'<span style="color:#F85149">SL ${_isl:,.4f}</span>'
+                            f'font-size:0.80rem;gap:4px;opacity:{"0.5" if _expired else "1"}">'
+                            f'<span style="color:{"#555" if _expired else _ic};font-weight:700">'
+                            f'{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
+                            f'<span style="color:#8B949E">{_time}</span>'
+                            f'<span style="color:{"#555" if _expired else "#F0F6FC"};font-weight:600">{_ir.get("Price","")}</span>'
+                            f'<span style="color:{"#555" if _expired else "#3FB950"}">TP ${_itp:,.4f}</span>'
+                            f'<span style="color:{"#555" if _expired else "#F85149"}">SL ${_isl:,.4f}</span>'
                             f'<span style="color:#E3B341">{_ir.get("Confidence","")}</span>'
+                            f'{_status_badge}'
                             f'</div>',
                             unsafe_allow_html=True)
                     except Exception: pass
