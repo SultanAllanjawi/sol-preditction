@@ -139,19 +139,19 @@ class DataManager:
                         return merged
                     self._save_hourly(fresh)
                     self._save_meta()
-                    _d=self._clean(fresh)
-                return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+                    return self._clean(fresh)
+                return None
 
             fresh = self._fetch_daily()
             if fresh is not None and len(fresh) >= 80:
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
-                _d=self._clean(merged)
-            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+                _clean = self._clean(merged)
+            return _clean.tail(5000).reset_index(drop=True) if len(_clean)>5000 else _clean
 
         if cached is not None and len(cached) >= 80:
-            _d=self._clean(cached)
-            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+            _clean = self._clean(cached)
+            return _clean.tail(5000).reset_index(drop=True) if len(_clean)>5000 else _clean
 
         raise RuntimeError(
             f"❌ Could not load data for **{self.ticker}**.\n\n"
