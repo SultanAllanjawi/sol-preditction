@@ -73,14 +73,6 @@ UAE_YAHOO_MAP = {
     "MASQ.DFM"  : "MASQ.AE",
 }
 
-# Alternative ticker formats to try if primary fails
-UAE_ALT_TICKERS = {
-    "ENBD.DFM"  : ["EMIRATESNBD.AE", "ENBD.AE", "EBI.AE"],
-    "MASQ.DFM"  : ["MASQ.AE", "MASHREQBANK.AE", "MASQBANK.AE"],
-    "DU.DFM"    : ["DU.AE", "EITC.AE", "EMIRATESIT.AE"],
-    "SALIK.DFM" : ["SALIK.AE", "SALIKTOP.AE"],
-}
-
 HDR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
@@ -147,19 +139,16 @@ class DataManager:
                         return merged
                     self._save_hourly(fresh)
                     self._save_meta()
-                    _d = self._clean(fresh)
-            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+                    return self._clean(fresh)
 
             fresh = self._fetch_daily()
-            if fresh is not None and len(fresh) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
+            if fresh is not None and len(fresh) >= 80:
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
-                _d = self._clean(merged)
-                return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+                return self._clean(merged)
 
-        if cached is not None and len(cached) >= (30 if self.ticker in UAE_YAHOO_MAP else 80):
-            _d = self._clean(cached)
-            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
+        if cached is not None and len(cached) >= 80:
+            return self._clean(cached)
 
         raise RuntimeError(
             f"❌ Could not load data for **{self.ticker}**.\n\n"
@@ -188,11 +177,9 @@ class DataManager:
     def _fetch_daily(self):
         t = self.ticker.upper()
         clean = t.replace("-USD","")
-
-        # UAE/DFM stocks — use dedicated multi-source fetcher
+        # UAE stocks — route to dedicated multi-source fetcher
         if self.ticker in UAE_YAHOO_MAP:
             return self._yahoo_uae()
-
         if t in BINANCE_MAP or clean in BINANCE_MAP:
             df = self._binance_daily()
             if df is not None: return df
@@ -238,33 +225,9 @@ class DataManager:
         except Exception: return None
 
     def _yahoo(self):
-        # Also try yfinance for commodities/indices (better auth handling)
-        if self.ticker in ("GC=F","SI=F","^GSPC","^IXIC","SPY","QQQ","GLD","SLV"):
-            try:
-                import yfinance as _yf_c
-                _raw = _yf_c.download(self.ticker, period="max", interval="1d",
-                                      progress=False, auto_adjust=True, threads=False)
-                if _raw is not None and len(_raw) >= 60:
-                    _raw = _raw.reset_index()
-                    if hasattr(_raw.columns,'levels'):
-                        _raw.columns = [c[0] if isinstance(c,tuple) else c for c in _raw.columns]
-                    df = pd.DataFrame({
-                        "Date"  : pd.to_datetime(_raw.get("Date",_raw.index)),
-                        "Open"  : pd.to_numeric(_raw.get("Open",None),  errors="coerce"),
-                        "High"  : pd.to_numeric(_raw.get("High",None),  errors="coerce"),
-                        "Low"   : pd.to_numeric(_raw.get("Low",None),   errors="coerce"),
-                        "Close" : pd.to_numeric(_raw.get("Close",None), errors="coerce"),
-                        "Volume": pd.to_numeric(_raw.get("Volume",None),errors="coerce").fillna(0)/1e6,
-                    })
-                    df = df.dropna(subset=["Close"])
-                    df["Change_Pct"] = df["Close"].pct_change() * 100
-                    df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                    if len(df) >= 60: return df
-            except Exception: pass
-
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=10y",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=5y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -283,149 +246,65 @@ class DataManager:
 
 
     def _yahoo_uae(self):
-        """Fetch UAE DFM/ADX stocks. Chain: Stooq → yfinance → Alpha Vantage → None"""
+        """Fetch UAE DFM/ADX stocks using yfinance library (handles auth)."""
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
-        _base_sym = yf_ticker.replace(".AE","").replace(".DFM","").replace(".ADX","")
 
-        # ── Method 1: Stooq — try multiple symbol formats ─────────
-        try:
-            _stooq_syms = [_base_sym.lower() + ".ae"]
-            # Add alt base symbols for tricky tickers
-            if self.ticker in UAE_ALT_TICKERS:
-                for _alt in UAE_ALT_TICKERS[self.ticker]:
-                    _alt_base = _alt.replace(".AE","").replace(".ae","").lower()
-                    _stooq_syms.append(_alt_base + ".ae")
-            _stooq_data = None
-            for _ssym in _stooq_syms:
-                _sr = requests.get(
-                    f"https://stooq.com/q/d/l/?s={_ssym}&i=d&d1=20200101",
-                    headers={**HDR,"Referer":"https://stooq.com/"}, timeout=12)
-                if _sr.status_code == 200 and len(_sr.text) > 200 and "Date" in _sr.text:
-                    _stooq_data = _sr.text
-                    break
-            r = type('obj', (object,), {'status_code': 200 if _stooq_data else 404,
-                                         'text': _stooq_data or ""})()
-            if r.status_code == 200 and len(r.text) > 200 and "Date" in r.text:
-                from io import StringIO
-                df = pd.read_csv(StringIO(r.text))
-                df.columns = [c.strip() for c in df.columns]
-                df["Date"] = pd.to_datetime(df["Date"])
-                for col in ["Open","High","Low","Close"]:
-                    if col not in df.columns and col.lower() in df.columns:
-                        df[col] = df[col.lower()]
-                df["Volume"] = df.get("Volume", pd.Series(1.0, index=df.index))
-                df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change()*100
-                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                if len(df) >= 30:
-                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
-                    return df
-        except Exception:
-            pass
-
-        # ── Method 2: yfinance — try primary + alternative tickers ─
+        # Method 1: yfinance library (handles Yahoo cookies/crumb automatically)
         try:
             import yfinance as _yf
-            _yf_tickers = [yf_ticker] + UAE_ALT_TICKERS.get(self.ticker, [])
-            _raw = None
-            for _yt in _yf_tickers:
-                try:
-                    _raw = _yf.download(_yt, period="max", interval="1d",
-                                        progress=False, auto_adjust=True, threads=False)
-                    if _raw is not None and len(_raw) >= 30:
-                        break
-                except Exception:
-                    _raw = None
+            _raw = _yf.download(yf_ticker, period="5y", interval="1d",
+                                progress=False, auto_adjust=True)
             if _raw is not None and len(_raw) >= 30:
                 _raw = _raw.reset_index()
+                # Handle MultiIndex columns from yfinance
                 if hasattr(_raw.columns, 'levels'):
-                    _raw.columns = [c[0] if isinstance(c,tuple) else c for c in _raw.columns]
-                df = pd.DataFrame({
-                    "Date"  : pd.to_datetime(_raw.get("Date", _raw.index)),
-                    "Open"  : pd.to_numeric(_raw.get("Open",  None), errors="coerce"),
-                    "High"  : pd.to_numeric(_raw.get("High",  None), errors="coerce"),
-                    "Low"   : pd.to_numeric(_raw.get("Low",   None), errors="coerce"),
-                    "Close" : pd.to_numeric(_raw.get("Close", None), errors="coerce"),
-                    "Volume": pd.to_numeric(_raw.get("Volume",None), errors="coerce").fillna(0)/1e6,
-                })
+                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
+                df = pd.DataFrame()
+                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
+                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
+                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
+                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
+                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
+                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
                 df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change()*100
+                df["Change_Pct"] = df["Close"].pct_change() * 100
                 df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
                 if len(df) >= 30:
-                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
                     return df
-        except Exception:
-            pass
+        except Exception as _e:
+            pass  # fall through to raw requests
 
-        # ── Method 3: Alpha Vantage (free tier, 25 req/day) ─────────
-        try:
-            av_url = (f"https://www.alphavantage.co/query"
-                      f"?function=TIME_SERIES_DAILY_ADJUSTED"
-                      f"&symbol={yf_ticker}&outputsize=full"
-                      f"&apikey=PHBR31NN86BWXCAL")  # free demo key
-            r = requests.get(av_url, headers=HDR, timeout=12)
-            if r.status_code == 200:
-                data = r.json().get("Time Series (Daily)", {})
-                if len(data) >= 30:
-                    rows = []
-                    for date_str, vals in data.items():
-                        rows.append({
-                            "Date"  : date_str,
-                            "Open"  : float(vals.get("1. open",0)),
-                            "High"  : float(vals.get("2. high",0)),
-                            "Low"   : float(vals.get("3. low",0)),
-                            "Close" : float(vals.get("5. adjusted close",0)),
-                            "Volume": float(vals.get("6. volume",0))/1e6,
-                        })
-                    df = pd.DataFrame(rows)
-                    df["Date"] = pd.to_datetime(df["Date"])
-                    df = df[df["Close"]>0].dropna(subset=["Close"])
-                    df["Change_Pct"] = df["Close"].pct_change()*100
-                    df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                    if len(df) >= 30:
-                        return df
-        except Exception:
-            pass
-
-        # ── Method 4: Yahoo CSV download (sometimes bypasses auth) ─
-        try:
-            import time as _time
-            _csv_url = f"https://query1.finance.yahoo.com/v7/finance/download/{yf_ticker}?interval=1d&range=5y&events=history"
-            _csv_hdrs = {**HDR, 'Referer': f'https://finance.yahoo.com/quote/{yf_ticker}'}
-            r = requests.get(_csv_url, headers=_csv_hdrs, timeout=15, allow_redirects=True)
-            if r.status_code == 200 and 'Date' in r.text and 'Close' in r.text:
-                from io import StringIO as _SIO
-                df = pd.read_csv(_SIO(r.text))
-                df['Date'] = pd.to_datetime(df['Date'])
-                df = df.dropna(subset=['Close'])
-                df['Change_Pct'] = df['Close'].pct_change() * 100
-                df = df.sort_values('Date').drop_duplicates('Date').reset_index(drop=True)
-                if len(df) >= 30:
-                    if len(df) > 2500: df = df.tail(5000).reset_index(drop=True)
-                    return df
-        except Exception:
-            pass
-
-        # ── Method 5: Yahoo raw chart API ────────────────────────────
-        for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
+        # Method 2: Raw requests with session (fallback)
+        for base in ["https://query1.finance.yahoo.com",
+                     "https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=10y",
+                r = requests.get(
+                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5y",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
-                res = r.json()["chart"]["result"][0]
-                ts  = res["timestamp"]; q = res["indicators"]["quote"][0]
-                df  = pd.DataFrame({
-                    "Date":[datetime.fromtimestamp(t,tz=timezone.utc).date() for t in ts],
-                    "Open":q.get("open",[None]*len(ts)), "High":q.get("high",[None]*len(ts)),
-                    "Low":q.get("low",[None]*len(ts)),   "Close":q.get("close",[None]*len(ts)),
-                    "Volume":[v/1e6 if v else 0 for v in q.get("volume",[0]*len(ts))],
+                result = r.json()["chart"]["result"][0]
+                ts     = result["timestamp"]
+                q      = result["indicators"]["quote"][0]
+                dates  = [datetime.fromtimestamp(t, tz=timezone.utc).date() for t in ts]
+                df = pd.DataFrame({
+                    "Date"  : dates,
+                    "Open"  : q.get("open",  [None]*len(ts)),
+                    "High"  : q.get("high",  [None]*len(ts)),
+                    "Low"   : q.get("low",   [None]*len(ts)),
+                    "Close" : q.get("close", [None]*len(ts)),
+                    "Volume": [v/1e6 if v else 0
+                               for v in q.get("volume", [0]*len(ts))],
                 })
                 df["Date"] = pd.to_datetime(df["Date"])
                 df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change()*100
-                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                if len(df) >= 30: return df
-            except Exception: continue
+                df["Change_Pct"] = df["Close"].pct_change() * 100
+                df = (df.sort_values("Date")
+                        .drop_duplicates("Date")
+                        .reset_index(drop=True))
+                if len(df) >= 30:
+                    return df
+            except Exception:
+                continue
         return None
 
 
@@ -620,74 +499,64 @@ class DataManager:
 
     # ── Static helpers ──────────────────────────────────────────────
     def get_hourly(self):
-        """Fetch 1h candles from Binance in 3 batches = ~125 days of hourly data."""
+        """Fetch 1h candles from Binance. Crypto only."""
         sym = BINANCE_MAP.get(self.ticker,
               BINANCE_MAP.get(self.ticker.replace("-USD","")))
         if not sym:
             return None
-        all_rows = []
-        end_time = None
-        for _batch in range(3):   # 3 × 1000 candles = 3000 rows ≈ 125 days
-            try:
-                params = {"symbol":sym,"interval":"1h","limit":1000}
-                if end_time:
-                    params["endTime"] = end_time
-                r = requests.get("https://api.binance.com/api/v3/klines",
-                    params=params, headers=HDR, timeout=15)
-                if r.status_code != 200: break
-                batch = r.json()
-                if not batch: break
-                for k in batch:
-                    ts = datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None)
-                    all_rows.append({
-                        "ts": ts,
-                        "Open":float(k[1]),"High":float(k[2]),
-                        "Low":float(k[3]),"Close":float(k[4]),
-                        "Volume":float(k[5]),
-                    })
-                end_time = batch[0][0] - 1  # go further back
-            except Exception:
-                break
-        if not all_rows:
+        try:
+            r = requests.get("https://api.binance.com/api/v3/klines",
+                params={"symbol":sym,"interval":"1h","limit":1000},
+                headers=HDR, timeout=15)
+            if r.status_code != 200:
+                return None
+            rows = []
+            ts_list = []
+            for k in r.json():
+                ts_list.append(
+                    datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None)
+                )
+                rows.append({
+                    "Open":float(k[1]),"High":float(k[2]),
+                    "Low":float(k[3]),"Close":float(k[4]),
+                    "Volume":float(k[5]),
+                })
+            df = pd.DataFrame(rows)
+            df.index = pd.DatetimeIndex(ts_list, name="Date")
+            df["Change_Pct"] = df["Close"].pct_change() * 100
+            df = df.sort_index().drop_duplicates()
+            return df if len(df) >= 50 else None
+        except Exception:
             return None
-        df = pd.DataFrame(all_rows)
-        df.index = pd.DatetimeIndex(df.pop("ts"), name="Date")
-        df["Change_Pct"] = df["Close"].pct_change() * 100
-        df = df.sort_index().drop_duplicates()
-        return df if len(df) >= 50 else None
 
     @staticmethod
     def get_live_price(ticker: str) -> float | None:
         # UAE stocks: use Yahoo Finance .AE suffix
         if ticker in UAE_YAHOO_MAP:
             yf_ticker = UAE_YAHOO_MAP[ticker]
-            _base_sym2 = yf_ticker.replace(".AE","").lower()
-            # Try yfinance
+            # Try yfinance first (handles auth)
             try:
                 import yfinance as _yf2
                 _t = _yf2.Ticker(yf_ticker)
                 _h = _t.history(period="5d")
                 if _h is not None and len(_h) > 0:
                     return float(_h['Close'].iloc[-1])
-            except Exception: pass
-            # Try Stooq
-            try:
-                r = requests.get(
-                    f"https://stooq.com/q/l/?s={_base_sym2}.ae&f=l1",
-                    headers={**HDR,"Referer":"https://stooq.com/"}, timeout=5)
-                if r.status_code == 200 and r.text.strip():
-                    return float(r.text.strip())
-            except Exception: pass
-            # Try raw Yahoo
-            for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
+            except Exception:
+                pass
+            # Fallback to raw requests
+            for base in ["https://query1.finance.yahoo.com",
+                         "https://query2.finance.yahoo.com"]:
                 try:
-                    r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5d",
+                    r = requests.get(
+                        f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5d",
                         headers=HDR, timeout=5)
                     if r.status_code == 200:
-                        closes = r.json()["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+                        closes = (r.json()["chart"]["result"][0]
+                                  ["indicators"]["quote"][0]["close"])
                         p = next((c for c in reversed(closes) if c), None)
                         if p: return float(p)
-                except Exception: pass
+                except Exception:
+                    pass
             return None
 
         sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
