@@ -242,7 +242,7 @@ class DataManager:
         if self.ticker in ("GC=F","SI=F","^GSPC","^IXIC","SPY","QQQ","GLD","SLV"):
             try:
                 import yfinance as _yf_c
-                _raw = _yf_c.download(self.ticker, period="20y", interval="1d",
+                _raw = _yf_c.download(self.ticker, period="max", interval="1d",
                                       progress=False, auto_adjust=True, threads=False)
                 if _raw is not None and len(_raw) >= 60:
                     _raw = _raw.reset_index()
@@ -264,7 +264,7 @@ class DataManager:
 
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=20y",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -330,7 +330,7 @@ class DataManager:
             _raw = None
             for _yt in _yf_tickers:
                 try:
-                    _raw = _yf.download(_yt, period="20y", interval="1d",
+                    _raw = _yf.download(_yt, period="max", interval="1d",
                                         progress=False, auto_adjust=True, threads=False)
                     if _raw is not None and len(_raw) >= 30:
                         break
@@ -409,7 +409,7 @@ class DataManager:
         # ── Method 5: Yahoo raw chart API ────────────────────────────
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=20y",
+                r = requests.get(f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
                 res = r.json()["chart"]["result"][0]
