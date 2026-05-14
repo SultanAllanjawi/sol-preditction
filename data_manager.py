@@ -499,35 +499,34 @@ class DataManager:
 
     # ── Static helpers ──────────────────────────────────────────────
     def get_hourly(self):
-        """Fetch 1h candles from Binance. Crypto only."""
+        """Fetch 1h candles — 3 batches of 1000 = ~125 days of hourly data."""""
         sym = BINANCE_MAP.get(self.ticker,
               BINANCE_MAP.get(self.ticker.replace("-USD","")))
         if not sym:
             return None
-        try:
-            r = requests.get("https://api.binance.com/api/v3/klines",
-                params={"symbol":sym,"interval":"1h","limit":1000},
-                headers=HDR, timeout=15)
-            if r.status_code != 200:
-                return None
-            rows = []
-            ts_list = []
-            for k in r.json():
-                ts_list.append(
-                    datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None)
-                )
-                rows.append({
-                    "Open":float(k[1]),"High":float(k[2]),
-                    "Low":float(k[3]),"Close":float(k[4]),
-                    "Volume":float(k[5]),
-                })
-            df = pd.DataFrame(rows)
-            df.index = pd.DatetimeIndex(ts_list, name="Date")
-            df["Change_Pct"] = df["Close"].pct_change() * 100
-            df = df.sort_index().drop_duplicates()
-            return df if len(df) >= 50 else None
-        except Exception:
-            return None
+        all_rows = []; end_time = None
+        for _batch in range(3):
+            try:
+                params = {"symbol":sym,"interval":"1h","limit":1000}
+                if end_time:
+                    params["endTime"] = end_time
+                r = requests.get("https://api.binance.com/api/v3/klines",
+                    params=params, headers=HDR, timeout=15)
+                if r.status_code != 200: break
+                batch = r.json()
+                if not batch: break
+                for k in batch:
+                    ts = datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None)
+                    all_rows.append({"ts":ts,"Open":float(k[1]),"High":float(k[2]),
+                                     "Low":float(k[3]),"Close":float(k[4]),"Volume":float(k[5])})
+                end_time = batch[0][0] - 1
+            except Exception: break
+        if not all_rows: return None
+        df = pd.DataFrame(all_rows)
+        df.index = pd.DatetimeIndex(df.pop("ts"), name="Date")
+        df["Change_Pct"] = df["Close"].pct_change() * 100
+        df = df.sort_index().drop_duplicates()
+        return df if len(df) >= 50 else None
 
     @staticmethod
     def get_live_price(ticker: str) -> float | None:
