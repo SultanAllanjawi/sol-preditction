@@ -1118,10 +1118,12 @@ body{{background:#0D1117}}
                 _rr_val = abs(_tp-_p)/max(abs(_p-_sl),0.0001)
                 # Check result in next 5 candles
                 _result = "⏳ Active"
-                _sd = _row.get("Date","")
-                if _sd in _dates_arr and len(_closes_arr) > 0:
-                    _si = _dates_arr.index(_sd)
+                _sd = str(_row.get("Date",""))
+                _sd10 = _sd[:10]  # date only for lookup
+                if _sd10 in _dates_arr and len(_closes_arr) > 0:
+                    _si = _dates_arr.index(_sd10)
                     for _fc in _closes_arr[_si+1:_si+6]:
+                        if not (_fc==_fc): continue  # skip NaN
                         if _is:
                             if _fc >= _tp: _result = "🎯 HIT TP"; break
                             elif _fc <= _sl: _result = "🛑 HIT SL"; break
