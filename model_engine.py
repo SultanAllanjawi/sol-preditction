@@ -367,7 +367,7 @@ class ModelEngine:
                 _p   = float(self.te["Close"].iloc[SEQ_LEN + _idx]) if SEQ_LEN+_idx < len(self.te) else 0
                 _sig = "BUY" if _rich_signals[_idx]==1 else "SELL"
                 _cf  = float(max(ens_proba[_idx], 1-ens_proba[_idx])) * 100
-                _all_signal_dates.append(str(_dt)[:10] if _dt is not None else "")
+                _all_signal_dates.append(str(_dt)[:16] if _dt is not None else "")  # keep HH:MM for intraday
                 _all_signal_prices.append(_p)
                 _all_signal_types.append(_sig)
                 _all_signal_confs.append(_cf)
