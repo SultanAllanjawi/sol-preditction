@@ -736,29 +736,44 @@ with col_sig:
     if _intraday and results and "multi_signals" in results:
         _ms = results["multi_signals"]
         if _ms is not None and not _ms.empty:
-            st.markdown("**⚡ Latest Intraday Signals (1h)**")
-            for _, _ir in _ms.head(6).iterrows():
-                try:
-                    _ip  = float(str(_ir.get("Price","0")).replace("$","").replace(",",""))
-                    _ibs = "BUY" in str(_ir.get("Signal",""))
-                    _itp = round(_ip + 2*last_atr, 4) if _ibs else round(_ip - 2*last_atr, 4)
-                    _isl = round(_ip - 1.5*last_atr, 4) if _ibs else round(_ip + 1.5*last_atr, 4)
-                    _ic  = "#3FB950" if _ibs else "#F85149"
-                    st.markdown(
-                        f'<div style="background:#161B22;border-left:3px solid {_ic};'
-                        f'border-radius:5px;padding:6px 12px;margin-bottom:3px;'
-                        f'display:flex;justify-content:space-between;flex-wrap:wrap;'
-                        f'font-size:0.81rem;gap:6px">'
-                        f'<span style="color:{_ic};font-weight:700">{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
-                        f'<span style="color:#8B949E">{_ir.get("Date","")}</span>'
-                        f'<span style="color:#F0F6FC;font-weight:600">{_ir.get("Price","")}</span>'
-                        f'<span style="color:#3FB950">TP ${_itp:,.4f}</span>'
-                        f'<span style="color:#F85149">SL ${_isl:,.4f}</span>'
-                        f'<span style="color:#E3B341">{_ir.get("Confidence","")}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                except Exception: pass
+            # Group by date to show multiple signals per day
+            _ms_today = _ms.head(20)
+            _dates_seen = {}
+            for _, _ir in _ms_today.iterrows():
+                _d = str(_ir.get("Date",""))[:10]
+                _dates_seen.setdefault(_d, []).append(_ir)
+
+            st.markdown(f"**⚡ Intraday Signals (1h) — {len(_ms_today)} signals**")
+            for _day, _day_sigs in list(_dates_seen.items())[:5]:
+                st.markdown(
+                    f'<div style="color:#8B949E;font-size:0.75rem;'
+                    f'margin:6px 0 2px 0;font-weight:600">{_day} '
+                    f'— {len(_day_sigs)} signal{"s" if len(_day_sigs)>1 else ""}</div>',
+                    unsafe_allow_html=True)
+                for _ir in _day_sigs:
+                    try:
+                        _ip  = float(str(_ir.get("Price","0")).replace("$","").replace(",",""))
+                        _ibs = "BUY" in str(_ir.get("Signal",""))
+                        _icf = float(str(_ir.get("Confidence","60%")).replace("%",""))
+                        _im  = max(0.6, min(1.5, 0.8 + (_icf-60)/100))
+                        _itp = round(_ip + _im*last_atr, 4) if _ibs else round(_ip - _im*last_atr, 4)
+                        _isl = round(_ip - _im*0.9*last_atr,4) if _ibs else round(_ip + _im*0.9*last_atr, 4)
+                        _ic  = "#3FB950" if _ibs else "#F85149"
+                        _time = str(_ir.get("Date",""))[11:16] or "—"
+                        st.markdown(
+                            f'<div style="background:#161B22;border-left:3px solid {_ic};'
+                            f'border-radius:5px;padding:5px 12px;margin-bottom:2px;'
+                            f'display:flex;justify-content:space-between;flex-wrap:wrap;'
+                            f'font-size:0.80rem;gap:4px">'
+                            f'<span style="color:{_ic};font-weight:700">{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
+                            f'<span style="color:#6E7681">{_time}</span>'
+                            f'<span style="color:#F0F6FC;font-weight:600">{_ir.get("Price","")}</span>'
+                            f'<span style="color:#3FB950">TP ${_itp:,.4f}</span>'
+                            f'<span style="color:#F85149">SL ${_isl:,.4f}</span>'
+                            f'<span style="color:#E3B341">{_ir.get("Confidence","")}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True)
+                    except Exception: pass
 
     # All active signals collapsible
     _all_sigs = load_active_signals()
