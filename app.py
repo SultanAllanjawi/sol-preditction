@@ -92,6 +92,7 @@ from persistence import (
     load_settings, save_settings,
     save_uploaded_csv, load_uploaded_csv,
     load_all_uploaded_csvs, delete_uploaded_csv,
+    load_closed_signals, save_closed_signal,
 )
 
 # ── Crypto detection (self-contained, no data_manager dependency) ──
@@ -404,22 +405,48 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
   <div style="color:#F0F6FC;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
 </div>""", unsafe_allow_html=True)
         if _is_uae_err:
+            # Build direct download links for this specific stock
+            _yf_sym  = {"EMAAR.DFM":"EMAAR.AE","ENBD.DFM":"ENBD.AE","DIB.DFM":"DIB.AE",
+                        "DU.DFM":"DU.AE","DEWA.DFM":"DEWA.AE","SALIK.DFM":"SALIK.AE",
+                        "FAB.ADX":"FAB.AE","ALDAR.ADX":"ALDAR.AE",
+                        "ADCB.ADX":"ADCB.AE","MASQ.DFM":"MASQ.AE"}.get(ticker, ticker)
+            _inv_sl  = {"EMAAR.DFM":"emaar-properties","ENBD.DFM":"emirates-nbd",
+                        "DIB.DFM":"dubai-islamic-bank","DU.DFM":"emirates-integrated-telecom",
+                        "DEWA.DFM":"dubai-electricity-water","SALIK.DFM":"salik-pjsc",
+                        "FAB.ADX":"first-abu-dhabi-bank","ALDAR.ADX":"aldar-properties",
+                        "ADCB.ADX":"abu-dhabi-commercial-bank","MASQ.DFM":"mashreqbank"}.get(ticker,"")
+            _yf_csv  = f"https://query1.finance.yahoo.com/v7/finance/download/{_yf_sym}?interval=1d&range=5y&events=history"
+            _inv_url = f"https://www.investing.com/equities/{_inv_sl}-historical-data"
+
             st.markdown(f"""
 <div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
   <div style="color:#E3B341;font-weight:bold;margin-bottom:10px">
-    🇦🇪 {ticker} — Fetching data automatically...
+    🇦🇪 {ticker} — Auto-fetch failed
   </div>
   <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.9">
-    UAE stocks load automatically from <b>Yahoo Finance</b>.<br>
-    This usually works on Streamlit Cloud — please try:<br><br>
-    1. Click <b>Force Refresh Data</b> in the sidebar<br>
-    2. Wait 10–15 seconds for the data to load<br>
-    3. If it keeps failing after 2 retries, click the button below
+    Auto-fetch via yfinance/Stooq is not returning data for this stock.<br>
+    <b>Quick fix — download CSV manually (30 seconds):</b><br><br>
+    <b>Option 1 — Yahoo Finance:</b><br>
+    &nbsp;&nbsp;→ <a href="{_yf_csv}" target="_blank" 
+      style="color:#58A6FF">Click to download {_yf_sym} CSV directly</a><br><br>
+    <b>Option 2 — Investing.com:</b><br>
+    &nbsp;&nbsp;→ <a href="{_inv_url}" target="_blank"
+      style="color:#58A6FF">Open {ticker} historical data on Investing.com</a>
+      → click Download<br><br>
+    Then upload via sidebar → <b>🇦🇪 UAE / DFM Stock</b> → select stock → Apply
   </div>
 </div>""", unsafe_allow_html=True)
-            if st.button("🔄 Retry fetching data", type="primary", key="dfm_retry"):
+            col_r1, col_r2 = st.columns(2)
+            if col_r1.button("🔄 Retry auto-fetch", type="primary", key="dfm_retry"):
                 st.cache_data.clear()
                 st.rerun()
+            col_r2.markdown(
+                f'<a href="{_yf_csv}" target="_blank" style="display:inline-block;'
+                f'background:#238636;color:white;border-radius:5px;padding:8px 16px;'
+                f'text-decoration:none;font-size:0.85rem;margin-top:4px">'
+                f'⬇️ Download CSV for {_yf_sym}</a>',
+                unsafe_allow_html=True
+            )
         else:
             st.markdown("""
 <div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
@@ -651,6 +678,19 @@ with col_sig:
         ticker, last_sig, display_price, tp_price, sl_price, display_price
     )
     _ss = _sig_status["status"]
+    # Auto-save to closed signals log when TP or SL is hit
+    _prev_status_key = f"prev_status_{ticker}"
+    _prev_ss = st.session_state.get(_prev_status_key, "NONE")
+    if _ss in ("HIT_TP","HIT_SL") and _prev_ss not in ("HIT_TP","HIT_SL"):
+        _exit_p = tp_price if _ss=="HIT_TP" else sl_price
+        if _exit_p and entry_p:
+            save_closed_signal(
+                ticker=ticker, signal=last_sig,
+                entry=entry_p, exit_price=_exit_p,
+                tp=tp_price or 0, sl=sl_price or 0,
+                result=_ss,
+            )
+    st.session_state[_prev_status_key] = _ss
     _STATUS = {
         "ACTIVE" : ("🟡","#E3B341","#2A2400","Signal ACTIVE"),
         "HIT_TP" : ("🎯","#3FB950","#1C2A1C","TARGET HIT ✅"),
@@ -1431,24 +1471,18 @@ with tab3:
 
 # ── TAB 4: Signal History ──────────────────────────────────────────
 with tab4:
-    st.subheader(f"📋 All Historical Signals — {name}")
+    st.subheader(f"📋 Signal History — {name}")
 
-    # Signal mode indicator
-    _cur_mode = st.session_state.get("signal_mode","📅 Daily")
-    if "Intraday" in _cur_mode:
-        st.info(
-            "⚡ **Intraday mode** — showing ALL signals from 1h candles · "
-            "Multiple buy/sell opportunities per day · "
-            "Switch to Daily mode for fewer, higher-confidence signals"
-        )
-    else:
-        st.info(
-            "📅 **Daily mode** — one signal per day based on daily candles · "
-            "Switch to ⚡ Intraday mode for more signals throughout the day"
-        )
+    # Two sub-sections: Historical signals + Closed (TP/SL hit) log
+    _sh_tab1, _sh_tab2 = st.tabs(["📊 All Signals", "🎯 Closed (TP/SL Hit)"])
 
-    # Show multi-signal table from model results
-    _multi_sigs = results.get("multi_signals", sig_hist) if results else sig_hist
+    with _sh_tab1:
+        _cur_mode = st.session_state.get("signal_mode","📅 Daily")
+        st.caption(
+            f"{'⚡ Intraday 1h' if 'Intraday' in _cur_mode else '📅 Daily'} mode · "
+            f"5-8 signals per session · Each with real TP and SL"
+        )
+        _multi_sigs = results.get("multi_signals", sig_hist) if results else sig_hist
 
     if _multi_sigs is not None and not _multi_sigs.empty:
 
