@@ -1506,45 +1506,86 @@ with tab4:
         _cur_mode = st.session_state.get("signal_mode","📅 Daily")
         st.caption(
             f"{'⚡ Intraday 1h' if 'Intraday' in _cur_mode else '📅 Daily'} mode · "
-            f"5-8 signals per session · Each with real TP and SL"
+            f"Each signal has its own TP, SL and Result"
         )
-        _multi_sigs = results.get("multi_signals", sig_hist) if results else sig_hist
+        _src_sigs = results.get("multi_signals", sig_hist) if results else sig_hist
+        if _src_sigs is None or _src_sigs.empty:
+            _src_sigs = sig_hist
 
-    if _multi_sigs is not None and not _multi_sigs.empty:
+        if _src_sigs is not None and not _src_sigs.empty:
+            # Build enriched table: per-signal TP/SL + Result
+            _sh_rows = []
+            _closes_arr = te_df['Close'].values if te_df is not None and 'Close' in te_df.columns else []
+            _dates_arr  = list(te_df.index.strftime('%Y-%m-%d')) if te_df is not None else []
+            for _, _row in _src_sigs.head(150).iterrows():
+                try:
+                    _p  = float(str(_row.get("Price","0")).replace("$","").replace(",",""))
+                    if _p <= 0: continue
+                    _is = "BUY" in str(_row.get("Signal",""))
+                    _cf = float(str(_row.get("Confidence","60%")).replace("%",""))
+                    _m  = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
+                    _tp = round(_p + _m*last_atr, 4) if _is else round(_p - _m*last_atr, 4)
+                    _sl = round(_p - _m*0.9*last_atr, 4) if _is else round(_p + _m*0.9*last_atr, 4)
+                    _rr_v = abs(_tp-_p)/max(abs(_p-_sl), 0.0001)
+                    # Check result in next 5 candles
+                    _result = "⏳ Active"
+                    _sd = _row.get("Date","")
+                    if _sd in _dates_arr and len(_closes_arr) > 0:
+                        _si = _dates_arr.index(_sd)
+                        for _fc in _closes_arr[_si+1:_si+6]:
+                            if _is:
+                                if _fc >= _tp:   _result = "🎯 HIT TP"; break
+                                elif _fc <= _sl: _result = "🛑 HIT SL"; break
+                            else:
+                                if _fc <= _tp:   _result = "🎯 HIT TP"; break
+                                elif _fc >= _sl: _result = "🛑 HIT SL"; break
+                    _sh_rows.append({
+                        "Date"       : _sd,
+                        "Signal"     : _row.get("Signal",""),
+                        "Entry"      : f"${_p:,.4f}",
+                        "Take Profit": f"${_tp:,.4f}",
+                        "Stop Loss"  : f"${_sl:,.4f}",
+                        "R/R"        : f"1:{_rr_v:.2f}",
+                        "Conf"       : _row.get("Confidence",""),
+                        "Result"     : _result,
+                    })
+                except Exception: pass
 
-        # Add TP/SL to signal history
-        hist = sig_hist.copy()
-        hist["TP"] = hist["Price"].str.replace("$","").astype(float).apply(
-            lambda p: f"${round(p+2*last_atr if '🟢' in hist.loc[hist['Price'].str.replace('$','').astype(float)==p,'Signal'].values[0] else p-2*last_atr, 4):.4f}"
-            if not hist[hist['Price'].str.replace('$','').astype(float)==p].empty else "—"
-        ) if "Signal" in hist.columns else "—"
-        hist["SL"] = hist["Price"].str.replace("$","").astype(float).apply(
-            lambda p: f"${round(p-1.5*last_atr if '🟢' in hist.loc[hist['Price'].str.replace('$','').astype(float)==p,'Signal'].values[0] else p+1.5*last_atr, 4):.4f}"
-            if not hist[hist['Price'].str.replace('$','').astype(float)==p].empty else "—"
-        ) if "Signal" in hist.columns else "—"
-
-        def color_sig(val):
-            if 'BUY' in str(val):  return 'color:#3FB950;font-weight:bold'
-            if 'SELL' in str(val): return 'color:#F85149;font-weight:bold'
-            return 'color:#6E7681'
-        try:
-            styled=sig_hist.style.map(color_sig,subset=['Signal'])
-        except Exception:
-            styled=sig_hist
-        st.dataframe(styled,use_container_width=True,hide_index=True,height=500)
-
-        s1,s2,s3,s4=st.columns(4)
-        nb=(sig_hist['Signal']=='🟢 BUY').sum()
-        ns=(sig_hist['Signal']=='🔴 SELL').sum()
-        s1.metric("Total Signals",len(sig_hist))
-        s2.metric("BUY Signals",int(nb))
-        s3.metric("SELL Signals",int(ns))
-        try:
-            ac=sig_hist['Confidence'].str.replace('%','').astype(float).mean()
-            s4.metric("Avg Confidence",f"{ac:.1f}%")
-        except Exception: s4.metric("Avg Confidence","—")
-    else:
-        st.info("No filtered signals. Try lowering the confidence threshold in the sidebar.")
+            if _sh_rows:
+                _sh_df = pd.DataFrame(_sh_rows)
+                def _sh_csig(v):
+                    if 'BUY'  in str(v): return 'color:#3FB950;font-weight:700'
+                    if 'SELL' in str(v): return 'color:#F85149;font-weight:700'
+                    return 'color:#6E7681'
+                def _sh_ctp(v):  return 'color:#3FB950;font-weight:600' if '$' in str(v) else ''
+                def _sh_csl(v):  return 'color:#F85149;font-weight:600' if '$' in str(v) else ''
+                def _sh_cres(v):
+                    if 'HIT TP' in str(v): return 'color:#3FB950;font-weight:700'
+                    if 'HIT SL' in str(v): return 'color:#F85149;font-weight:700'
+                    return 'color:#8B949E'
+                try:
+                    _sh_styled = (_sh_df.style
+                                  .map(_sh_csig, subset=['Signal'])
+                                  .map(_sh_ctp,  subset=['Take Profit'])
+                                  .map(_sh_csl,  subset=['Stop Loss'])
+                                  .map(_sh_cres, subset=['Result']))
+                except Exception:
+                    _sh_styled = _sh_df
+                st.dataframe(_sh_styled, use_container_width=True, hide_index=True, height=520)
+                _tp_n = sum(1 for r in _sh_rows if 'HIT TP' in r['Result'])
+                _sl_n = sum(1 for r in _sh_rows if 'HIT SL' in r['Result'])
+                _act_n= sum(1 for r in _sh_rows if 'Active'  in r['Result'])
+                _wr   = _tp_n/max(_tp_n+_sl_n,1)*100
+                _sc1,_sc2,_sc3,_sc4 = st.columns(4)
+                _sc1.metric("Total Signals", len(_sh_rows))
+                _sc2.metric("🎯 Hit TP",     _tp_n)
+                _sc3.metric("🛑 Hit SL",     _sl_n)
+                _sc4.metric("Win Rate",      f"{_wr:.0f}%",
+                            delta_color="normal" if _wr>=50 else "inverse")
+            else:
+                st.info("No signals yet. Try lowering the confidence threshold.")
+        else:
+            st.info("No signals found. Try lowering the confidence threshold in the sidebar.")
 
 # ── FOOTER ─────────────────────────────────────────────────────────
 st.divider()
