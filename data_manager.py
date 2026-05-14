@@ -139,16 +139,19 @@ class DataManager:
                         return merged
                     self._save_hourly(fresh)
                     self._save_meta()
-                    return self._clean(fresh)
+                    _d=self._clean(fresh)
+                return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
             fresh = self._fetch_daily()
             if fresh is not None and len(fresh) >= 80:
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
-                return self._clean(merged)
+                _d=self._clean(merged)
+            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
         if cached is not None and len(cached) >= 80:
-            return self._clean(cached)
+            _d=self._clean(cached)
+            return _d.tail(5000).reset_index(drop=True) if len(_d)>5000 else _d
 
         raise RuntimeError(
             f"❌ Could not load data for **{self.ticker}**.\n\n"
@@ -227,7 +230,7 @@ class DataManager:
     def _yahoo(self):
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=5y",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=max",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -252,7 +255,7 @@ class DataManager:
         # Method 1: yfinance library (handles Yahoo cookies/crumb automatically)
         try:
             import yfinance as _yf
-            _raw = _yf.download(yf_ticker, period="5y", interval="1d",
+            _raw = _yf.download(yf_ticker, period="max", interval="1d",
                                 progress=False, auto_adjust=True)
             if _raw is not None and len(_raw) >= 30:
                 _raw = _raw.reset_index()
@@ -279,7 +282,7 @@ class DataManager:
                      "https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(
-                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=5y",
+                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=max",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
                 result = r.json()["chart"]["result"][0]
