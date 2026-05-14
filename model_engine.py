@@ -269,13 +269,34 @@ class ModelEngine:
                      if filt.sum()>1 else ens_acc)
         signals   = np.where(ens_proba>=HIGH,1,np.where(ens_proba<=LOW,-1,0))
 
-        # ── Multiple signals per day ──────────────────────────────────────
-        # For daily data: find ALL BUY/SELL points (not just last one)
-        # For intraday: every candle with confidence >= threshold is a signal
-        # This gives traders multiple entry opportunities
-        n_signals_total = int((signals != 0).sum())
-        buy_signals_idx  = np.where(signals == 1)[0]
-        sell_signals_idx = np.where(signals == -1)[0]
+        # ── Rich signal generation: 5-8 actionable signals ──────────────
+        # Use probability momentum: when proba crosses thresholds = signal
+        # Also detect reversals: high→low or low→high transitions
+        _p = ens_proba
+        _rich_signals = np.zeros(len(_p), dtype=int)
+        for _i in range(1, len(_p)):
+            _prev, _curr = _p[_i-1], _p[_i]
+            # Strong signal: above HIGH or below LOW
+            if _curr >= HIGH:
+                _rich_signals[_i] = 1
+            elif _curr <= LOW:
+                _rich_signals[_i] = -1
+            # Momentum crossings at softer thresholds
+            elif _prev < 0.55 and _curr >= 0.55:   # crossing up
+                _rich_signals[_i] = 1
+            elif _prev > 0.45 and _curr <= 0.45:   # crossing down
+                _rich_signals[_i] = -1
+            # Reversal: was falling, now rising (or vice versa)
+            elif _i >= 2:
+                _trend = _curr - _p[_i-2]
+                if _trend > 0.03 and _curr > 0.50:     # strong up momentum
+                    _rich_signals[_i] = 1
+                elif _trend < -0.03 and _curr < 0.50:  # strong down momentum
+                    _rich_signals[_i] = -1
+
+        n_signals_total = int((_rich_signals != 0).sum())
+        buy_signals_idx  = np.where(_rich_signals == 1)[0]
+        sell_signals_idx = np.where(_rich_signals == -1)[0]
         best_name = max(all_a,key=all_a.get)
         print(f"  Best: {best_name} ({all_a[best_name]*100:.2f}%)")
         print(f"  Ensemble: {ens_acc*100:.2f}% / filtered: {ens_filt*100:.2f}%")
@@ -340,11 +361,11 @@ class ModelEngine:
         _all_signal_prices = []
         _all_signal_types  = []
         _all_signal_confs  = []
-        for _idx in range(len(signals)):
-            if signals[_idx] != 0:
+        for _idx in range(len(_rich_signals)):
+            if _rich_signals[_idx] != 0:
                 _dt  = _te_idx[_idx] if _idx < len(_te_idx) else None
                 _p   = float(self.te["Close"].iloc[SEQ_LEN + _idx]) if SEQ_LEN+_idx < len(self.te) else 0
-                _sig = "BUY" if signals[_idx]==1 else "SELL"
+                _sig = "BUY" if _rich_signals[_idx]==1 else "SELL"
                 _cf  = float(max(ens_proba[_idx], 1-ens_proba[_idx])) * 100
                 _all_signal_dates.append(str(_dt)[:10] if _dt is not None else "")
                 _all_signal_prices.append(_p)
@@ -363,7 +384,7 @@ class ModelEngine:
             "ensemble_acc":ens_acc,"ensemble_filt_acc":ens_filt,
             "ensemble_f1":ens_f1,"ensemble_auc":ens_auc,
             "ens_proba":ens_proba,"ens_pred":ens_pred,"y_te":y_te,
-            "signals":signals,"n_signals":int((signals!=0).sum()),
+            "signals":_rich_signals,"n_signals":int((_rich_signals!=0).sum()),
             "HIGH":HIGH,"LOW":LOW,
             "last_signal":last_sig,"last_confidence":last_conf,"last_prob":last_prob,
             "price_pred":pp,"y_price_te":y_pte_al,"rmse":rmse,"mae":mae,
