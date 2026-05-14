@@ -268,3 +268,45 @@ def _update_csv_index(ticker: str, path: str | None):
             json.dump(index, f, indent=2)
     except Exception:
         pass
+
+# ── Closed Signals Log (TP/SL hit history) ──────────────────────
+CLOSED_SIGNALS_FILE = os.path.join(DATA_DIR, "closed_signals.json")
+
+def load_closed_signals() -> list:
+    """Load history of signals that hit TP or SL."""
+    try:
+        if os.path.exists(CLOSED_SIGNALS_FILE):
+            with open(CLOSED_SIGNALS_FILE) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
+
+def save_closed_signal(ticker: str, signal: str, entry: float,
+                        exit_price: float, tp: float, sl: float,
+                        result: str, closed_at: str = None):
+    """Save a signal that hit TP or SL to history."""
+    try:
+        history = load_closed_signals()
+        from datetime import datetime, timezone, timedelta
+        if closed_at is None:
+            closed_at = (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M")
+        pnl_pct = ((exit_price - entry) / entry * 100) if signal == "BUY" else ((entry - exit_price) / entry * 100)
+        history.append({
+            "ticker"    : ticker,
+            "signal"    : signal,
+            "entry"     : entry,
+            "exit"      : exit_price,
+            "tp"        : tp,
+            "sl"        : sl,
+            "result"    : result,   # "HIT_TP" or "HIT_SL"
+            "pnl_pct"   : round(pnl_pct, 2),
+            "closed_at" : closed_at,
+        })
+        # Keep last 500 closed signals
+        history = history[-500:]
+        with open(CLOSED_SIGNALS_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+        return True
+    except Exception:
+        return False
