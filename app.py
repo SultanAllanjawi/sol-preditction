@@ -906,7 +906,7 @@ _ai_system = (
     "If asked about assets not currently loaded, note you only have live data for " + name + "."
 )
 
-# Quick question buttons
+# Quick question buttons + clear
 _aq1, _aq2, _aq3, _aq4 = st.columns(4)
 _ai_quick_map = {
     _aq1: "Is there a signal right now?",
@@ -917,6 +917,12 @@ _ai_quick_map = {
 for _aqcol, _aqq in _ai_quick_map.items():
     if _aqcol.button(_aqq, key=f"aiq_{abs(hash(_aqq+ticker))}", use_container_width=True):
         st.session_state[_ai_chat_key].append({"role": "user", "content": _aqq})
+        st.rerun()
+
+# Clear chat button — always visible
+if st.session_state[_ai_chat_key]:
+    if st.button("🗑️ Clear Chat", key=f"ai_clear_{ticker}", type="secondary"):
+        st.session_state[_ai_chat_key] = []
         st.rerun()
 
 # Inline text input (stays in place, not stuck to bottom)
