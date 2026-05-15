@@ -831,55 +831,67 @@ with col_sig:
                     f'{"<span style=color:#F85149> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
                     f'</div>', unsafe_allow_html=True)
 
-# ── Ask Signal Chat ──────────────────────────────────────────────
-_chat_q = st.chat_input(
-    f"Ask: Is there a signal for {name} right now?",
-    key="signal_ask"
-)
-if _chat_q:
-    with st.chat_message("user"):
-        st.write(_chat_q)
-    with st.chat_message("assistant"):
-        _ask_conf_thresh = 70.0
-        _is_high_conf = last_conf >= _ask_conf_thresh
-        _is_strong    = abs(last_prob - 0.5) >= 0.20
-        _has_signal   = last_sig in ("BUY","SELL") and _is_high_conf and _is_strong
+# ── AI Assistant (inline, below signal card) ─────────────────────
+_ai_chat_key = f"ai_msgs_{ticker}"
+if _ai_chat_key not in st.session_state:
+    st.session_state[_ai_chat_key] = []
 
-        if _has_signal:
-            _ac = "#3FB950" if last_sig=="BUY" else "#F85149"
-            _ae = "🟢" if last_sig=="BUY" else "🔴"
-            st.markdown(
-                f'<div style="background:#0D1117;border:2px solid {_ac};border-radius:10px;padding:14px 18px">'
-                f'<div style="color:{_ac};font-size:1.2rem;font-weight:800">{_ae} YES — {last_sig} signal right now!</div>'
-                f'<div style="color:#C9D1D9;margin-top:8px;line-height:1.8">'
-                f'📊 <b>Confidence:</b> {last_conf:.1f}% (threshold: 70%+)<br>'
-                f'🎯 <b>Accuracy:</b> {ens_filt*100:.1f}% filtered<br>'
-                f'💰 <b>Entry:</b> ${display_price:,.4f}<br>'
-                f'✅ <b>Take Profit:</b> ${tp_price:,.4f} ({tp_pct:+.2f}%)<br>'
-                f'🛑 <b>Stop Loss:</b> ${sl_price:,.4f} ({sl_pct:+.2f}%)<br>'
-                f'⚖️ <b>R/R:</b> 1:{rr:.2f}</div>'
-                f'<div style="color:#6E7681;margin-top:6px;font-size:0.75rem">Not financial advice</div>'
-                f'</div>', unsafe_allow_html=True
-            )
-        elif last_sig in ("BUY","SELL") and last_conf >= 60:
-            st.markdown(
-                f'<div style="background:#0D1117;border:1px solid #E3B341;border-radius:10px;padding:14px 18px">'
-                f'<div style="color:#E3B341;font-weight:700">⚠️ Weak {last_sig} — confidence too low for entry</div>'
-                f'<div style="color:#8B949E;margin-top:6px">'
-                f'Confidence is {last_conf:.1f}% — need 70%+ for a high-accuracy entry. '
-                f'Wait for stronger signal or try Intraday mode.</div></div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                f'<div style="background:#0D1117;border:1px solid #30363D;border-radius:10px;padding:14px 18px">'
-                f'<div style="color:#8B949E;font-weight:700">⚪ No signal right now</div>'
-                f'<div style="color:#6E7681;margin-top:6px">'
-                f'Current: **{last_sig}** at {last_conf:.1f}% confidence. '
-                f'Need 70%+ with strong directional conviction. '
-                f'Check back later or switch to Intraday (1h) mode.</div></div>',
-                unsafe_allow_html=True
-            )
+# Quick buttons
+_aq1,_aq2,_aq3,_aq4 = st.columns(4)
+_ai_quick = {_aq1:"Is there a signal now?",_aq2:"TP and SL levels?",
+             _aq3:"Should I enter?",_aq4:"Explain accuracy"}
+for _ac,_aqq in _ai_quick.items():
+    if _ac.button(_aqq,key=f"aiq2_{abs(hash(_aqq))}",use_container_width=True):
+        st.session_state[_ai_chat_key].append({"role":"user","content":_aqq})
+        st.rerun()
+
+# Show last 6 messages
+for _am in st.session_state[_ai_chat_key][-6:]:
+    with st.chat_message(_am["role"]):
+        st.markdown(_am["content"])
+
+# Chat input
+_ai_q = st.chat_input(f"Ask anything about {name}...", key=f"ai_main_{ticker}")
+if _ai_q:
+    st.session_state[_ai_chat_key].append({"role":"user","content":_ai_q})
+    with st.chat_message("user"):
+        st.markdown(_ai_q)
+    with st.chat_message("assistant"):
+        with st.spinner(""):
+            try:
+                import requests as _rqa
+                _ai_price2  = f"${display_price:,.4f}"
+                _ai_tp2     = f"${tp_price:,.4f}" if tp_price else "N/A"
+                _ai_sl2     = f"${sl_price:,.4f}" if sl_price else "N/A"
+                _sys2 = (
+                    "You are an expert AI trading assistant in a live ML trading dashboard.\n"
+                    f"Asset: {name} ({ticker})\n"
+                    f"Price: {_ai_price2} | Signal: {last_sig} | Confidence: {last_conf:.1f}%\n"
+                    f"P(UP): {last_prob*100:.1f}% | Accuracy: {ens_filt*100:.1f}% filtered\n"
+                    f"TP: {_ai_tp2} | SL: {_ai_sl2} | R/R: 1:{rr:.2f} | ATR: ${last_atr:.4f}\n"
+                    "Be direct, specific, concise. Not financial advice."
+                )
+                _msgs2 = [{"role":m["role"],"content":m["content"]}
+                          for m in st.session_state[_ai_chat_key][-10:]]
+                _r2 = _rqa.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-api-key": st.secrets.get("ANTHROPIC_API_KEY",""),
+                        "anthropic-version": "2023-06-01",
+                    },
+                    json={"model":"claude-sonnet-4-20250514","max_tokens":1024,
+                          "system":_sys2,"messages":_msgs2},
+                    timeout=30,
+                )
+                if _r2.status_code == 200:
+                    _ans2 = _r2.json()["content"][0]["text"]
+                    st.markdown(_ans2)
+                    st.session_state[_ai_chat_key].append({"role":"assistant","content":_ans2})
+                else:
+                    st.error(f"API error {_r2.status_code}: {_r2.text[:120]}")
+            except Exception as _ex2:
+                st.error(f"Error: {str(_ex2)[:150]}")
 
 with col_7d:
     st.markdown("**📅 7-Day Forward Outlook**")
@@ -944,7 +956,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9 = st.tabs([
+tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     "📡 Live Chart",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
@@ -954,7 +966,6 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9 = st.tabs([
     "💼 Portfolio Tracker",
     "🔀 Multi-Asset Scanner",
     "📈 Backtest P&L",
-    "🤖 AI Assistant",
 ])
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
@@ -2502,7 +2513,7 @@ with tab9:
                     ]
                     _resp = _rq.post(
                         "https://api.anthropic.com/v1/messages",
-                        headers={"Content-Type": "application/json"},
+                        headers={"Content-Type":"application/json","x-api-key":st.secrets.get("ANTHROPIC_API_KEY",""),"anthropic-version":"2023-06-01"},
                         json={
                             "model"     : "claude-sonnet-4-20250514",
                             "max_tokens": 1024,
