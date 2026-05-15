@@ -885,16 +885,7 @@ except Exception:
     pass
 
 _ai_system = (
-    f"Expert trading AI for {name} ({ticker}). Answer ANY question." + chr(10) +
-    f"LIVE: Price={_ai_pr_str} Signal={last_sig} Conf={last_conf:.1f}% "
-    f"TP={_ai_tp_str} SL={_ai_sl_str} RR=1:{rr:.2f}" + chr(10) +
-    f"Accuracy={ens_filt*100:.1f}% filtered / {ens_acc*100:.1f}% raw | ATR={_ai_atr_str}" + chr(10) +
-    f"P(UP)={last_prob*100:.1f}% | Mode={_ai_mode_str}" + chr(10) +
-    f"News: {_ai_news_str}" + chr(10) +
-    f"Signals: {_ai_sig_str[:300]}" + chr(10) +
-    f"Portfolio: {_ai_port_str[:200]}" + chr(10) +
-    "Rules: be concise, direct, specific. Search web for real-time events/news. "
-    "Answer any topic. Not financial advice (say once only)."
+    f"You are a trading AI assistant. {name} ({ticker}) | Price:{_ai_pr_str} | {last_sig} {last_conf:.0f}% conf | TP:{_ai_tp_str} SL:{_ai_sl_str} | Acc:{ens_filt*100:.0f}% | News:{_ai_news_str[:100]}. Answer any question concisely."
 )
 
 # Quick question buttons + clear
@@ -942,14 +933,14 @@ if (_ai_send or _ai_q) and _ai_q.strip():
             try:
                 import requests as _rqa
                 _groq_key = st.secrets.get("GROQ_API_KEY", "")
-                # Keep only last 4 messages, truncate each to 500 chars
+                # Last 3 messages, 300 chars each to stay under token limit
                 _msgs_groq = [
-                    {"role": m["role"], "content": str(m["content"])[:500]}
-                    for m in st.session_state[_ai_chat_key][-4:]
+                    {"role": m["role"], "content": str(m["content"])[:300]}
+                    for m in st.session_state[_ai_chat_key][-3:]
                 ]
                 # Use compound-beta for web search capability
                 _groq_payload = {
-                    "model": "compound-beta",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "system", "content": _ai_system}] + _msgs_groq,
                     "max_tokens": 1024,
                     "temperature": 0.4,
