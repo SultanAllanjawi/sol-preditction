@@ -936,7 +936,11 @@ _ai_system = (
     "risk management, trading psychology, indicators (RSI, MACD, ATR, Bollinger Bands, EMA). " + chr(10) +
     "Rules: be concise and direct. Give specific price levels for trading questions. "
     "Mention 'not financial advice' only once ever. "
-    "Never refuse a question — always give the best answer you can." + chr(10) + chr(10) +
+    "Never refuse a question — always give the best answer you can." + chr(10) +
+    "For current events, news, prices of other assets, or anything real-time: "
+    "use your web search capability to find the latest information. " + chr(10) +
+    "Always search the web when asked about: world news, today's events, current prices, "
+    "market news, sports scores, weather, or anything that changes daily." + chr(10) + chr(10) +
     "=== LATEST NEWS & SENTIMENT ===" + chr(10) +
     _ai_news_str
 )
@@ -990,24 +994,47 @@ if (_ai_send or _ai_q) and _ai_q.strip():
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state[_ai_chat_key][-12:]
                 ]
+                # Use compound-beta for web search capability
+                _groq_payload = {
+                    "model": "compound-beta",
+                    "messages": [{"role": "system", "content": _ai_system}] + _msgs_groq,
+                    "max_tokens": 1024,
+                    "temperature": 0.4,
+                }
                 _groq_resp = _rqa.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={
                         "Content-Type": "application/json",
                         "Authorization": f"Bearer {_groq_key}",
                     },
-                    json={
-                        "model": "llama-3.3-70b-versatile",
-                        "messages": [{"role": "system", "content": _ai_system}] + _msgs_groq,
-                        "max_tokens": 1024,
-                        "temperature": 0.4,
-                    },
-                    timeout=30,
+                    json=_groq_payload,
+                    timeout=45,
                 )
                 if _groq_resp.status_code == 200:
-                    _ans = _groq_resp.json()["choices"][0]["message"]["content"]
+                    _resp_json = _groq_resp.json()
+                    _ans = _resp_json["choices"][0]["message"]["content"]
+                    # Show web search sources if used
+                    _executed = _resp_json.get("choices",[{}])[0].get("message",{}).get("executed_tools",[])
+                    if _executed:
+                        _ans += chr(10) + chr(10) + "---" + chr(10) + "*🔍 Searched the web for real-time data*"
                     st.markdown(_ans)
                     st.session_state[_ai_chat_key].append({"role": "assistant", "content": _ans})
+                elif _groq_resp.status_code == 404:
+                    # compound-beta not available, fallback to llama
+                    _groq_resp2 = _rqa.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Content-Type":"application/json","Authorization":f"Bearer {_groq_key}"},
+                        json={"model":"llama-3.3-70b-versatile","messages":[{"role":"system","content":_ai_system}]+_msgs_groq,"max_tokens":1024,"temperature":0.4},
+                        timeout=30,
+                    )
+                    if _groq_resp2.status_code == 200:
+                        _ans = _groq_resp2.json()["choices"][0]["message"]["content"]
+                        st.markdown(_ans)
+                        st.session_state[_ai_chat_key].append({"role":"assistant","content":_ans})
+                    else:
+                        _err = f"Error {_groq_resp2.status_code}: {_groq_resp2.text[:200]}"
+                        st.error(_err)
+                        st.session_state[_ai_chat_key].append({"role":"assistant","content":_err})
                 else:
                     _err = f"Error {_groq_resp.status_code}: {_groq_resp.text[:200]}"
                     st.error(_err)
