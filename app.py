@@ -870,79 +870,31 @@ _ai_atr_str  = f"${last_atr:.4f}"
 _ai_mode_str = st.session_state.get("signal_mode", "Daily")
 _ai_cat_str  = st.session_state.get("asset_category", "")
 
-# Fetch live news for AI context
-_ai_news_str = "  Not available"
+# Fetch live news for AI context (keep short to avoid 413)
+_ai_news_str = "Not available"
 try:
     from data_manager import get_combined_news as _gcn
-    _ai_nd = _gcn(ticker)
+    _ai_nd   = _gcn(ticker)
     _ai_arts = _ai_nd.get("crypto_news", [])
-    _ai_fors = _ai_nd.get("forex_calendar", [])
     _ai_sent = _ai_nd.get("sentiment_score", 0)
-    _nl = []
-    for _an in _ai_arts[:6]:
-        _nl.append(
-            f"  [{str(_an.get('published_at',''))[:10]}] "
-            f"{_an.get('title','')[:80]} "
-            f"({_an.get('sentiment','')})"
-        )
-    for _fe in _ai_fors[:4]:
-        _nl.append(
-            f"  [ECON EVENT] {_fe.get('date','')} "
-            f"{_fe.get('event','')[:50]} "
-            f"impact={_fe.get('impact','')}"
-        )
-    _sent_lbl = "Bullish" if _ai_sent > 0.1 else "Bearish" if _ai_sent < -0.1 else "Neutral"
-    _ai_news_str = (
-        f"  Sentiment: {_sent_lbl} (score={_ai_sent:.2f})" + chr(10) +
-        (chr(10).join(_nl) if _nl else "  No recent articles found")
-    )
+    _sent_lbl = "Bullish" if _ai_sent>0.1 else "Bearish" if _ai_sent<-0.1 else "Neutral"
+    _nl = [f"{str(_an.get('published_at',''))[:10]}: {_an.get('title','')[:60]}"
+           for _an in _ai_arts[:3]]
+    _ai_news_str = _sent_lbl + " | " + " || ".join(_nl) if _nl else _sent_lbl
 except Exception:
     pass
 
 _ai_system = (
-    "You are an expert AI trading assistant built into a live ML trading dashboard. "
-    "You have FULL access to the user's real-time trading data below. "
-    "Always use this data to give precise, specific answers." + chr(10) + chr(10) +
-    "=== CURRENT ASSET ===" + chr(10) +
-    f"Name:              {name}" + chr(10) +
-    f"Ticker:            {ticker}" + chr(10) +
-    f"Category:          {_ai_cat_str}" + chr(10) +
-    f"Live Price:        {_ai_pr_str}" + chr(10) +
-    f"Signal Mode:       {_ai_mode_str}" + chr(10) + chr(10) +
-    "=== ML SIGNAL ===" + chr(10) +
-    f"Current Signal:    {last_sig}" + chr(10) +
-    f"Confidence:        {last_conf:.1f}%" + chr(10) +
-    f"P(UP tomorrow):    {last_prob*100:.1f}%" + chr(10) +
-    f"Take Profit:       {_ai_tp_str}" + chr(10) +
-    f"Stop Loss:         {_ai_sl_str}" + chr(10) +
-    f"R/R Ratio:         1:{rr:.2f}" + chr(10) +
-    f"ATR (volatility):  {_ai_atr_str}" + chr(10) + chr(10) +
-    "=== MODEL ACCURACY ===" + chr(10) +
-    f"Raw Accuracy:      {ens_acc*100:.1f}%" + chr(10) +
-    f"Filtered Accuracy: {ens_filt*100:.1f}% (signals with conf >= 60%)" + chr(10) +
-    f"Individual Models:" + chr(10) +
-    _ai_model_info + chr(10) +
-    "=== RECENT SIGNALS (last 8) ===" + chr(10) +
-    _ai_sig_str + chr(10) + chr(10) +
-    "=== OPEN PORTFOLIO POSITIONS ===" + chr(10) +
-    _ai_port_str + chr(10) + chr(10) +
-    "=== YOUR CAPABILITIES ===" + chr(10) +
-    "You are a general-purpose AI assistant AND expert trading analyst. "
-    "You can answer ANY question on any topic: science, history, math, coding, "
-    "geography, sports, culture, food, health, technology, finance, and more. " + chr(10) +
-    "For trading questions: use the live dashboard data above to give specific answers. " + chr(10) +
-    "For non-trading questions: answer from your broad knowledge base. " + chr(10) +
-    "Trading expertise: technical analysis, ML models, crypto, stocks, Gold, DFM UAE stocks, "
-    "risk management, trading psychology, indicators (RSI, MACD, ATR, Bollinger Bands, EMA). " + chr(10) +
-    "Rules: be concise and direct. Give specific price levels for trading questions. "
-    "Mention 'not financial advice' only once ever. "
-    "Never refuse a question — always give the best answer you can." + chr(10) +
-    "For current events, news, prices of other assets, or anything real-time: "
-    "use your web search capability to find the latest information. " + chr(10) +
-    "Always search the web when asked about: world news, today's events, current prices, "
-    "market news, sports scores, weather, or anything that changes daily." + chr(10) + chr(10) +
-    "=== LATEST NEWS & SENTIMENT ===" + chr(10) +
-    _ai_news_str
+    f"Expert trading AI for {name} ({ticker}). Answer ANY question." + chr(10) +
+    f"LIVE: Price={_ai_pr_str} Signal={last_sig} Conf={last_conf:.1f}% "
+    f"TP={_ai_tp_str} SL={_ai_sl_str} RR=1:{rr:.2f}" + chr(10) +
+    f"Accuracy={ens_filt*100:.1f}% filtered / {ens_acc*100:.1f}% raw | ATR={_ai_atr_str}" + chr(10) +
+    f"P(UP)={last_prob*100:.1f}% | Mode={_ai_mode_str}" + chr(10) +
+    f"News: {_ai_news_str}" + chr(10) +
+    f"Signals: {_ai_sig_str[:300]}" + chr(10) +
+    f"Portfolio: {_ai_port_str[:200]}" + chr(10) +
+    "Rules: be concise, direct, specific. Search web for real-time events/news. "
+    "Answer any topic. Not financial advice (say once only)."
 )
 
 # Quick question buttons + clear
