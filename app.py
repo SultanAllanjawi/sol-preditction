@@ -942,9 +942,10 @@ if (_ai_send or _ai_q) and _ai_q.strip():
             try:
                 import requests as _rqa
                 _groq_key = st.secrets.get("GROQ_API_KEY", "")
+                # Keep only last 4 messages, truncate each to 500 chars
                 _msgs_groq = [
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state[_ai_chat_key][-12:]
+                    {"role": m["role"], "content": str(m["content"])[:500]}
+                    for m in st.session_state[_ai_chat_key][-4:]
                 ]
                 # Use compound-beta for web search capability
                 _groq_payload = {
