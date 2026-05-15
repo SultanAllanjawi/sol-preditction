@@ -2410,7 +2410,7 @@ with tab9:
     _ai_atr   = f"${last_atr:.4f}"
     _ai_mode  = st.session_state.get("signal_mode", "Daily")
 
-    _port_open = [t for t in (portfolio or []) if t.get("status","") == "Open"]
+    _port_open = [t for t in st.session_state.get("portfolio_trades",[]) if t.get("status","") == "Open"]
     _port_lines = [
         f"  - {t['ticker']} {t['side']} entry=${t['entry']:.4f} TP=${t.get('tp',0):.4f} SL=${t.get('sl',0):.4f}"
         for t in _port_open[:5]
