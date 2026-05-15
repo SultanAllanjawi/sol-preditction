@@ -836,13 +836,87 @@ _ai_chat_key = f"ai_msgs_{ticker}"
 if _ai_chat_key not in st.session_state:
     st.session_state[_ai_chat_key] = []
 
-# Quick buttons
-_aq1,_aq2,_aq3,_aq4 = st.columns(4)
-_ai_quick = {_aq1:"Is there a signal now?",_aq2:"TP and SL levels?",
-             _aq3:"Should I enter?",_aq4:"Explain accuracy"}
-for _ac,_aqq in _ai_quick.items():
-    if _ac.button(_aqq,key=f"aiq2_{abs(hash(_aqq))}",use_container_width=True):
-        st.session_state[_ai_chat_key].append({"role":"user","content":_aqq})
+# Build full app context for AI
+_ai_pf = st.session_state.get("portfolio_trades", [])
+_ai_open_trades = [t for t in _ai_pf if t.get("status","") == "Open"]
+_ai_port_lines = [
+    f"  {t['ticker']} {t['side']} @ ${t['entry']:.4f} | TP:${t.get('tp',0):.4f} SL:${t.get('sl',0):.4f}"
+    for t in _ai_open_trades[:5]
+]
+_ai_port_str = chr(10).join(_ai_port_lines) if _ai_port_lines else "  None"
+
+_ai_sig_lines = []
+try:
+    for _, _sr in sig_hist.head(8).iterrows():
+        _ai_sig_lines.append(
+            f"  {str(_sr.get('Date',''))[:10]} | {_sr.get('Signal','')} | "
+            f"Price:{_sr.get('Price','')} | Conf:{_sr.get('Confidence','')}"
+        )
+except Exception:
+    pass
+_ai_sig_str = chr(10).join(_ai_sig_lines) if _ai_sig_lines else "  None"
+
+_ai_model_info = ""
+try:
+    for _mn, _md in results.get("model_data", {}).items():
+        _ai_model_info += f"  {_mn}: {_md['acc']*100:.1f}% acc, F1={_md['f1']:.3f}" + chr(10)
+except Exception:
+    pass
+
+_ai_tp_str   = f"${tp_price:,.4f}" if tp_price else "N/A"
+_ai_sl_str   = f"${sl_price:,.4f}" if sl_price else "N/A"
+_ai_pr_str   = f"${display_price:,.4f}"
+_ai_atr_str  = f"${last_atr:.4f}"
+_ai_mode_str = st.session_state.get("signal_mode", "Daily")
+_ai_cat_str  = st.session_state.get("asset_category", "")
+
+_ai_system = (
+    "You are an expert AI trading assistant built into a live ML trading dashboard. "
+    "You have FULL access to the user's real-time trading data below. "
+    "Always use this data to give precise, specific answers." + chr(10) + chr(10) +
+    "=== CURRENT ASSET ===" + chr(10) +
+    f"Name:              {name}" + chr(10) +
+    f"Ticker:            {ticker}" + chr(10) +
+    f"Category:          {_ai_cat_str}" + chr(10) +
+    f"Live Price:        {_ai_pr_str}" + chr(10) +
+    f"Signal Mode:       {_ai_mode_str}" + chr(10) + chr(10) +
+    "=== ML SIGNAL ===" + chr(10) +
+    f"Current Signal:    {last_sig}" + chr(10) +
+    f"Confidence:        {last_conf:.1f}%" + chr(10) +
+    f"P(UP tomorrow):    {last_prob*100:.1f}%" + chr(10) +
+    f"Take Profit:       {_ai_tp_str}" + chr(10) +
+    f"Stop Loss:         {_ai_sl_str}" + chr(10) +
+    f"R/R Ratio:         1:{rr:.2f}" + chr(10) +
+    f"ATR (volatility):  {_ai_atr_str}" + chr(10) + chr(10) +
+    "=== MODEL ACCURACY ===" + chr(10) +
+    f"Raw Accuracy:      {ens_acc*100:.1f}%" + chr(10) +
+    f"Filtered Accuracy: {ens_filt*100:.1f}% (signals with conf >= 60%)" + chr(10) +
+    f"Individual Models:" + chr(10) +
+    _ai_model_info + chr(10) +
+    "=== RECENT SIGNALS (last 8) ===" + chr(10) +
+    _ai_sig_str + chr(10) + chr(10) +
+    "=== OPEN PORTFOLIO POSITIONS ===" + chr(10) +
+    _ai_port_str + chr(10) + chr(10) +
+    "=== YOUR EXPERTISE ===" + chr(10) +
+    "Technical analysis, ML models, crypto, stocks, Gold, DFM UAE stocks, "
+    "risk management, trading psychology, market structure, indicators (RSI, MACD, ATR, "
+    "Bollinger Bands, SMA/EMA crossovers). " + chr(10) +
+    "Be concise and direct. Give specific price levels. "
+    "Mention 'not financial advice' only once. "
+    "If asked about assets not currently loaded, note you only have live data for " + name + "."
+)
+
+# Quick question buttons
+_aq1, _aq2, _aq3, _aq4 = st.columns(4)
+_ai_quick_map = {
+    _aq1: "Is there a signal right now?",
+    _aq2: "What are the TP and SL?",
+    _aq3: "Should I enter this trade?",
+    _aq4: "How accurate is the model?",
+}
+for _aqcol, _aqq in _ai_quick_map.items():
+    if _aqcol.button(_aqq, key=f"aiq_{abs(hash(_aqq+ticker))}", use_container_width=True):
+        st.session_state[_ai_chat_key].append({"role": "user", "content": _aqq})
         st.rerun()
 
 # Show last 6 messages
@@ -851,47 +925,46 @@ for _am in st.session_state[_ai_chat_key][-6:]:
         st.markdown(_am["content"])
 
 # Chat input
-_ai_q = st.chat_input(f"Ask anything about {name}...", key=f"ai_main_{ticker}")
+_ai_q = st.chat_input(f"Ask anything about {name} or trading...", key=f"ai_main_{ticker}")
 if _ai_q:
-    st.session_state[_ai_chat_key].append({"role":"user","content":_ai_q})
+    st.session_state[_ai_chat_key].append({"role": "user", "content": _ai_q})
     with st.chat_message("user"):
         st.markdown(_ai_q)
     with st.chat_message("assistant"):
-        with st.spinner(""):
+        with st.spinner("Thinking..."):
             try:
                 import requests as _rqa
-                _ai_price2  = f"${display_price:,.4f}"
-                _ai_tp2     = f"${tp_price:,.4f}" if tp_price else "N/A"
-                _ai_sl2     = f"${sl_price:,.4f}" if sl_price else "N/A"
-                _sys2 = (
-                    "You are an expert AI trading assistant in a live ML trading dashboard.\n"
-                    f"Asset: {name} ({ticker})\n"
-                    f"Price: {_ai_price2} | Signal: {last_sig} | Confidence: {last_conf:.1f}%\n"
-                    f"P(UP): {last_prob*100:.1f}% | Accuracy: {ens_filt*100:.1f}% filtered\n"
-                    f"TP: {_ai_tp2} | SL: {_ai_sl2} | R/R: 1:{rr:.2f} | ATR: ${last_atr:.4f}\n"
-                    "Be direct, specific, concise. Not financial advice."
-                )
-                _msgs2 = [{"role":m["role"],"content":m["content"]}
-                          for m in st.session_state[_ai_chat_key][-10:]]
-                _r2 = _rqa.post(
-                    "https://api.anthropic.com/v1/messages",
+                _groq_key = st.secrets.get("GROQ_API_KEY", "")
+                _msgs_groq = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state[_ai_chat_key][-12:]
+                ]
+                _groq_resp = _rqa.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
                     headers={
                         "Content-Type": "application/json",
-                        "x-api-key": st.secrets.get("ANTHROPIC_API_KEY",""),
-                        "anthropic-version": "2023-06-01",
+                        "Authorization": f"Bearer {_groq_key}",
                     },
-                    json={"model":"claude-sonnet-4-20250514","max_tokens":1024,
-                          "system":_sys2,"messages":_msgs2},
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "system", "content": _ai_system}] + _msgs_groq,
+                        "max_tokens": 1024,
+                        "temperature": 0.4,
+                    },
                     timeout=30,
                 )
-                if _r2.status_code == 200:
-                    _ans2 = _r2.json()["content"][0]["text"]
-                    st.markdown(_ans2)
-                    st.session_state[_ai_chat_key].append({"role":"assistant","content":_ans2})
+                if _groq_resp.status_code == 200:
+                    _ans = _groq_resp.json()["choices"][0]["message"]["content"]
+                    st.markdown(_ans)
+                    st.session_state[_ai_chat_key].append({"role": "assistant", "content": _ans})
                 else:
-                    st.error(f"API error {_r2.status_code}: {_r2.text[:120]}")
-            except Exception as _ex2:
-                st.error(f"Error: {str(_ex2)[:150]}")
+                    _err = f"Error {_groq_resp.status_code}: {_groq_resp.text[:200]}"
+                    st.error(_err)
+                    st.session_state[_ai_chat_key].append({"role": "assistant", "content": _err})
+            except Exception as _ex:
+                _err = f"Connection error: {str(_ex)[:150]}"
+                st.error(_err)
+                st.session_state[_ai_chat_key].append({"role": "assistant", "content": _err})
 
 with col_7d:
     st.markdown("**📅 7-Day Forward Outlook**")
