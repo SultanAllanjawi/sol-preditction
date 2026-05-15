@@ -332,7 +332,7 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════
 # LOAD DATA + TRAIN
 # ═══════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=1800, show_spinner=False)  # 30-min cache
+@st.cache_data(ttl=21600, show_spinner=False)  # 6-hour cache
 def load_and_train(ticker, _uploaded_bytes=None, _force=False,
                    signal_mode="Daily", sentiment_score=0.0):
     import io
@@ -542,23 +542,26 @@ _atr_raw = float(df_feat['ATR'].dropna().iloc[-1]) if ('ATR' in df_feat.columns 
 last_atr = _atr_raw if (_atr_raw > 0 and _atr_raw == _atr_raw) else display_price * 0.025
 atr_pct  = last_atr / max(display_price, 0.0001)
 
-# Confidence-based multiplier: 60%=0.8×ATR, 70%=1.0×ATR, 80%+=1.2×ATR
-_conf_mult = 0.8 + (last_conf - 60) / 100  # scales from 0.8 to 1.2+
-_conf_mult = max(0.6, min(1.5, _conf_mult))  # clamp 0.6–1.5
-
-# TP = 1.0× multiplier, SL = 1.0× multiplier → perfect 1:1 R/R
-# Vary slightly: TP a touch wider to encourage holding
-_tp_mult = round(_conf_mult, 2)
-_sl_mult = round(_conf_mult * 0.9, 2)  # SL slightly tighter = 1:0.9 ≈ 1:1
+# ── Smart TP/SL: per-asset dollar cap so TP is reachable same day ──
+_conf_mult = max(0.6, min(1.5, 0.8 + (last_conf - 60) / 100))
+# Per-asset max TP/SL distance in dollars
+_ASSET_MAX_DIST = {
+    "GC=F"   : 30,    # Gold: max $30
+    "ETH-USD": 30,    # ETH: max $30
+    "BTC-USD": 300,   # BTC: max $300
+}
+_max_dist = _ASSET_MAX_DIST[ticker] if ticker in _ASSET_MAX_DIST else _conf_mult * last_atr
+_tp_dist  = min(_conf_mult * last_atr, _max_dist)
+_sl_dist  = _tp_dist * 0.9  # 1:1 R/R (SL slightly tighter)
 
 if last_sig == "BUY":
     entry_p  = round(display_price, 4)
-    tp_price = round(display_price + _tp_mult * last_atr, 4)
-    sl_price = round(display_price - _sl_mult * last_atr, 4)
+    tp_price = round(display_price + _tp_dist, 4)
+    sl_price = round(display_price - _sl_dist, 4)
 elif last_sig == "SELL":
     entry_p  = round(display_price, 4)
-    tp_price = round(display_price - _tp_mult * last_atr, 4)
-    sl_price = round(display_price + _sl_mult * last_atr, 4)
+    tp_price = round(display_price - _tp_dist, 4)
+    sl_price = round(display_price + _sl_dist, 4)
 else:
     entry_p  = display_price
     tp_price = None
@@ -892,8 +895,10 @@ with col_7d:
                  "SELL" if _p7 <= (1-confidence_thresh) else "HOLD")
         _e7   = "🟢" if _s7=="BUY" else "🔴" if _s7=="SELL" else "⚪"
         _atr7 = last_atr * (1 + 0.01*i)
-        if   _s7=="BUY":  _tp7=round(display_price+2.0*_atr7,4); _sl7=round(display_price-1.5*_atr7,4)
-        elif _s7=="SELL": _tp7=round(display_price-2.0*_atr7,4); _sl7=round(display_price+1.5*_atr7,4)
+        _7cap = display_price * 0.009
+        _7dist = min(_conf_mult * _atr7, _7cap)
+        if   _s7=="BUY":  _tp7=round(display_price+_7dist,4); _sl7=round(display_price-_7dist*0.9,4)
+        elif _s7=="SELL": _tp7=round(display_price-_7dist,4); _sl7=round(display_price+_7dist*0.9,4)
         else:             _tp7=None; _sl7=None
         _rr7  = f"1:{abs(_tp7-display_price)/max(abs(display_price-_sl7),0.0001):.2f}" if _tp7 else "—"
         _rows7.append({
@@ -1164,9 +1169,11 @@ body{{background:#0D1117}}
                 if _p <= 0: continue
                 _is = "BUY" in str(_row.get("Signal",""))
                 _cf = float(str(_row.get("Confidence","60%")).replace("%",""))
-                _m  = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
-                _tp = round(_p + _m*last_atr, 4) if _is else round(_p - _m*last_atr, 4)
-                _sl = round(_p - _m*0.9*last_atr, 4) if _is else round(_p + _m*0.9*last_atr, 4)
+                _m    = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
+                _mcap = {"GC=F":30,"ETH-USD":30,"BTC-USD":300}.get(ticker, _m*last_atr)
+                _dist = min(_m * last_atr, _mcap)
+                _tp   = round(_p + _dist, 4) if _is else round(_p - _dist, 4)
+                _sl   = round(_p - _dist*0.9, 4) if _is else round(_p + _dist*0.9, 4)
                 _rr_val = abs(_tp-_p)/max(abs(_p-_sl),0.0001)
                 # Check result in next 5 candles
                 _result = "⏳ Active"
@@ -1624,9 +1631,11 @@ with tab4:
                     if _p <= 0: continue
                     _is = "BUY" in str(_row.get("Signal",""))
                     _cf = float(str(_row.get("Confidence","60%")).replace("%",""))
-                    _m  = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
-                    _tp = round(_p + _m*last_atr, 4) if _is else round(_p - _m*last_atr, 4)
-                    _sl = round(_p - _m*0.9*last_atr, 4) if _is else round(_p + _m*0.9*last_atr, 4)
+                    _m    = max(0.6, min(1.5, 0.8 + (_cf - 60) / 100))
+                    _mcap4= {"GC=F":30,"ETH-USD":30,"BTC-USD":300}.get(ticker, _m*last_atr)
+                    _dist4= min(_m * last_atr, _mcap4)
+                    _tp   = round(_p + _dist4, 4) if _is else round(_p - _dist4, 4)
+                    _sl   = round(_p - _dist4*0.9, 4) if _is else round(_p + _dist4*0.9, 4)
                     _rr_v = abs(_tp-_p)/max(abs(_p-_sl), 0.0001)
                     # Check result in next 5 candles (date-only match)
                     _result = "⏳ Active"
