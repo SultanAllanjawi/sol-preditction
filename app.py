@@ -723,17 +723,19 @@ with col_sig:
                      'margin-top:8px;color:#E3B341;font-size:0.80rem">'
                      '⚠️ EXPIRED — Do NOT enter. Wait for next signal.</div>'
                      if _ss=="EXPIRED" else "")
-        st.markdown(f"""
-<div style="background:{_sb};border:2px solid {_sc2};border-radius:10px;padding:12px 16px">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="color:{_sc2};font-weight:700">{_si} {_sl2}</span>
-    <div style="text-align:right;font-size:0.75rem;color:#8B949E">
-      {_hold:.0f}h since signal
-      {"· ⏱ " + f"{_rem:.0f}h left" if _ss=="ACTIVE" else ""}
-    </div>
-  </div>
-  {_pnl_html}{_enter_html}{_exp_html}
-</div>""", unsafe_allow_html=True)
+        _hold_str = f"{_hold:.0f}h since signal"
+        _rem_str  = f"· ⏱ {_rem:.0f}h left" if _ss == "ACTIVE" else ""
+        st.markdown(
+            f'<div style="background:{_sb};border:2px solid {_sc2};border-radius:10px;padding:12px 16px">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center">'
+            f'<span style="color:{_sc2};font-weight:700">{_si} {_sl2}</span>'
+            f'<div style="text-align:right;font-size:0.75rem;color:#8B949E">'
+            f'{_hold_str} {_rem_str}</div>'
+            f'</div>'
+            f'{_pnl_html}{_enter_html}{_exp_html}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
     # Intraday signals list
     if _intraday and results and "multi_signals" in results:
