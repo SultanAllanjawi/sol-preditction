@@ -919,17 +919,27 @@ for _aqcol, _aqq in _ai_quick_map.items():
         st.session_state[_ai_chat_key].append({"role": "user", "content": _aqq})
         st.rerun()
 
-# Show last 6 messages
-for _am in st.session_state[_ai_chat_key][-6:]:
+# Inline text input (stays in place, not stuck to bottom)
+_ai_col_inp, _ai_col_btn = st.columns([5,1])
+with _ai_col_inp:
+    _ai_q = st.text_input(
+        "Ask", label_visibility="collapsed",
+        placeholder=f"Ask anything about {name} or trading...",
+        key=f"ai_text_{ticker}"
+    )
+with _ai_col_btn:
+    _ai_send = st.button("Send ➤", key=f"ai_send_{ticker}", use_container_width=True, type="primary")
+
+# Show conversation history
+for _am in st.session_state[_ai_chat_key][-8:]:
     with st.chat_message(_am["role"]):
         st.markdown(_am["content"])
 
-# Chat input
-_ai_q = st.chat_input(f"Ask anything about {name} or trading...", key=f"ai_main_{ticker}")
-if _ai_q:
-    st.session_state[_ai_chat_key].append({"role": "user", "content": _ai_q})
+if (_ai_send or _ai_q) and _ai_q.strip():
+    _ai_msg = _ai_q.strip()
+    st.session_state[_ai_chat_key].append({"role": "user", "content": _ai_msg})
     with st.chat_message("user"):
-        st.markdown(_ai_q)
+        st.markdown(_ai_msg)
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
