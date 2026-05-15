@@ -870,6 +870,35 @@ _ai_atr_str  = f"${last_atr:.4f}"
 _ai_mode_str = st.session_state.get("signal_mode", "Daily")
 _ai_cat_str  = st.session_state.get("asset_category", "")
 
+# Fetch live news for AI context
+_ai_news_str = "  Not available"
+try:
+    from data_manager import get_combined_news as _gcn
+    _ai_nd = _gcn(ticker)
+    _ai_arts = _ai_nd.get("crypto_news", [])
+    _ai_fors = _ai_nd.get("forex_calendar", [])
+    _ai_sent = _ai_nd.get("sentiment_score", 0)
+    _nl = []
+    for _an in _ai_arts[:6]:
+        _nl.append(
+            f"  [{str(_an.get('published_at',''))[:10]}] "
+            f"{_an.get('title','')[:80]} "
+            f"({_an.get('sentiment','')})"
+        )
+    for _fe in _ai_fors[:4]:
+        _nl.append(
+            f"  [ECON EVENT] {_fe.get('date','')} "
+            f"{_fe.get('event','')[:50]} "
+            f"impact={_fe.get('impact','')}"
+        )
+    _sent_lbl = "Bullish" if _ai_sent > 0.1 else "Bearish" if _ai_sent < -0.1 else "Neutral"
+    _ai_news_str = (
+        f"  Sentiment: {_sent_lbl} (score={_ai_sent:.2f})" + chr(10) +
+        (chr(10).join(_nl) if _nl else "  No recent articles found")
+    )
+except Exception:
+    pass
+
 _ai_system = (
     "You are an expert AI trading assistant built into a live ML trading dashboard. "
     "You have FULL access to the user's real-time trading data below. "
@@ -903,7 +932,9 @@ _ai_system = (
     "Bollinger Bands, SMA/EMA crossovers). " + chr(10) +
     "Be concise and direct. Give specific price levels. "
     "Mention 'not financial advice' only once. "
-    "If asked about assets not currently loaded, note you only have live data for " + name + "."
+    "If asked about assets not currently loaded, note you only have live data for " + name + "." + chr(10) + chr(10) +
+    "=== LATEST NEWS & SENTIMENT ===" + chr(10) +
+    _ai_news_str
 )
 
 # Quick question buttons + clear
