@@ -147,7 +147,11 @@ class DataManager:
                 merged = self._merge(cached, fresh)
                 self._save(merged); self._save_meta()
                 _clean = self._clean(merged)
-            return _clean.tail(7500).reset_index(drop=True) if len(_clean)>7500 else _clean
+                return _clean.tail(7500).reset_index(drop=True) if len(_clean)>7500 else _clean
+            elif cached is not None and len(cached) >= 80:
+                _clean = self._clean(cached)
+                return _clean.tail(7500).reset_index(drop=True) if len(_clean)>7500 else _clean
+            return None
 
         if cached is not None and len(cached) >= 80:
             _clean = self._clean(cached)
