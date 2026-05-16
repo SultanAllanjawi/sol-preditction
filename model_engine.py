@@ -308,15 +308,22 @@ class ModelEngine:
         print(f"  Best: {best_name} ({all_a[best_name]*100:.2f}%)")
         print(f"  Ensemble: {ens_acc*100:.2f}% / filtered: {ens_filt*100:.2f}%")
 
-        # ── Price regression (Ridge on raw prices - works correctly) ─────
+        # ── Price regression (Ridge with y-scaling for accuracy) ────────
         try:
+            from sklearn.preprocessing import StandardScaler as _SScaler
+            _sc_y = _SScaler()
+            _y_tr_scaled = _sc_y.fit_transform(self.y_ptr.reshape(-1,1)).ravel()
             ridge = Ridge(alpha=1.0)
-            ridge.fit(self.X_tr, self.y_ptr)
-            pp = ridge.predict(self.X_te)[SEQ_LEN:]
+            ridge.fit(self.X_tr, _y_tr_scaled)
+            _pp_scaled = ridge.predict(self.X_te)
+            pp = _sc_y.inverse_transform(_pp_scaled.reshape(-1,1)).ravel()[SEQ_LEN:]
             y_pte_al = self.y_pte[SEQ_LEN:]
             # Align lengths
             _mn = min(len(pp), len(y_pte_al))
             pp = pp[:_mn]; y_pte_al = y_pte_al[:_mn]
+            # Sanity check — if predictions are flat or wrong scale, fallback
+            if pp.std() < 1e-3 or not np.isfinite(pp).all():
+                raise ValueError("flat or invalid predictions")
             rmse = float(np.sqrt(mean_squared_error(y_pte_al, pp)))
             mae  = float(mean_absolute_error(y_pte_al, pp))
         except Exception as _e:
