@@ -143,14 +143,14 @@ class ModelEngine:
         sp2=int(len(self.Xtr_s)*.80)
         self.Xtr2=self.Xtr_s[:sp2]; self.ytr2=self.ytr_s[:sp2]
         self.Xval=self.Xtr_s[sp2:]; self.yval=self.ytr_s[sp2:]
-        # Recent 2000-row subset for GB+RNN (fast, recent patterns)
+        # GB uses recent 2000 rows (fast), RNN uses FULL training data (more accurate)
         _recent_rows = min(2000, len(self.X_tr))
         self.X_tr_r = self.X_tr[-_recent_rows:]
         self.y_tr_r = self.y_tr[-_recent_rows:]
-        _Xr_seq, _yr_seq = self._seqs(self.X_tr_r, self.y_tr_r)
-        _sp_r = int(len(_Xr_seq)*0.85)
-        self.Xtr2  = _Xr_seq[:_sp_r]; self.ytr2  = _yr_seq[:_sp_r]
-        self.Xval  = _Xr_seq[_sp_r:]; self.yval  = _yr_seq[_sp_r:]
+        # RNN sequences from FULL training set (old proven approach)
+        sp2 = int(len(self.Xtr_s) * 0.80)
+        self.Xtr2 = self.Xtr_s[:sp2]; self.ytr2 = self.ytr_s[:sp2]
+        self.Xval = self.Xtr_s[sp2:]; self.yval = self.ytr_s[sp2:]
 
     def _seqs(self, X, y):
         Xs,ys=[],[]
