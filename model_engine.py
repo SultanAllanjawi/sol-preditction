@@ -198,9 +198,9 @@ class ModelEngine:
         # ── 2. Random Forest ──────────────────────────────────────
         if verbose: print("Training RF...")
         try:
-            rf_m=RandomForestClassifier(n_estimators=100,max_depth=5,min_samples_leaf=3,
+            rf_m=RandomForestClassifier(n_estimators=150,max_depth=6,min_samples_leaf=3,
                 class_weight="balanced",max_features="sqrt",random_state=42,n_jobs=-1)
-            rf_m.fit(self.X_tr,self.y_tr)
+            rf_m.fit(self.X_tr_r,self.y_tr_r)  # recent data only — avoids outdated patterns
             rfp=rf_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             rfa=accuracy_score(y_te,(rfp>0.5).astype(int))
             rff=f1_score(y_te,(rfp>0.5).astype(int),zero_division=0)
