@@ -33,22 +33,49 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.stApp{background:#0D1117;color:#C9D1D9}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+* { font-family: 'Inter', -apple-system, sans-serif; }
+.stApp{
+  color:#C6CAD9;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(124,108,255,0.10), transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(34,211,160,0.07), transparent 40%),
+    #0A0C14;
+}
 .block-container{padding-top:1.2rem}
-[data-testid="metric-container"]{background:#161B22;border:1px solid #30363D;border-radius:10px;padding:14px 18px}
-[data-testid="stMetricValue"]{color:#F0F6FC;font-size:1.7rem!important}
-[data-testid="stMetricLabel"]{color:#8B949E;font-size:0.82rem}
-.signal-card{background:#161B22;border:1px solid #30363D;border-radius:12px;padding:18px 22px;margin:6px 0}
-.buy-card{border-left:5px solid #3FB950}.sell-card{border-left:5px solid #F85149}.hold-card{border-left:5px solid #6E7681}
-hr{border-color:#30363D}
-[data-testid="stSidebar"]{background:#161B22;border-right:1px solid #30363D}
-.stTabs [data-baseweb="tab-list"]{background:#161B22}
-.stTabs [data-baseweb="tab"]{color:#8B949E}
-.stTabs [aria-selected="true"]{color:#F0F6FC;border-bottom:2px solid #58A6FF}
+[data-testid="metric-container"]{
+  background:linear-gradient(160deg,#151830 0%,#12141F 100%);
+  border:1px solid #262838;border-radius:14px;padding:16px 20px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+  transition:border-color .15s ease;
+}
+[data-testid="metric-container"]:hover{border-color:#3A3D5C}
+[data-testid="stMetricValue"]{color:#F4F5FA;font-size:1.7rem!important;font-weight:700}
+[data-testid="stMetricLabel"]{color:#8891A8;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em}
+.signal-card{
+  background:linear-gradient(160deg,#151830 0%,#12141F 100%);
+  border:1px solid #262838;border-radius:16px;padding:18px 22px;margin:6px 0;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+.buy-card{border-left:5px solid #22D3A0}.sell-card{border-left:5px solid #F5455C}.hold-card{border-left:5px solid #6B7290}
+hr{border-color:#1A1C29}
+[data-testid="stSidebar"]{background:#0D0F1A;border-right:1px solid #1A1C29}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem}
+.stTabs [data-baseweb="tab-list"]{background:#12141F;border-radius:10px;padding:4px;gap:2px}
+.stTabs [data-baseweb="tab"]{color:#8891A8;border-radius:8px}
+.stTabs [aria-selected="true"]{
+  color:#F4F5FA;background:linear-gradient(135deg,#7C6CFF22,#22D3A022);
+  border-bottom:2px solid #7C6CFF;
+}
+.stButton>button{border-radius:9px;border:1px solid #262838;transition:all .15s ease}
+.stButton>button:hover{border-color:#7C6CFF;box-shadow:0 0 0 1px #7C6CFF44}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:#0A0C14}
+::-webkit-scrollbar-thumb{background:#262838;border-radius:4px}
 </style>""", unsafe_allow_html=True)
 
-C_UP='#3FB950';C_DOWN='#F85149';C_BLUE='#58A6FF'
-C_GOLD='#E3B341';C_GREY='#6E7681';C_WHITE='#F0F6FC';C_DIM='#8B949E'
+C_UP='#22D3A0';C_DOWN='#F5455C';C_BLUE='#7C6CFF'
+C_GOLD='#F2B84B';C_GREY='#6B7290';C_WHITE='#F4F5FA';C_DIM='#8891A8'
 
 
 
@@ -109,11 +136,11 @@ from feature_engine import build_features
 
 def dark_fig():
     plt.rcParams.update({
-        'figure.facecolor':'#0D1117','axes.facecolor':'#161B22',
-        'axes.edgecolor':'#30363D','axes.labelcolor':'#C9D1D9',
-        'xtick.color':'#8B949E','ytick.color':'#8B949E','text.color':'#C9D1D9',
-        'grid.color':'#21262D','grid.linewidth':0.5,'legend.facecolor':'#161B22',
-        'legend.edgecolor':'#30363D','legend.fontsize':8,'font.size':9,
+        'figure.facecolor':'#0A0C14','axes.facecolor':'#12141F',
+        'axes.edgecolor':'#262838','axes.labelcolor':'#C6CAD9',
+        'xtick.color':'#8891A8','ytick.color':'#8891A8','text.color':'#C6CAD9',
+        'grid.color':'#1A1C29','grid.linewidth':0.5,'legend.facecolor':'#12141F',
+        'legend.edgecolor':'#262838','legend.fontsize':8,'font.size':9,
     })
 
 # ═══════════════════════════════════════════════════════════════════
@@ -398,11 +425,11 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
                       "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
         _is_uae_err = ticker in _uae_list
         st.markdown(f"""
-<div style="background:#2D1B1B;border:2px solid #F85149;border-radius:10px;padding:20px 24px;margin:20px 0">
-  <div style="color:#F85149;font-size:1.1rem;font-weight:bold;margin-bottom:8px">
+<div style="background:#2A121C;border:2px solid #F5455C;border-radius:10px;padding:20px 24px;margin:20px 0">
+  <div style="color:#F5455C;font-size:1.1rem;font-weight:bold;margin-bottom:8px">
     ❌ Error Loading Data for {ticker}
   </div>
-  <div style="color:#F0F6FC;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
+  <div style="color:#F4F5FA;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
 </div>""", unsafe_allow_html=True)
         if _is_uae_err:
             # Build direct download links for this specific stock
@@ -419,19 +446,19 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
             _inv_url = f"https://www.investing.com/equities/{_inv_sl}-historical-data"
 
             st.markdown(f"""
-<div style="background:#1C2128;border:1px solid #E3B341;border-radius:8px;padding:16px 20px">
-  <div style="color:#E3B341;font-weight:bold;margin-bottom:10px">
+<div style="background:#161729;border:1px solid #F2B84B;border-radius:8px;padding:16px 20px">
+  <div style="color:#F2B84B;font-weight:bold;margin-bottom:10px">
     🇦🇪 {ticker} — Auto-fetch failed
   </div>
-  <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.9">
+  <div style="color:#C6CAD9;font-size:0.88rem;line-height:1.9">
     Auto-fetch via yfinance/Stooq is not returning data for this stock.<br>
     <b>Quick fix — download CSV manually (30 seconds):</b><br><br>
     <b>Option 1 — Yahoo Finance:</b><br>
     &nbsp;&nbsp;→ <a href="{_yf_csv}" target="_blank" 
-      style="color:#58A6FF">Click to download {_yf_sym} CSV directly</a><br><br>
+      style="color:#7C6CFF">Click to download {_yf_sym} CSV directly</a><br><br>
     <b>Option 2 — Investing.com:</b><br>
     &nbsp;&nbsp;→ <a href="{_inv_url}" target="_blank"
-      style="color:#58A6FF">Open {ticker} historical data on Investing.com</a>
+      style="color:#7C6CFF">Open {ticker} historical data on Investing.com</a>
       → click Download<br><br>
     Then upload via sidebar → <b>🇦🇪 UAE / DFM Stock</b> → select stock → Apply
   </div>
@@ -442,16 +469,16 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
                 st.rerun()
             col_r2.markdown(
                 f'<a href="{_yf_csv}" target="_blank" style="display:inline-block;'
-                f'background:#238636;color:white;border-radius:5px;padding:8px 16px;'
+                f'background:#1FAE8A;color:white;border-radius:5px;padding:8px 16px;'
                 f'text-decoration:none;font-size:0.85rem;margin-top:4px">'
                 f'⬇️ Download CSV for {_yf_sym}</a>',
                 unsafe_allow_html=True
             )
         else:
             st.markdown("""
-<div style="background:#1C2128;border:1px solid #30363D;border-radius:8px;padding:16px 20px">
-  <div style="color:#E3B341;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
-  <div style="color:#C9D1D9;font-size:0.88rem;line-height:1.8">
+<div style="background:#161729;border:1px solid #262838;border-radius:8px;padding:16px 20px">
+  <div style="color:#F2B84B;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
+  <div style="color:#C6CAD9;font-size:0.88rem;line-height:1.8">
     1. For crypto (SOL, BTC, ETH): auto-loads from Binance<br>
     2. For US stocks: auto-loads from Yahoo Finance<br>
     3. Click <b>Force Refresh Data</b> in the sidebar<br>
@@ -625,57 +652,57 @@ _sig_label = (_today_date.strftime("TODAY — %A %d %b %Y · Live")
 col_sig, col_7d = st.columns([1, 2])
 
 with col_sig:
-    _bc  = "#1C2A1C" if last_sig=="BUY" else "#2A1C1C" if last_sig=="SELL" else "#161B22"
-    _brd = "#3FB950" if last_sig=="BUY" else "#F85149" if last_sig=="SELL" else "#30363D"
-    _sc  = "#3FB950" if last_sig=="BUY" else "#F85149" if last_sig=="SELL" else "#6E7681"
-    _tc  = "#3FB950" if last_sig=="BUY" else "#F85149"
-    _slc = "#F85149" if last_sig=="BUY" else "#3FB950"
+    _bc  = "#0F241F" if last_sig=="BUY" else "#2A121C" if last_sig=="SELL" else "#12141F"
+    _brd = "#22D3A0" if last_sig=="BUY" else "#F5455C" if last_sig=="SELL" else "#262838"
+    _sc  = "#22D3A0" if last_sig=="BUY" else "#F5455C" if last_sig=="SELL" else "#6B7290"
+    _tc  = "#22D3A0" if last_sig=="BUY" else "#F5455C"
+    _slc = "#F5455C" if last_sig=="BUY" else "#22D3A0"
     _em  = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
 
     # Pre-compute all values to avoid nested f-strings with quotes
     _tp_disp  = f"${tp_price:,.4f}" if tp_price else "—"
-    _tp_pct_s = f'<span style="color:#8B949E;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ""
+    _tp_pct_s = f'<span style="color:#8891A8;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ""
     _sl_disp  = f"${sl_price:,.4f}" if sl_price else "—"
-    _sl_pct_s = f'<span style="color:#8B949E;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ""
+    _sl_pct_s = f'<span style="color:#8891A8;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ""
 
     st.markdown(
         f'<div style="background:{_bc};border:2px solid {_brd};border-radius:14px;'
         f'padding:20px 22px;margin-bottom:10px">'
         f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
         f'<div>'
-        f'<div style="color:#8B949E;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
+        f'<div style="color:#8891A8;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
         f'letter-spacing:0.08em;margin-bottom:6px">{_sig_label}</div>'
         f'<div style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>'
         f'<div style="margin-top:7px;font-size:0.85rem">'
-        f'<span style="color:#8B949E">Confidence: </span>'
-        f'<span style="color:#E3B341;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
-        f'<span style="color:#6E7681;margin:0 6px">|</span>'
-        f'<span style="color:#8B949E">P(UP): </span>'
-        f'<span style="color:#58A6FF;font-weight:700">{last_prob*100:.1f}%</span>'
+        f'<span style="color:#8891A8">Confidence: </span>'
+        f'<span style="color:#F2B84B;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
+        f'<span style="color:#6B7290;margin:0 6px">|</span>'
+        f'<span style="color:#8891A8">P(UP): </span>'
+        f'<span style="color:#7C6CFF;font-weight:700">{last_prob*100:.1f}%</span>'
         f'</div></div>'
         f'<div style="text-align:right">'
-        f'<div style="background:#0D1117;border:1px solid #30363D;border-radius:8px;padding:8px 14px">'
-        f'<div style="color:#6E7681;font-size:0.68rem;text-transform:uppercase">Accuracy</div>'
-        f'<div style="color:#E3B341;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>'
-        f'<div style="color:#6E7681;font-size:0.65rem">filtered</div>'
+        f'<div style="background:#0A0C14;border:1px solid #262838;border-radius:8px;padding:8px 14px">'
+        f'<div style="color:#6B7290;font-size:0.68rem;text-transform:uppercase">Accuracy</div>'
+        f'<div style="color:#F2B84B;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>'
+        f'<div style="color:#6B7290;font-size:0.65rem">filtered</div>'
         f'</div></div></div>'
         f'<div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:14px 16px">'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>'
-        f'<div style="color:#F0F6FC;font-size:1.1rem;font-weight:700">${display_price:,.4f}</div></div>'
-        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>'
-        f'<div style="color:#58A6FF;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div></div>'
-        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>'
+        f'<div><div style="color:#6B7290;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>'
+        f'<div style="color:#F4F5FA;font-size:1.1rem;font-weight:700">${display_price:,.4f}</div></div>'
+        f'<div><div style="color:#6B7290;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>'
+        f'<div style="color:#7C6CFF;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div></div>'
+        f'<div><div style="color:#6B7290;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>'
         f'<div style="color:{_tc};font-size:1.05rem;font-weight:700">{_tp_disp}{_tp_pct_s}</div></div>'
-        f'<div><div style="color:#6E7681;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>'
+        f'<div><div style="color:#6B7290;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>'
         f'<div style="color:{_slc};font-size:1.05rem;font-weight:700">{_sl_disp}{_sl_pct_s}</div></div>'
         f'</div>'
-        f'<div style="border-top:1px solid #30363D;margin-top:12px;padding-top:10px;'
+        f'<div style="border-top:1px solid #262838;margin-top:12px;padding-top:10px;'
         f'display:flex;justify-content:space-between;align-items:center">'
-        f'<div><span style="color:#6E7681;font-size:0.78rem">R/R: </span>'
-        f'<span style="color:#F0F6FC;font-weight:700">1 : {rr:.2f}</span>'
-        f'<span style="color:#6E7681;font-size:0.72rem;margin-left:10px">ATR {atr_pct*100:.2f}%</span></div>'
-        f'<div style="color:#6E7681;font-size:0.68rem">Not financial advice</div>'
+        f'<div><span style="color:#6B7290;font-size:0.78rem">R/R: </span>'
+        f'<span style="color:#F4F5FA;font-weight:700">1 : {rr:.2f}</span>'
+        f'<span style="color:#6B7290;font-size:0.72rem;margin-left:10px">ATR {atr_pct*100:.2f}%</span></div>'
+        f'<div style="color:#6B7290;font-size:0.68rem">Not financial advice</div>'
         f'</div></div></div>',
         unsafe_allow_html=True
     )
@@ -699,11 +726,11 @@ with col_sig:
             )
     st.session_state[_prev_status_key] = _ss
     _STATUS = {
-        "ACTIVE" : ("🟡","#E3B341","#2A2400","Signal ACTIVE"),
-        "HIT_TP" : ("🎯","#3FB950","#1C2A1C","TARGET HIT ✅"),
-        "HIT_SL" : ("🛑","#F85149","#2A1C1C","STOP LOSS HIT"),
-        "EXPIRED": ("⏰","#6E7681","#161B22","Signal EXPIRED"),
-        "NONE"   : ("⚪","#6E7681","#161B22","No active signal"),
+        "ACTIVE" : ("🟡","#F2B84B","#241D08","Signal ACTIVE"),
+        "HIT_TP" : ("🎯","#22D3A0","#0F241F","TARGET HIT ✅"),
+        "HIT_SL" : ("🛑","#F5455C","#2A121C","STOP LOSS HIT"),
+        "EXPIRED": ("⏰","#6B7290","#12141F","Signal EXPIRED"),
+        "NONE"   : ("⚪","#6B7290","#12141F","No active signal"),
     }
     _si,_sc2,_sb,_sl2 = _STATUS.get(_ss,_STATUS["NONE"])
     _rem  = _sig_status.get("remaining_h",0)
@@ -711,16 +738,16 @@ with col_sig:
     _hold = _sig_status.get("hours_old",0)
 
     if _ss != "NONE":
-        _pnl_html = (f'<div style="color:{"#3FB950" if _pnl>=0 else "#F85149"};'
+        _pnl_html = (f'<div style="color:{"#22D3A0" if _pnl>=0 else "#F5455C"};'
                      f'font-weight:600;margin-top:5px;font-size:0.88rem">'
                      f'P&L: {"+" if _pnl>=0 else ""}{_pnl:.2f}%</div>'
                      if _ss not in ("NONE","EXPIRED") else "")
-        _enter_html = (f'<div style="background:#1C2A1C;border-radius:6px;'
-                       f'padding:7px 11px;margin-top:8px;color:#3FB950;font-size:0.80rem">'
+        _enter_html = (f'<div style="background:#0F241F;border-radius:6px;'
+                       f'padding:7px 11px;margin-top:8px;color:#22D3A0;font-size:0.80rem">'
                        f'✅ Enter within {min(4,_rem):.0f}h · TP ${tp_price:,.4f} · SL ${sl_price:,.4f}</div>'
                        if _ss=="ACTIVE" and last_sig!="HOLD" and tp_price and sl_price else "")
         _exp_html = ('<div style="background:#2A1C00;border-radius:6px;padding:7px 11px;'
-                     'margin-top:8px;color:#E3B341;font-size:0.80rem">'
+                     'margin-top:8px;color:#F2B84B;font-size:0.80rem">'
                      '⚠️ EXPIRED — Do NOT enter. Wait for next signal.</div>'
                      if _ss=="EXPIRED" else "")
         _hold_str = f"{_hold:.0f}h since signal"
@@ -729,7 +756,7 @@ with col_sig:
             f'<div style="background:{_sb};border:2px solid {_sc2};border-radius:10px;padding:12px 16px">'
             f'<div style="display:flex;justify-content:space-between;align-items:center">'
             f'<span style="color:{_sc2};font-weight:700">{_si} {_sl2}</span>'
-            f'<div style="text-align:right;font-size:0.75rem;color:#8B949E">'
+            f'<div style="text-align:right;font-size:0.75rem;color:#8891A8">'
             f'{_hold_str} {_rem_str}</div>'
             f'</div>'
             f'{_pnl_html}{_enter_html}{_exp_html}'
@@ -758,9 +785,9 @@ with col_sig:
             for _day, _day_sigs in list(_days_map.items())[:7]:
                 n = len(_day_sigs)
                 st.markdown(
-                    f'<div style="color:#8B949E;font-size:0.74rem;margin:8px 0 3px 0;'
-                    f'font-weight:600;border-bottom:1px solid #21262D;padding-bottom:3px">'
-                    f'📅 {_day} — <span style="color:#58A6FF">{n} signal{"s" if n>1 else ""}</span></div>',
+                    f'<div style="color:#8891A8;font-size:0.74rem;margin:8px 0 3px 0;'
+                    f'font-weight:600;border-bottom:1px solid #1A1C29;padding-bottom:3px">'
+                    f'📅 {_day} — <span style="color:#7C6CFF">{n} signal{"s" if n>1 else ""}</span></div>',
                     unsafe_allow_html=True)
                 for _ir in _day_sigs:
                     try:
@@ -770,7 +797,7 @@ with col_sig:
                         _im   = max(0.6, min(1.5, 0.8 + (_icf-60)/100))
                         _itp  = round(_ip + _im*last_atr, 4) if _ibs else round(_ip - _im*last_atr, 4)
                         _isl  = round(_ip - _im*0.9*last_atr, 4) if _ibs else round(_ip + _im*0.9*last_atr, 4)
-                        _ic   = "#3FB950" if _ibs else "#F85149"
+                        _ic   = "#22D3A0" if _ibs else "#F5455C"
                         _full = str(_ir.get("Date",""))
                         _time = _full[11:16] if len(_full) > 10 else "00:00"
 
@@ -785,26 +812,26 @@ with col_sig:
                             pass
 
                         _status_badge = (
-                            '<span style="color:#6E7681;font-size:0.72rem">⏰ EXPIRED</span>'
+                            '<span style="color:#6B7290;font-size:0.72rem">⏰ EXPIRED</span>'
                             if _expired else
-                            '<span style="color:#3FB950;font-size:0.72rem">✅ LIVE</span>'
+                            '<span style="color:#22D3A0;font-size:0.72rem">✅ LIVE</span>'
                             if _day == str(_now_sig.date()) else
-                            '<span style="color:#8B949E;font-size:0.72rem">📋 PAST</span>'
+                            '<span style="color:#8891A8;font-size:0.72rem">📋 PAST</span>'
                         )
 
                         st.markdown(
-                            f'<div style="background:{"#1C1C1C" if _expired else "#161B22"};'
-                            f'border-left:3px solid {"#30363D" if _expired else _ic};'
+                            f'<div style="background:{"#14151F" if _expired else "#12141F"};'
+                            f'border-left:3px solid {"#262838" if _expired else _ic};'
                             f'border-radius:5px;padding:6px 12px;margin-bottom:2px;'
                             f'display:flex;justify-content:space-between;flex-wrap:wrap;'
                             f'font-size:0.80rem;gap:4px;opacity:{"0.5" if _expired else "1"}">'
                             f'<span style="color:{"#555" if _expired else _ic};font-weight:700">'
                             f'{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
-                            f'<span style="color:#8B949E">{_time}</span>'
-                            f'<span style="color:{"#555" if _expired else "#F0F6FC"};font-weight:600">{_ir.get("Price","")}</span>'
-                            f'<span style="color:{"#555" if _expired else "#3FB950"}">TP ${_itp:,.4f}</span>'
-                            f'<span style="color:{"#555" if _expired else "#F85149"}">SL ${_isl:,.4f}</span>'
-                            f'<span style="color:#E3B341">{_ir.get("Confidence","")}</span>'
+                            f'<span style="color:#8891A8">{_time}</span>'
+                            f'<span style="color:{"#555" if _expired else "#F4F5FA"};font-weight:600">{_ir.get("Price","")}</span>'
+                            f'<span style="color:{"#555" if _expired else "#22D3A0"}">TP ${_itp:,.4f}</span>'
+                            f'<span style="color:{"#555" if _expired else "#F5455C"}">SL ${_isl:,.4f}</span>'
+                            f'<span style="color:#F2B84B">{_ir.get("Confidence","")}</span>'
                             f'{_status_badge}'
                             f'</div>',
                             unsafe_allow_html=True)
@@ -818,17 +845,17 @@ with col_sig:
             for _at,_as in sorted(_actl,key=lambda x:x[1].get("timestamp",""),reverse=True):
                 _astat=_as.get("status","ACTIVE"); _asig=_as.get("signal","")
                 _ae=_as.get("entry",0); _atp=_as.get("tp"); _asl=_as.get("sl")
-                _ac="#E3B341" if _astat=="ACTIVE" else "#3FB950" if _astat=="HIT_TP" else "#F85149"
+                _ac="#F2B84B" if _astat=="ACTIVE" else "#22D3A0" if _astat=="HIT_TP" else "#F5455C"
                 _ai="🟡" if _astat=="ACTIVE" else "🎯" if _astat=="HIT_TP" else "🛑"
                 st.markdown(
-                    f'<div style="background:#161B22;border-left:3px solid {_ac};'
+                    f'<div style="background:#12141F;border-left:3px solid {_ac};'
                     f'border-radius:5px;padding:6px 12px;margin-bottom:3px;'
                     f'display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:0.81rem">'
-                    f'<span style="color:#F0F6FC;font-weight:600">{_at}</span>'
+                    f'<span style="color:#F4F5FA;font-weight:600">{_at}</span>'
                     f'<span style="color:{_ac}">{_ai} {_astat}</span>'
-                    f'<span style="color:#8B949E">{"BUY" if _asig=="BUY" else "SELL"} @ ${_ae:,.4f}</span>'
-                    f'{"<span style=color:#3FB950>TP $"+f"{_atp:,.4f}</span>" if _atp else ""}'
-                    f'{"<span style=color:#F85149> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
+                    f'<span style="color:#8891A8">{"BUY" if _asig=="BUY" else "SELL"} @ ${_ae:,.4f}</span>'
+                    f'{"<span style=color:#22D3A0>TP $"+f"{_atp:,.4f}</span>" if _atp else ""}'
+                    f'{"<span style=color:#F5455C> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
                     f'</div>', unsafe_allow_html=True)
 
 # ── AI Assistant (inline, below signal card) ─────────────────────
@@ -1022,11 +1049,11 @@ with col_7d:
 
     _df7 = pd.DataFrame(_rows7)
     def _cs7(v):
-        if "BUY"  in str(v): return "color:#3FB950;font-weight:700"
-        if "SELL" in str(v): return "color:#F85149;font-weight:700"
-        return "color:#6E7681"
-    def _ct7(v): return "color:#3FB950;font-weight:600" if v!="—" else "color:#6E7681"
-    def _cl7(v): return "color:#F85149;font-weight:600" if v!="—" else "color:#6E7681"
+        if "BUY"  in str(v): return "color:#22D3A0;font-weight:700"
+        if "SELL" in str(v): return "color:#F5455C;font-weight:700"
+        return "color:#6B7290"
+    def _ct7(v): return "color:#22D3A0;font-weight:600" if v!="—" else "color:#6B7290"
+    def _cl7(v): return "color:#F5455C;font-weight:600" if v!="—" else "color:#6B7290"
     try:
         _st7 = (_df7.style.map(_cs7,subset=["Signal"])
                 .map(_ct7,subset=["Take Profit"])
@@ -1094,7 +1121,7 @@ with tab0:
         _btn_style = (
             "background:#1F6FEB;color:white;border:1px solid #1F6FEB;"
             if _selected_tf==_tf_val else
-            "background:#161B22;color:#8B949E;border:1px solid #30363D;"
+            "background:#12141F;color:#8891A8;border:1px solid #262838;"
         )
         if _col.button(_tf_label, key=f"tf_{_tf_val}",
                        use_container_width=True):
@@ -1113,8 +1140,8 @@ with tab0:
     _buy_str  = " | ".join(_buy_dates[:5])  if _buy_dates  else "—"
     _sell_str = " | ".join(_sell_dates[:5]) if _sell_dates else "—"
 
-    _sig_color  = "#3FB950" if last_sig=="BUY" else "#F85149" if last_sig=="SELL" else "#6E7681"
-    _price_chg_color = "#3FB950" if day_chg >= 0 else "#F85149"
+    _sig_color  = "#22D3A0" if last_sig=="BUY" else "#F5455C" if last_sig=="SELL" else "#6B7290"
+    _price_chg_color = "#22D3A0" if day_chg >= 0 else "#F5455C"
     _tp_disp    = f"${tp_price:,.4f}" if tp_price else "—"
     _sl_disp    = f"${sl_price:,.4f}" if sl_price else "—"
     _tp_pct_disp= f"{tp_pct:+.2f}%" if tp_price else "No signal"
@@ -1123,25 +1150,25 @@ with tab0:
     # TradingView chart + integrated signal bar
     _tv_live_html = f"""
 <style>
-body{{background:#0D1117}}
+body{{background:#0A0C14}}
 .sb{{
   display:flex;justify-content:space-between;align-items:center;
-  background:#0D1117;border-top:1px solid #30363D;
+  background:#0A0C14;border-top:1px solid #262838;
   padding:12px 24px;flex-wrap:wrap;gap:8px;
 }}
 .sb-item{{text-align:center;min-width:120px}}
-.sb-label{{color:#8B949E;font-size:0.72rem;font-family:sans-serif;
+.sb-label{{color:#8891A8;font-size:0.72rem;font-family:sans-serif;
   text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px}}
 .sb-value{{font-size:1.05rem;font-weight:700;font-family:sans-serif}}
 .sb-sub{{font-size:0.72rem;font-family:sans-serif;margin-top:1px}}
-.divider{{width:1px;background:#30363D;height:40px;align-self:center}}
+.divider{{width:1px;background:#262838;height:40px;align-self:center}}
 .rec-bar{{
-  background:#0D1117;border-top:1px solid #21262D;
-  padding:8px 24px;font-size:0.75rem;font-family:sans-serif;color:#6E7681;
+  background:#0A0C14;border-top:1px solid #1A1C29;
+  padding:8px 24px;font-size:0.75rem;font-family:sans-serif;color:#6B7290;
 }}
 </style>
 
-<div style="background:#0D1117;border-radius:10px;overflow:hidden;border:1px solid #30363D">
+<div style="background:#0A0C14;border-radius:10px;overflow:hidden;border:1px solid #262838">
   <!-- Chart -->
   <div class="tradingview-widget-container" style="height:520px;width:100%">
     <div id="tv_live_main" style="height:520px;width:100%"></div>
@@ -1157,12 +1184,12 @@ body{{background:#0D1117}}
       "theme"             : "dark",
       "style"             : "1",
       "locale"            : "en",
-      "toolbar_bg"        : "#161B22",
+      "toolbar_bg"        : "#12141F",
       "hide_side_toolbar" : false,
       "hide_top_toolbar"  : false,
       "allow_symbol_change": true,
       "save_image"        : false,
-      "backgroundColor"   : "#0D1117",
+      "backgroundColor"   : "#0A0C14",
       "studies"           : [
         "Volume@tv-basicstudies",
         "RSI@tv-basicstudies",
@@ -1170,18 +1197,18 @@ body{{background:#0D1117}}
         "BB@tv-basicstudies"
       ],
       "overrides": {{
-        "paneProperties.background"                      : "#0D1117",
+        "paneProperties.background"                      : "#0A0C14",
         "paneProperties.backgroundType"                  : "solid",
-        "paneProperties.vertGridProperties.color"        : "#1C2128",
-        "paneProperties.horzGridProperties.color"        : "#1C2128",
+        "paneProperties.vertGridProperties.color"        : "#161729",
+        "paneProperties.horzGridProperties.color"        : "#161729",
         "symbolWatermarkProperties.color"                : "rgba(0,0,0,0)",
-        "scalesProperties.textColor"                     : "#8B949E",
-        "mainSeriesProperties.candleStyle.upColor"       : "#3FB950",
-        "mainSeriesProperties.candleStyle.downColor"     : "#F85149",
-        "mainSeriesProperties.candleStyle.borderUpColor" : "#3FB950",
-        "mainSeriesProperties.candleStyle.borderDownColor": "#F85149",
-        "mainSeriesProperties.candleStyle.wickUpColor"   : "#3FB950",
-        "mainSeriesProperties.candleStyle.wickDownColor" : "#F85149"
+        "scalesProperties.textColor"                     : "#8891A8",
+        "mainSeriesProperties.candleStyle.upColor"       : "#22D3A0",
+        "mainSeriesProperties.candleStyle.downColor"     : "#F5455C",
+        "mainSeriesProperties.candleStyle.borderUpColor" : "#22D3A0",
+        "mainSeriesProperties.candleStyle.borderDownColor": "#F5455C",
+        "mainSeriesProperties.candleStyle.wickUpColor"   : "#22D3A0",
+        "mainSeriesProperties.candleStyle.wickDownColor" : "#F5455C"
       }}
     }});
     </script>
@@ -1191,7 +1218,7 @@ body{{background:#0D1117}}
   <div class="sb">
     <div class="sb-item">
       <div class="sb-label">Live Price</div>
-      <div class="sb-value" style="color:#F0F6FC">${display_price:,.4f}</div>
+      <div class="sb-value" style="color:#F4F5FA">${display_price:,.4f}</div>
       <div class="sb-sub" style="color:{_price_chg_color}">{day_chg:+.2f}% today</div>
     </div>
     <div class="divider"></div>
@@ -1200,41 +1227,41 @@ body{{background:#0D1117}}
       <div class="sb-value" style="color:{_sig_color}">
         {'🟢' if last_sig=='BUY' else '🔴' if last_sig=='SELL' else '⚪'} {last_sig}
       </div>
-      <div class="sb-sub" style="color:#8B949E">{next_str} · {last_conf:.1f}% confidence</div>
+      <div class="sb-sub" style="color:#8891A8">{next_str} · {last_conf:.1f}% confidence</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">🎯 Take Profit</div>
-      <div class="sb-value" style="color:#3FB950">{_tp_disp}</div>
-      <div class="sb-sub" style="color:#3FB950">{_tp_pct_disp}</div>
+      <div class="sb-value" style="color:#22D3A0">{_tp_disp}</div>
+      <div class="sb-sub" style="color:#22D3A0">{_tp_pct_disp}</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">🛑 Stop Loss</div>
-      <div class="sb-value" style="color:#F85149">{_sl_disp}</div>
-      <div class="sb-sub" style="color:#F85149">{_sl_pct_disp}</div>
+      <div class="sb-value" style="color:#F5455C">{_sl_disp}</div>
+      <div class="sb-sub" style="color:#F5455C">{_sl_pct_disp}</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">Risk / Reward</div>
-      <div class="sb-value" style="color:#E3B341">1 : {rr:.2f}</div>
-      <div class="sb-sub" style="color:#8B949E">ATR: ${last_atr:.4f} ({atr_pct*100:.2f}%)</div>
+      <div class="sb-value" style="color:#F2B84B">1 : {rr:.2f}</div>
+      <div class="sb-sub" style="color:#8891A8">ATR: ${last_atr:.4f} ({atr_pct*100:.2f}%)</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">Model Accuracy</div>
-      <div class="sb-value" style="color:#E3B341">{ens_filt*100:.1f}%</div>
-      <div class="sb-sub" style="color:#8B949E">when confidence ≥60%</div>
+      <div class="sb-value" style="color:#F2B84B">{ens_filt*100:.1f}%</div>
+      <div class="sb-sub" style="color:#8891A8">when confidence ≥60%</div>
     </div>
   </div>
 
   <!-- Recent signals row -->
   <div class="rec-bar">
     ⚡ Recent BUY signals:&nbsp;
-    <span style="color:#3FB950">{_buy_str}</span>
+    <span style="color:#22D3A0">{_buy_str}</span>
     &nbsp;&nbsp;|&nbsp;&nbsp;
     Recent SELL signals:&nbsp;
-    <span style="color:#F85149">{_sell_str}</span>
+    <span style="color:#F5455C">{_sell_str}</span>
   </div>
 </div>
 """
@@ -1245,12 +1272,12 @@ body{{background:#0D1117}}
         st.components.v1.html(_tv_live_html, height=670, scrolling=False)
         st.markdown(
             f'<div style="text-align:center;margin-top:4px">'
-            f'<a href="{_inv_url}" target="_blank" style="background:#21262D;color:#C9D1D9;'
-            f'border:1px solid #30363D;border-radius:5px;padding:6px 16px;'
+            f'<a href="{_inv_url}" target="_blank" style="background:#1A1C29;color:#C6CAD9;'
+            f'border:1px solid #262838;border-radius:5px;padding:6px 16px;'
             f'text-decoration:none;font-size:0.82rem;margin-right:8px">'
             f'↗ Live Chart on Investing.com</a>'
-            f'<a href="https://www.dfm.ae" target="_blank" style="background:#21262D;color:#C9D1D9;'
-            f'border:1px solid #30363D;border-radius:5px;padding:6px 16px;'
+            f'<a href="https://www.dfm.ae" target="_blank" style="background:#1A1C29;color:#C6CAD9;'
+            f'border:1px solid #262838;border-radius:5px;padding:6px 16px;'
             f'text-decoration:none;font-size:0.82rem">📊 DFM Official</a>'
             f'</div>',
             unsafe_allow_html=True
@@ -1310,13 +1337,13 @@ body{{background:#0D1117}}
         if _hist_rows:
             _hist_df = pd.DataFrame(_hist_rows)
             def _csig(v):
-                if 'BUY'  in str(v): return 'color:#3FB950;font-weight:bold'
-                if 'SELL' in str(v): return 'color:#F85149;font-weight:bold'
-                return 'color:#6E7681'
+                if 'BUY'  in str(v): return 'color:#22D3A0;font-weight:bold'
+                if 'SELL' in str(v): return 'color:#F5455C;font-weight:bold'
+                return 'color:#6B7290'
             def _cres(v):
-                if 'HIT TP' in str(v): return 'color:#3FB950;font-weight:700'
-                if 'HIT SL' in str(v): return 'color:#F85149;font-weight:700'
-                return 'color:#8B949E'
+                if 'HIT TP' in str(v): return 'color:#22D3A0;font-weight:700'
+                if 'HIT SL' in str(v): return 'color:#F5455C;font-weight:700'
+                return 'color:#8891A8'
             try:
                 styled = _hist_df.style.map(_csig,subset=['Signal']).map(_cres,subset=['Result'])
             except Exception:
@@ -1375,17 +1402,17 @@ with tab1:
 
     # ── 5-panel professional chart ─────────────────────────────────
     fig = plt.figure(figsize=(16, 16))
-    fig.patch.set_facecolor('#0D1117')
+    fig.patch.set_facecolor('#0A0C14')
     gs  = gridspec.GridSpec(5, 1, figure=fig,
                             height_ratios=[5, 1.1, 1.0, 0.9, 0.9], hspace=0.03)
 
     # ── Panel 1: Candlestick ───────────────────────────────────────
-    ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#161B22')
+    ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#12141F')
 
     # Regime shading
     for i in range(len(D)-1):
         ax1.axvspan(D[i], D[i+1], alpha=1,
-            color='#1C2A1C' if reg_[i]==1 else '#2A1C1C', linewidth=0, zorder=0)
+            color='#0F241F' if reg_[i]==1 else '#2A121C', linewidth=0, zorder=0)
 
     # Bollinger Bands
     if 'BB_U' in te_show.columns and 'BB_L' in te_show.columns:
@@ -1417,7 +1444,7 @@ with tab1:
             ax1.annotate(
                 f'B ${_p:.1f}\nTP ${_p+2*last_atr:.1f}',
                 (_d, _l*0.985), fontsize=6.2, color=C_UP, ha='center', va='top',
-                bbox=dict(boxstyle='round,pad=0.15', fc='#0D1117',
+                bbox=dict(boxstyle='round,pad=0.15', fc='#0A0C14',
                           ec='#196127', alpha=0.88, lw=0.6))
 
     # SELL markers ▼ + label
@@ -1429,7 +1456,7 @@ with tab1:
             ax1.annotate(
                 f'S ${_p:.1f}\nTP ${_p-2*last_atr:.1f}',
                 (_d, _h*1.015), fontsize=6.2, color=C_DOWN, ha='center', va='bottom',
-                bbox=dict(boxstyle='round,pad=0.15', fc='#0D1117',
+                bbox=dict(boxstyle='round,pad=0.15', fc='#0A0C14',
                           ec='#8B0000', alpha=0.88, lw=0.6))
 
     # TP / SL horizontal lines for current open signal
@@ -1461,11 +1488,11 @@ with tab1:
         f'  {next_str_short}\n  {last_sig} {last_conf:.0f}%\n  {_tp_lbl}\n  {_sl_lbl}',
         (_next_dt, _tgt), fontsize=8.5, color=_arrc, fontweight='bold',
         xytext=(12, 0), textcoords='offset points',
-        bbox=dict(boxstyle='round,pad=0.45', fc='#161B22', ec=_arrc, alpha=0.96, lw=1.2))
+        bbox=dict(boxstyle='round,pad=0.45', fc='#12141F', ec=_arrc, alpha=0.96, lw=1.2))
 
     # Legend
-    _bull = mpatches.Patch(color='#1C2A1C', label='Bull regime')
-    _bear = mpatches.Patch(color='#2A1C1C', label='Bear regime')
+    _bull = mpatches.Patch(color='#0F241F', label='Bull regime')
+    _bear = mpatches.Patch(color='#2A121C', label='Bear regime')
     _bb   = mpatches.Patch(color=C_BLUE, alpha=0.25, label='Bollinger Bands')
     _h, _l2 = ax1.get_legend_handles_labels()
     ax1.legend(_h+[_bull,_bear,_bb], _l2+['Bull','Bear','BB'],
@@ -1473,14 +1500,14 @@ with tab1:
     ax1.set_ylabel('Price', fontsize=10, color=C_WHITE)
     ax1.xaxis.set_ticklabels([])
     ax1.spines[['top','right']].set_visible(False)
-    ax1.grid(axis='y', alpha=0.18, color='#21262D')
+    ax1.grid(axis='y', alpha=0.18, color='#1A1C29')
     ax1.set_title(
         f'{name} ({ticker})  ·  Candlestick + Signals  ·  {n_show} days  ·  '
         f'Acc {ens_acc*100:.1f}%  ·  {int(b_show.sum())} BUY  {int(s_show.sum())} SELL',
         color=C_WHITE, fontsize=11, pad=10, fontweight='bold')
 
     # ── Panel 2: Volume ─────────────────────────────────────────
-    ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#161B22')
+    ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#12141F')
     _prev = np.concatenate([[close_[0]], close_[:-1]])
     _vc   = np.where(close_ >= _prev, C_UP, C_DOWN)
     ax_v.bar(D, vol_, color=_vc, width=0.8, alpha=0.75, zorder=3)
@@ -1493,7 +1520,7 @@ with tab1:
     ax_v.grid(axis='y', alpha=0.15)
 
     # ── Panel 3: Model probability ──────────────────────────────
-    ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#161B22')
+    ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#12141F')
     _bc  = np.where(pr_show>=HIGH, C_UP, np.where(pr_show<=LOW, C_DOWN, C_GREY))
     ax2.bar(D, pr_show, color=_bc, width=1.0, alpha=0.85, zorder=3)
     ax2.fill_between(D, HIGH, pr_show, where=(pr_show>=HIGH), alpha=0.15, color=C_UP)
@@ -1508,7 +1535,7 @@ with tab1:
     ax2.grid(axis='y', alpha=0.15)
 
     # ── Panel 4: RSI ────────────────────────────────────────────
-    ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#161B22')
+    ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#12141F')
     if 'RSI' in te_show.columns:
         _rsi = te_show['RSI'].values
         ax3.plot(D, _rsi, color='#D29922', lw=1.1, zorder=4)
@@ -1526,7 +1553,7 @@ with tab1:
     ax3.grid(axis='y', alpha=0.15)
 
     # ── Panel 5: MACD ───────────────────────────────────────────
-    ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#161B22')
+    ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#12141F')
     if 'MACD' in te_show.columns and 'MACD_sig' in te_show.columns:
         _mc = te_show['MACD'].values; _ms = te_show['MACD_sig'].values; _mh = _mc-_ms
         ax4.bar(D, _mh, color=np.where(_mh>=0,C_UP,C_DOWN), width=1.0, alpha=0.65, zorder=3)
@@ -1574,10 +1601,10 @@ with tab2:
 
     fig,axes=plt.subplots(3,1,figsize=(14,10),
         gridspec_kw={'height_ratios':[4,1.8,1.5],'hspace':0.04})
-    fig.patch.set_facecolor('#0D1117')
+    fig.patch.set_facecolor('#0A0C14')
     fig.suptitle(f'Predicted vs Actual — {name} Test Set',color=C_WHITE,fontsize=12,y=1.01)
 
-    ax=axes[0]; ax.set_facecolor('#161B22')
+    ax=axes[0]; ax.set_facecolor('#12141F')
     ax.plot(D2,C2,color=C_BLUE,lw=1.5,label='Actual Close',zorder=4)
     # Ensure PP and D2 same length before plotting
     _plen = min(len(D2), len(PP))
@@ -1590,12 +1617,12 @@ with tab2:
     ax.fill_between(D2p,C2[:_plen],PPp,where=(PPp<C2[:_plen]),alpha=0.12,color=C_DOWN)
     ax.text(0.99,0.97,f'RMSE=${rmse:.4f}  MAE=${mae:.4f}  MAPE={mape:.2f}%',
         transform=ax.transAxes,ha='right',va='top',fontsize=9,color=C_GOLD,
-        bbox=dict(fc='#161B22',ec='#30363D',boxstyle='round,pad=0.4'))
+        bbox=dict(fc='#12141F',ec='#262838',boxstyle='round,pad=0.4'))
     ax.set_ylabel('Price'); ax.legend(loc='upper left')
     ax.xaxis.set_ticklabels([])
     ax.spines[['top','right']].set_visible(False); ax.grid(axis='y',alpha=0.2)
 
-    ax2=axes[1]; ax2.set_facecolor('#161B22')
+    ax2=axes[1]; ax2.set_facecolor('#12141F')
     err=PPp-C2[:_plen]
     ax2.fill_between(D2p,err,0,where=(err>=0),color=C_UP,alpha=0.55,label='Too high')
     ax2.fill_between(D2p,err,0,where=(err<0),color=C_DOWN,alpha=0.55,label='Too low')
@@ -1605,7 +1632,7 @@ with tab2:
     ax2.xaxis.set_ticklabels([])
     ax2.spines[['top','right']].set_visible(False); ax2.grid(axis='y',alpha=0.2)
 
-    ax3=axes[2]; ax3.set_facecolor('#161B22')
+    ax3=axes[2]; ax3.set_facecolor('#12141F')
     try:
         correct=(EP==YT)
         ax3.bar(D2,np.where(correct,1,-1),color=np.where(correct,C_UP,C_DOWN),width=1.2,alpha=0.8)
@@ -1614,7 +1641,7 @@ with tab2:
     ax3.set_yticks([-1,0,1]); ax3.set_yticklabels(['Wrong','','Correct'],fontsize=8)
     ax3.text(0.99,0.95,f'Direction Acc = {dacc*100:.1f}%',
         transform=ax3.transAxes,ha='right',va='top',fontsize=9,color=C_UP,
-        bbox=dict(fc='#161B22',ec='#30363D',boxstyle='round,pad=0.4'))
+        bbox=dict(fc='#12141F',ec='#262838',boxstyle='round,pad=0.4'))
     ax3.set_xlabel('Date')
     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
     plt.setp(ax3.xaxis.get_majorticklabels(),rotation=30,ha='right')
@@ -1634,12 +1661,12 @@ with tab3:
         bc   =[C_DOWN if a<60 else C_GOLD if a<65 else C_UP for a in accs]
         x    =np.arange(len(names))
 
-        fig=plt.figure(figsize=(14,10)); fig.patch.set_facecolor('#0D1117')
+        fig=plt.figure(figsize=(14,10)); fig.patch.set_facecolor('#0A0C14')
         gs2=gridspec.GridSpec(2,3,figure=fig,hspace=0.48,wspace=0.38)
         fig.suptitle(f'Model Performance — {name}',color=C_WHITE,fontsize=13)
 
-        ax1=fig.add_subplot(gs2[0,0]); ax1.set_facecolor('#161B22')
-        bars=ax1.bar(x,accs,color=bc,alpha=0.88,edgecolor='#0D1117',width=0.65)
+        ax1=fig.add_subplot(gs2[0,0]); ax1.set_facecolor('#12141F')
+        bars=ax1.bar(x,accs,color=bc,alpha=0.88,edgecolor='#0A0C14',width=0.65)
         ax1.axhline(50,color=C_DIM,ls=':',lw=1.2,label='Random')
         ax1.axhline(65,color=C_GOLD,ls='--',lw=1.2,label='65%')
         ax1.axhline(70,color=C_UP,ls='--',lw=1.2,label='70%')
@@ -1651,7 +1678,7 @@ with tab3:
                 f'{v:.1f}%',ha='center',fontweight='bold',fontsize=7.5,color=C_WHITE)
         ax1.legend(fontsize=7); ax1.spines[['top','right']].set_visible(False)
 
-        ax2=fig.add_subplot(gs2[0,1]); ax2.set_facecolor('#161B22')
+        ax2=fig.add_subplot(gs2[0,1]); ax2.set_facecolor('#12141F')
         ax2.plot([0,1],[0,1],'--',color=C_DIM,lw=1,label='Random')
         try:
             for k,dm in model_data.items():
@@ -1667,8 +1694,8 @@ with tab3:
         ax2.legend(loc='lower right',fontsize=6.5); ax2.set_xlim(0,1); ax2.set_ylim(0,1)
         ax2.spines[['top','right']].set_visible(False)
 
-        ax3=fig.add_subplot(gs2[0,2]); ax3.set_facecolor('#161B22')
-        bars3=ax3.bar(x,f1s,color=bc,alpha=0.88,edgecolor='#0D1117',width=0.65)
+        ax3=fig.add_subplot(gs2[0,2]); ax3.set_facecolor('#12141F')
+        bars3=ax3.bar(x,f1s,color=bc,alpha=0.88,edgecolor='#0A0C14',width=0.65)
         ax3.set_xticks(x); ax3.set_xticklabels(names,fontsize=7,rotation=15)
         ax3.set_ylim(0,1); ax3.set_ylabel('F1 Score')
         ax3.set_title('F1 Score',color=C_WHITE)
@@ -1678,7 +1705,7 @@ with tab3:
         ax3.spines[['top','right']].set_visible(False)
 
         for col_i,(nm,dm) in enumerate(list(model_data.items())[:3]):
-            ax_cm=fig.add_subplot(gs2[1,col_i]); ax_cm.set_facecolor('#161B22')
+            ax_cm=fig.add_subplot(gs2[1,col_i]); ax_cm.set_facecolor('#12141F')
             try:
                 cm=confusion_matrix(y_te,dm['pred'])
                 sns.heatmap(cm,annot=True,fmt='d',cmap='Blues',ax=ax_cm,
@@ -1696,7 +1723,7 @@ with tab3:
             correct_arr=(ens_pred==y_te).astype(int)
             roll_acc=pd.Series(correct_arr).rolling(30,min_periods=5).mean()*100
             fig2,ax=plt.subplots(figsize=(14,4))
-            fig2.patch.set_facecolor('#0D1117'); ax.set_facecolor('#161B22')
+            fig2.patch.set_facecolor('#0A0C14'); ax.set_facecolor('#12141F')
             ax.plot(te_df.index,roll_acc,color=C_BLUE,lw=1.5)
             ax.fill_between(te_df.index,65,roll_acc,where=(roll_acc>=65),alpha=0.18,color=C_UP)
             ax.axhline(ens_acc*100,color=C_GOLD,ls='--',lw=1.5,label=f'Overall {ens_acc*100:.1f}%')
@@ -1775,15 +1802,15 @@ with tab4:
             if _sh_rows:
                 _sh_df = pd.DataFrame(_sh_rows)
                 def _sh_csig(v):
-                    if 'BUY'  in str(v): return 'color:#3FB950;font-weight:700'
-                    if 'SELL' in str(v): return 'color:#F85149;font-weight:700'
-                    return 'color:#6E7681'
-                def _sh_ctp(v):  return 'color:#3FB950;font-weight:600' if '$' in str(v) else ''
-                def _sh_csl(v):  return 'color:#F85149;font-weight:600' if '$' in str(v) else ''
+                    if 'BUY'  in str(v): return 'color:#22D3A0;font-weight:700'
+                    if 'SELL' in str(v): return 'color:#F5455C;font-weight:700'
+                    return 'color:#6B7290'
+                def _sh_ctp(v):  return 'color:#22D3A0;font-weight:600' if '$' in str(v) else ''
+                def _sh_csl(v):  return 'color:#F5455C;font-weight:600' if '$' in str(v) else ''
                 def _sh_cres(v):
-                    if 'HIT TP' in str(v): return 'color:#3FB950;font-weight:700'
-                    if 'HIT SL' in str(v): return 'color:#F85149;font-weight:700'
-                    return 'color:#8B949E'
+                    if 'HIT TP' in str(v): return 'color:#22D3A0;font-weight:700'
+                    if 'HIT SL' in str(v): return 'color:#F5455C;font-weight:700'
+                    return 'color:#8891A8'
                 try:
                     _sh_styled = (_sh_df.style
                                   .map(_sh_csig, subset=['Signal'])
@@ -1842,7 +1869,7 @@ with tab5:
             _neu = len(_cnews) - _pos - _neg
             _ov  = ("BULLISH" if _sscore > 0.05 else "BEARISH" if _sscore < -0.05 else "NEUTRAL")
             _ov_e= ("GREEN"   if _sscore > 0.05 else "RED"     if _sscore < -0.05 else "GREY")
-            _ov_c= ("#3FB950" if _sscore > 0.05 else "#F85149" if _sscore < -0.05 else "#6E7681")
+            _ov_c= ("#22D3A0" if _sscore > 0.05 else "#F5455C" if _sscore < -0.05 else "#6B7290")
 
             _m1,_m2,_m3,_m4 = st.columns(4)
             _m1.metric("Articles",  len(_cnews))
@@ -1852,14 +1879,14 @@ with tab5:
 
             _gp = int(_pos / max(len(_cnews),1) * 100)
             st.markdown(
-                f'<div style="background:#161B22;border-radius:8px;padding:12px 20px;'
-                f'border:1px solid #30363D;margin:10px 0">'
+                f'<div style="background:#12141F;border-radius:8px;padding:12px 20px;'
+                f'border:1px solid #262838;margin:10px 0">'
                 f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
-                f'<span style="color:#3FB950">Positive {_pos}</span>'
-                f'<span style="color:#8B949E">Neutral {_neu}</span>'
-                f'<span style="color:#F85149">Negative {_neg}</span></div>'
-                f'<div style="background:#21262D;border-radius:4px;height:8px;overflow:hidden">'
-                f'<div style="background:linear-gradient(90deg,#3FB950,#58A6FF);'
+                f'<span style="color:#22D3A0">Positive {_pos}</span>'
+                f'<span style="color:#8891A8">Neutral {_neu}</span>'
+                f'<span style="color:#F5455C">Negative {_neg}</span></div>'
+                f'<div style="background:#1A1C29;border-radius:4px;height:8px;overflow:hidden">'
+                f'<div style="background:linear-gradient(90deg,#22D3A0,#7C6CFF);'
                 f'width:{_gp}%;height:100%;border-radius:4px"></div></div>'
                 f'<div style="text-align:center;color:{_ov_c};font-size:0.73rem;margin-top:4px">'
                 f'Market Sentiment: {_ov} | Score: {_sscore:+.3f}</div></div>',
@@ -1870,20 +1897,20 @@ with tab5:
             for _n in _cnews:
                 _s  = _n.get("sentiment","Neutral")
                 _sc = _n.get("score",0)
-                _bc = "#3FB950" if "Positive" in _s else "#F85149" if "Negative" in _s else "#30363D"
+                _bc = "#22D3A0" if "Positive" in _s else "#F5455C" if "Negative" in _s else "#262838"
                 st.markdown(
-                    f'<div style="background:#161B22;border:1px solid {_bc};border-left:4px solid {_bc};'
+                    f'<div style="background:#12141F;border:1px solid {_bc};border-left:4px solid {_bc};'
                     f'border-radius:8px;padding:11px 15px;margin-bottom:7px">'
                     f'<div style="display:flex;justify-content:space-between;gap:10px">'
                     f'<div style="flex:1">'
                     f'<a href="{_n.get("url","#")}" target="_blank" '
-                    f'style="color:#F0F6FC;font-weight:600;font-size:0.87rem;'
+                    f'style="color:#F4F5FA;font-weight:600;font-size:0.87rem;'
                     f'text-decoration:none;line-height:1.4">{_n.get("title","")}</a>'
-                    f'<div style="color:#8B949E;font-size:0.72rem;margin-top:3px">'
+                    f'<div style="color:#8891A8;font-size:0.72rem;margin-top:3px">'
                     f'{_n.get("source","")} &middot; {_n.get("published","")}</div></div>'
                     f'<div style="text-align:right;min-width:85px">'
                     f'<div style="font-size:0.79rem;font-weight:600;color:{_bc}">{_s}</div>'
-                    f'<div style="color:#6E7681;font-size:0.69rem">score {_sc:+.2f}</div>'
+                    f'<div style="color:#6B7290;font-size:0.69rem">score {_sc:+.2f}</div>'
                     f'</div></div></div>',
                     unsafe_allow_html=True
                 )
@@ -1911,7 +1938,7 @@ with tab5:
             )
             _tv_cal_html = """<!DOCTYPE html><html><head>
 <meta charset="utf-8">
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0D1117;}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0A0C14;}</style>
 </head><body>
 <div class="tradingview-widget-container" style="width:100%;height:700px">
   <div class="tradingview-widget-container__widget" style="height:700px"></div>
@@ -1925,7 +1952,7 @@ with tab5:
     "locale": "en",
     "importanceFilter": "-1,0,1",
     "countryFilter": "us,eu,gb,jp,ca,au,nz,ch,ae,sa",
-    "backgroundColor": "#0D1117"
+    "backgroundColor": "#0A0C14"
   }
   </script>
 </div>
@@ -1961,38 +1988,38 @@ with tab5:
                 if not _fev:
                     st.info("No events match your filters.")
                 else:
-                    _ic_map = {"High":"#F85149","Medium":"#E3B341","Low":"#6E7681","Holiday":"#30363D"}
+                    _ic_map = {"High":"#F5455C","Medium":"#F2B84B","Low":"#6B7290","Holiday":"#262838"}
                     for _e in _fev:
-                        _ic  = _ic_map.get(_e["impact_raw"],"#30363D")
+                        _ic  = _ic_map.get(_e["impact_raw"],"#262838")
                         _act = _e.get("actual","—") or "—"
-                        _ac  = "#F0F6FC"
+                        _ac  = "#F4F5FA"
                         if _act != "—":
                             try:
                                 _fv2 = float(str(_e.get("forecast","0")).replace("%","").replace("K","").replace("M","") or "0")
                                 _av2 = float(_act.replace("%","").replace("K","").replace("M",""))
-                                _ac  = "#3FB950" if _av2 >= _fv2 else "#F85149"
+                                _ac  = "#22D3A0" if _av2 >= _fv2 else "#F5455C"
                             except Exception:
                                 pass
                         st.markdown(
-                            f'<div style="background:#161B22;border:1px solid #21262D;'
+                            f'<div style="background:#12141F;border:1px solid #1A1C29;'
                             f'border-left:4px solid {_ic};border-radius:6px;'
                             f'padding:9px 15px;margin-bottom:5px;display:flex;'
                             f'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
                             f'<div style="flex:2;min-width:180px">'
-                            f'<span style="color:#F0F6FC;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
-                            f'<span style="color:#8B949E;font-size:0.72rem;margin-left:8px">'
+                            f'<span style="color:#F4F5FA;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
+                            f'<span style="color:#8891A8;font-size:0.72rem;margin-left:8px">'
                             f'{_e["currency"]} &middot; {_e["date"]} {_e["time"]}</span></div>'
                             f'<div style="display:flex;gap:14px">'
                             f'<div style="text-align:center;min-width:50px">'
                             f'<div style="color:{_ic};font-size:0.72rem;font-weight:600">{_e["impact_raw"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#6E7681;font-size:0.65rem">Forecast</div>'
-                            f'<div style="color:#8B949E;font-size:0.80rem">{_e["forecast"]}</div></div>'
+                            f'<div style="color:#6B7290;font-size:0.65rem">Forecast</div>'
+                            f'<div style="color:#8891A8;font-size:0.80rem">{_e["forecast"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#6E7681;font-size:0.65rem">Previous</div>'
-                            f'<div style="color:#8B949E;font-size:0.80rem">{_e["previous"]}</div></div>'
+                            f'<div style="color:#6B7290;font-size:0.65rem">Previous</div>'
+                            f'<div style="color:#8891A8;font-size:0.80rem">{_e["previous"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#6E7681;font-size:0.65rem">Actual</div>'
+                            f'<div style="color:#6B7290;font-size:0.65rem">Actual</div>'
                             f'<div style="color:{_ac};font-size:0.80rem;font-weight:600">{_act}</div>'
                             f'</div></div></div>',
                             unsafe_allow_html=True
@@ -2121,12 +2148,12 @@ with tab6:
         def _color_pnl(val):
             try:
                 v = float(str(val).replace("+","").replace("%","").replace(",",""))
-                return "color:#3FB950;font-weight:600" if v>0 else "color:#F85149;font-weight:600" if v<0 else ""
+                return "color:#22D3A0;font-weight:600" if v>0 else "color:#F5455C;font-weight:600" if v<0 else ""
             except Exception: return ""
 
         def _color_side(val):
-            if "BUY"  in str(val): return "color:#3FB950;font-weight:bold"
-            if "SELL" in str(val): return "color:#F85149;font-weight:bold"
+            if "BUY"  in str(val): return "color:#22D3A0;font-weight:bold"
+            if "SELL" in str(val): return "color:#F5455C;font-weight:bold"
             return ""
 
         try:
@@ -2287,18 +2314,18 @@ with tab7:
         _sell_pct = int(_ns/_tot*100)
         _hold_pct = 100 - _buy_pct - _sell_pct
         _bias     = "BULLISH" if _nb > _ns else "BEARISH" if _ns > _nb else "MIXED"
-        _bias_c   = "#3FB950" if _nb > _ns else "#F85149" if _ns > _nb else "#8B949E"
+        _bias_c   = "#22D3A0" if _nb > _ns else "#F5455C" if _ns > _nb else "#8891A8"
         st.markdown(
-            f'<div style="background:#161B22;border:1px solid #30363D;border-radius:8px;'
+            f'<div style="background:#12141F;border:1px solid #262838;border-radius:8px;'
             f'padding:12px 20px;margin:10px 0">'
             f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
-            f'<span style="color:#3FB950">BUY {_buy_pct}%</span>'
-            f'<span style="color:#8B949E">HOLD {_hold_pct}%</span>'
-            f'<span style="color:#F85149">SELL {_sell_pct}%</span></div>'
-            f'<div style="height:10px;background:#21262D;border-radius:5px;overflow:hidden;display:flex">'
-            f'<div style="width:{_buy_pct}%;background:#3FB950"></div>'
-            f'<div style="width:{_hold_pct}%;background:#30363D"></div>'
-            f'<div style="width:{_sell_pct}%;background:#F85149"></div></div>'
+            f'<span style="color:#22D3A0">BUY {_buy_pct}%</span>'
+            f'<span style="color:#8891A8">HOLD {_hold_pct}%</span>'
+            f'<span style="color:#F5455C">SELL {_sell_pct}%</span></div>'
+            f'<div style="height:10px;background:#1A1C29;border-radius:5px;overflow:hidden;display:flex">'
+            f'<div style="width:{_buy_pct}%;background:#22D3A0"></div>'
+            f'<div style="width:{_hold_pct}%;background:#262838"></div>'
+            f'<div style="width:{_sell_pct}%;background:#F5455C"></div></div>'
             f'<div style="text-align:center;color:{_bias_c};font-weight:bold;margin-top:6px;font-size:0.85rem">'
             f'Market is {_bias}</div></div>',
             unsafe_allow_html=True
@@ -2315,11 +2342,11 @@ with tab7:
                 with _gcols[_ci]:
                     if _r.get("error"):
                         st.markdown(
-                            f'<div style="background:#161B22;border:1px solid #30363D;'
+                            f'<div style="background:#12141F;border:1px solid #262838;'
                             f'border-radius:10px;padding:14px;text-align:center">'
-                            f'<div style="color:#8B949E;font-size:0.85rem;font-weight:600">'
+                            f'<div style="color:#8891A8;font-size:0.85rem;font-weight:600">'
                             f'{_r["ticker"]}</div>'
-                            f'<div style="color:#F85149;font-size:0.75rem;margin-top:6px">'
+                            f'<div style="color:#F5455C;font-size:0.75rem;margin-top:6px">'
                             f'Error: {_r["error"]}</div></div>',
                             unsafe_allow_html=True
                         )
@@ -2333,7 +2360,7 @@ with tab7:
                     _racc  = _r.get("acc",0)
                     _rprob = _r.get("prob",0.5)
 
-                    _sc  = "#3FB950" if _rsig=="BUY" else "#F85149" if _rsig=="SELL" else "#6E7681"
+                    _sc  = "#22D3A0" if _rsig=="BUY" else "#F5455C" if _rsig=="SELL" else "#6B7290"
                     _bc  = "buy-card" if _rsig=="BUY" else "sell-card" if _rsig=="SELL" else "hold-card"
                     _em  = "🟢" if _rsig=="BUY" else "🔴" if _rsig=="SELL" else "⚪"
                     _tps = f"${_rtp:,.4f}" if _rtp else "—"
@@ -2344,26 +2371,26 @@ with tab7:
                         f'<div class="signal-card {_bc}" style="padding:14px 16px">'
                         f'<div style="display:flex;justify-content:space-between;align-items:center">'
                         f'<div>'
-                        f'<div style="color:#F0F6FC;font-weight:700;font-size:0.95rem">{_r.get("ticker","")}</div>'
-                        f'<div style="color:#8B949E;font-size:0.72rem">{_r.get("name","")}</div>'
+                        f'<div style="color:#F4F5FA;font-weight:700;font-size:0.95rem">{_r.get("ticker","")}</div>'
+                        f'<div style="color:#8891A8;font-size:0.72rem">{_r.get("name","")}</div>'
                         f'</div>'
                         f'<div style="color:{_sc};font-size:1.3rem;font-weight:700">{_em} {_rsig}</div>'
                         f'</div>'
-                        f'<div style="color:#F0F6FC;font-size:1.1rem;font-weight:600;margin:8px 0">'
+                        f'<div style="color:#F4F5FA;font-size:1.1rem;font-weight:600;margin:8px 0">'
                         f'${_rprice:,.4f}</div>'
                         f'<table style="width:100%;font-size:0.78rem;border-collapse:collapse">'
-                        f'<tr><td style="color:#8B949E">Confidence</td>'
-                        f'<td style="color:#E3B341;text-align:right;font-weight:600">{_rconf:.1f}%</td></tr>'
-                        f'<tr><td style="color:#8B949E">P(UP)</td>'
-                        f'<td style="color:#58A6FF;text-align:right">{_rprob*100:.1f}%</td></tr>'
-                        f'<tr><td style="color:#8B949E">Take Profit</td>'
-                        f'<td style="color:#3FB950;text-align:right;font-weight:600">{_tps}</td></tr>'
-                        f'<tr><td style="color:#8B949E">Stop Loss</td>'
-                        f'<td style="color:#F85149;text-align:right;font-weight:600">{_sls}</td></tr>'
-                        f'<tr><td style="color:#8B949E">R/R</td>'
-                        f'<td style="color:#F0F6FC;text-align:right">1:{_rr:.2f}</td></tr>'
-                        f'<tr><td style="color:#8B949E">Accuracy</td>'
-                        f'<td style="color:#E3B341;text-align:right">{_racc*100:.1f}%</td></tr>'
+                        f'<tr><td style="color:#8891A8">Confidence</td>'
+                        f'<td style="color:#F2B84B;text-align:right;font-weight:600">{_rconf:.1f}%</td></tr>'
+                        f'<tr><td style="color:#8891A8">P(UP)</td>'
+                        f'<td style="color:#7C6CFF;text-align:right">{_rprob*100:.1f}%</td></tr>'
+                        f'<tr><td style="color:#8891A8">Take Profit</td>'
+                        f'<td style="color:#22D3A0;text-align:right;font-weight:600">{_tps}</td></tr>'
+                        f'<tr><td style="color:#8891A8">Stop Loss</td>'
+                        f'<td style="color:#F5455C;text-align:right;font-weight:600">{_sls}</td></tr>'
+                        f'<tr><td style="color:#8891A8">R/R</td>'
+                        f'<td style="color:#F4F5FA;text-align:right">1:{_rr:.2f}</td></tr>'
+                        f'<tr><td style="color:#8891A8">Accuracy</td>'
+                        f'<td style="color:#F2B84B;text-align:right">{_racc*100:.1f}%</td></tr>'
                         f'</table></div>',
                         unsafe_allow_html=True
                     )
@@ -2434,21 +2461,21 @@ with tab8:
         if len(_equity) > 2:
             import matplotlib.pyplot as _plt2
             _fig2, _ax2 = _plt2.subplots(figsize=(14,4))
-            _fig2.patch.set_facecolor('#0D1117'); _ax2.set_facecolor('#161B22')
+            _fig2.patch.set_facecolor('#0A0C14'); _ax2.set_facecolor('#12141F')
             _ea = __import__("numpy").array(_equity)
-            _ax2.plot(_ea, color='#3FB950' if _total_return>=0 else '#F85149', lw=1.8)
+            _ax2.plot(_ea, color='#22D3A0' if _total_return>=0 else '#F5455C', lw=1.8)
             _ax2.fill_between(range(len(_ea)), _start_cap, _ea,
-                where=(_ea>=_start_cap), alpha=0.15, color='#3FB950')
+                where=(_ea>=_start_cap), alpha=0.15, color='#22D3A0')
             _ax2.fill_between(range(len(_ea)), _start_cap, _ea,
-                where=(_ea<_start_cap),  alpha=0.15, color='#F85149')
-            _ax2.axhline(_start_cap, color='#6E7681', ls='--', lw=1.0, alpha=0.6)
+                where=(_ea<_start_cap),  alpha=0.15, color='#F5455C')
+            _ax2.axhline(_start_cap, color='#6B7290', ls='--', lw=1.0, alpha=0.6)
             _ax2.set_title(f"Equity Curve — {name} | Return: {_total_return:+.1f}% | Win Rate: {_win_rate:.1f}%",
-                           color='#F0F6FC', fontsize=11, fontweight='bold')
-            _ax2.set_ylabel("Capital ($)", color='#8B949E')
-            _ax2.set_xlabel("Trade #",    color='#8B949E')
-            _ax2.tick_params(colors='#8B949E')
+                           color='#F4F5FA', fontsize=11, fontweight='bold')
+            _ax2.set_ylabel("Capital ($)", color='#8891A8')
+            _ax2.set_xlabel("Trade #",    color='#8891A8')
+            _ax2.tick_params(colors='#8891A8')
             _ax2.spines[['top','right']].set_visible(False)
-            _ax2.grid(axis='y', alpha=0.2, color='#21262D')
+            _ax2.grid(axis='y', alpha=0.2, color='#1A1C29')
             _plt2.tight_layout()
             st.pyplot(_fig2, use_container_width=True)
             _plt2.close()
@@ -2458,10 +2485,10 @@ with tab8:
             st.markdown("**Individual Trade Log**")
             import pandas as _pd3
             _tdf = _pd3.DataFrame(_trades_log)
-            def _cr(v): return ('color:#3FB950;font-weight:600' if '✅' in str(v)
-                                else 'color:#F85149;font-weight:600' if '❌' in str(v) else '')
+            def _cr(v): return ('color:#22D3A0;font-weight:600' if '✅' in str(v)
+                                else 'color:#F5455C;font-weight:600' if '❌' in str(v) else '')
             def _cp(v):
-                try: return 'color:#3FB950' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#F85149'
+                try: return 'color:#22D3A0' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#F5455C'
                 except: return ''
             try: _st = _tdf.style.map(_cr,subset=['Result']).map(_cp,subset=['P&L $'])
             except: _st = _tdf
@@ -2486,7 +2513,7 @@ with tab8:
             "P&L": f"{'+'if (t.get('pnl',0) or 0)>=0 else ''}{(t.get('pnl',0) or 0):,.4f}",
         } for t in reversed(_ctl)])
         def _ctc(v):
-            try: return 'color:#3FB950' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#F85149'
+            try: return 'color:#22D3A0' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#F5455C'
             except: return ''
         try: _cts = _ctdf.style.map(_ctc, subset=['P&L'])
         except: _cts = _ctdf
