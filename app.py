@@ -2195,15 +2195,20 @@ with tab5:
 # TAB 6: Portfolio Tracker
 # ════════════════════════════════════════════════════════════════════
 with tab6:
-    st.subheader("💼 Portfolio Tracker")
-    st.caption(
-        "Track which signals you acted on · Calculate your P&L · "
-        "Data stored in your browser session (resets on page close)"
-    )
-
     # Init session state for portfolio
     if "portfolio_trades" not in st.session_state:
         st.session_state.portfolio_trades = []
+
+    st.markdown(
+        '<div style="display:flex;justify-content:space-between;align-items:flex-end;'
+        'flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+        '<div><div style="font-size:1.2rem;font-weight:800;color:#FFFFFF">💼 Portfolio</div>'
+        '<div style="color:#A89F8C;font-size:0.8rem;margin-top:2px">'
+        'Track which signals you acted on · P&amp;L updates live on refresh</div></div>'
+        '<div style="display:flex;align-items:center;gap:6px;color:#6E6754;font-size:0.72rem">'
+        '<span class="live-dot"></span>Session data · resets on page close</div>'
+        '</div>', unsafe_allow_html=True
+    )
 
     # ── Add new trade ────────────────────────────────────────────
     with st.expander("➕ Add a Trade", expanded=len(st.session_state.portfolio_trades)==0):
@@ -2281,57 +2286,154 @@ with tab6:
                 total_pnl  += _pnl_total
 
             _rows.append({
-                "Date"        : _t["date"],
-                "Asset"       : _t["ticker"],
-                "Side"        : f"{'🟢' if _t['side']=='BUY' else '🔴'} {_t['side']}",
-                "Entry"       : f"${_t['entry']:,.4f}",
-                "Size"        : f"{_t['size']:.4f}",
-                "Live/Exit"   : f"${_live:,.4f}",
-                "P&L"         : f"{'+'if _pnl_total>=0 else ''}{_pnl_total:,.4f}",
-                "P&L %"       : f"{'+'if _pnl_pct>=0 else ''}{_pnl_pct:.2f}%",
-                "TP"          : f"${_t['tp']:,.4f}" if _t["tp"] else "—",
-                "SL"          : f"${_t['sl']:,.4f}" if _t["sl"] else "—",
-                "Status"      : _t["status"],
+                "date": _t["date"], "ticker": _t["ticker"], "side": _t["side"],
+                "entry": _t["entry"], "size": _t["size"], "live": _live,
+                "pnl": _pnl_total, "pnl_pct": _pnl_pct,
+                "tp": _t["tp"], "sl": _t["sl"], "status": _t["status"],
             })
 
-        # Summary metrics
-        _pm1,_pm2,_pm3,_pm4 = st.columns(4)
-        _pm1.metric("Total Trades",     len(trades))
-        _pm2.metric("Open Positions",   open_count)
-        _pm3.metric("Total P&L",
-                    f"{'+'if total_pnl>=0 else ''}{total_pnl:,.4f}",
-                    delta=f"{'Profit' if total_pnl>=0 else 'Loss'}",
-                    delta_color="normal" if total_pnl>=0 else "inverse")
         roi = (total_pnl/total_invest*100) if total_invest>0 else 0
-        _pm4.metric("ROI",              f"{roi:+.2f}%",
-                    delta_color="normal" if roi>=0 else "inverse")
 
-        st.divider()
+        # ── Stat cards ──────────────────────────────────────────
+        _pnl_c = "#34D399" if total_pnl>=0 else "#FF4D6D"
+        _roi_c = "#34D399" if roi>=0 else "#FF4D6D"
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">'
+            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total Trades</div>'
+            f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.35rem;font-weight:800;margin-top:3px">{len(trades)}</div></div>'
+            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Open Positions</div>'
+            f'<div class="stat-pop" style="color:#FFC542;font-size:1.35rem;font-weight:800;margin-top:3px">{open_count}</div></div>'
+            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total P&amp;L</div>'
+            f'<div class="stat-pop" style="color:{_pnl_c};font-size:1.35rem;font-weight:800;margin-top:3px">'
+            f'{"+" if total_pnl>=0 else ""}{total_pnl:,.2f}</div></div>'
+            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">ROI</div>'
+            f'<div class="stat-pop" style="color:{_roi_c};font-size:1.35rem;font-weight:800;margin-top:3px">{roi:+.2f}%</div></div>'
+            '</div>', unsafe_allow_html=True
+        )
 
-        # Trade table with color
-        _df_trades = pd.DataFrame(_rows)
-
-        def _color_pnl(val):
+        # ── Performance chart + Top Assets ─────────────────────
+        _pf_left, _pf_right = st.columns([2, 1])
+        with _pf_left:
+            st.markdown(
+                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin-bottom:8px">📈 Portfolio Performance</div>',
+                unsafe_allow_html=True
+            )
             try:
-                v = float(str(val).replace("+","").replace("%","").replace(",",""))
-                return "color:#34D399;font-weight:600" if v>0 else "color:#FF4D6D;font-weight:600" if v<0 else ""
-            except Exception: return ""
+                _sorted_rows = sorted(_rows, key=lambda r: r["date"])
+                _cum = np.cumsum([r["pnl"] for r in _sorted_rows])
+                dark_fig()
+                _figp, _axp = plt.subplots(figsize=(9, 3.2))
+                _figp.patch.set_facecolor('#0A0805'); _axp.set_facecolor('#161310')
+                _xs = range(len(_cum))
+                _lc = '#34D399' if (len(_cum)==0 or _cum[-1]>=0) else '#FF4D6D'
+                _axp.plot(_xs, _cum, color=_lc, lw=1.8, marker='o', ms=3.5)
+                _axp.fill_between(_xs, 0, _cum, where=(_cum>=0), alpha=0.14, color='#34D399')
+                _axp.fill_between(_xs, 0, _cum, where=(_cum<0),  alpha=0.14, color='#FF4D6D')
+                _axp.axhline(0, color='#6B7290', lw=0.8, ls='--', alpha=0.6)
+                _axp.set_xticks(_xs); _axp.set_xticklabels([r["date"][5:10] for r in _sorted_rows],
+                                                             rotation=30, ha='right', fontsize=7.5)
+                _axp.set_ylabel('Cumulative P&L ($)', fontsize=8.5)
+                _axp.spines[['top','right']].set_visible(False)
+                _axp.grid(axis='y', alpha=0.15)
+                plt.tight_layout()
+                st.pyplot(_figp, use_container_width=True); plt.close()
+            except Exception:
+                st.caption("Add at least one trade to see the performance curve.")
 
-        def _color_side(val):
-            if "BUY"  in str(val): return "color:#34D399;font-weight:bold"
-            if "SELL" in str(val): return "color:#FF4D6D;font-weight:bold"
-            return ""
+        with _pf_right:
+            st.markdown(
+                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin-bottom:8px">🏆 Top Assets</div>',
+                unsafe_allow_html=True
+            )
+            _by_asset = {}
+            for r in _rows:
+                _by_asset.setdefault(r["ticker"], 0.0)
+                _by_asset[r["ticker"]] += r["pnl"]
+            _asset_ranked = sorted(_by_asset.items(), key=lambda x: -abs(x[1]))[:5]
+            _ASSET_GRAD = {
+                "SOL-USD": "linear-gradient(135deg,#9945FF,#14F195)",
+                "BTC-USD": "linear-gradient(135deg,#F7931A,#FFC542)",
+                "ETH-USD": "linear-gradient(135deg,#3C3C3D,#8C8C8C)",
+            }
+            _asset_html = ""
+            for _at, _apnl in _asset_ranked:
+                _ac = "#34D399" if _apnl>=0 else "#FF4D6D"
+                _ag = _ASSET_GRAD.get(_at, "linear-gradient(135deg,#FFC542,#FF8C24)")
+                _asset_html += (
+                    f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                    f'padding:8px 0;border-bottom:1px solid #1A1712">'
+                    f'<div style="display:flex;align-items:center;gap:8px">'
+                    f'<div style="width:26px;height:26px;border-radius:7px;background:{_ag};'
+                    f'display:flex;align-items:center;justify-content:center;font-size:0.7rem;'
+                    f'font-weight:800;color:#100D08">{_at[0]}</div>'
+                    f'<span style="color:#E8E2D5;font-size:0.82rem;font-weight:600">{_at}</span></div>'
+                    f'<span style="color:{_ac};font-size:0.82rem;font-weight:700">'
+                    f'{"+" if _apnl>=0 else ""}{_apnl:,.2f}</span></div>'
+                )
+            if not _asset_html:
+                _asset_html = '<div style="color:#6E6754;font-size:0.8rem">No assets yet</div>'
+            st.markdown(
+                f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+                f'border-radius:12px;padding:6px 14px">{_asset_html}</div>',
+                unsafe_allow_html=True
+            )
 
-        try:
-            _styled = _df_trades.style                .map(_color_pnl,  subset=["P&L","P&L %"])                .map(_color_side, subset=["Side"])
-        except Exception:
-            _styled = _df_trades
-
-        st.dataframe(_styled, use_container_width=True, hide_index=True, height=400)
+        st.markdown(
+            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            'letter-spacing:.04em;margin:20px 0 8px">📋 Transactions</div>',
+            unsafe_allow_html=True
+        )
+        _tx_hdr = "".join(
+            f'<th style="text-align:left;padding:8px 10px;color:#A89F8C;font-size:0.7rem;'
+            f'text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #241F14">{h}</th>'
+            for h in ["Date","Asset","Side","Entry","Size","Live / Exit","P&L","Status"]
+        )
+        _tx_body = ""
+        for _i, r in enumerate(_rows):
+            _sc = "#34D399" if r["side"]=="BUY" else "#FF4D6D"
+            _pc = "#34D399" if r["pnl"]>=0 else "#FF4D6D"
+            _stc, _stb = ("#FFC542","rgba(255,197,66,0.12)") if r["status"]=="Open" else ("#8C8168","rgba(140,129,104,0.14)")
+            _tx_body += (
+                f'<tr class="outlook-row" style="animation-delay:{_i*0.05:.2f}s">'
+                f'<td style="padding:9px 10px;color:#A89F8C;font-size:0.8rem;border-bottom:1px solid #1A1712">{r["date"]}</td>'
+                f'<td style="padding:9px 10px;color:#FFFFFF;font-weight:600;font-size:0.82rem;border-bottom:1px solid #1A1712">{r["ticker"]}</td>'
+                f'<td style="padding:9px 10px;border-bottom:1px solid #1A1712">'
+                f'<span class="status-dot {"buy" if r["side"]=="BUY" else "sell"}" style="width:8px;height:8px"></span>'
+                f'<span style="color:{_sc};font-weight:700;font-size:0.8rem">{r["side"]}</span></td>'
+                f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">${r["entry"]:,.4f}</td>'
+                f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">{r["size"]:.4f}</td>'
+                f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">${r["live"]:,.4f}</td>'
+                f'<td style="padding:9px 10px;color:{_pc};font-weight:700;font-size:0.82rem;border-bottom:1px solid #1A1712">'
+                f'{"+" if r["pnl"]>=0 else ""}{r["pnl"]:,.2f} ({"+" if r["pnl_pct"]>=0 else ""}{r["pnl_pct"]:.2f}%)</td>'
+                f'<td style="padding:9px 10px;border-bottom:1px solid #1A1712">'
+                f'<span class="chip" style="color:{_stc};background:{_stb};font-size:0.68rem;font-weight:700;'
+                f'padding:3px 9px;border-radius:999px">{r["status"].upper()}</span></td>'
+                f'</tr>'
+            )
+        st.markdown(
+            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:14px;padding:6px 4px;overflow-x:auto">'
+            f'<table style="width:100%;border-collapse:collapse"><thead><tr>{_tx_hdr}</tr></thead>'
+            f'<tbody>{_tx_body}</tbody></table></div>',
+            unsafe_allow_html=True
+        )
 
         # Close / Delete trade controls
-        st.divider()
-        st.markdown("**Manage Trades**")
+        st.markdown(
+            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            'letter-spacing:.04em;margin:20px 0 8px">⚙️ Manage Trades</div>',
+            unsafe_allow_html=True
+        )
         _mc1, _mc2, _mc3 = st.columns(3)
         with _mc1:
             _close_idx = st.number_input("Trade # to close (1-based)", min_value=1,
