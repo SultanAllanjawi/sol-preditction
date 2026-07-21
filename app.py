@@ -79,7 +79,7 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
 }
 [data-testid="metric-container"]:hover{
   border-color:#FFC542; transform:translateY(-2px);
-  box-shadow:0 12px 28px rgba(166,87,255,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow:0 12px 28px rgba(255,197,66,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 [data-testid="stMetricValue"]{color:#FFFFFF;font-size:1.7rem!important;font-weight:800}
 [data-testid="stMetricLabel"]{color:#A89F8C;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
@@ -119,12 +119,12 @@ hr{border-color:#241F14}
 .stButton>button{
   border-radius:9px;border:1px solid #332C1A;transition:all .15s ease;font-weight:600;
 }
-.stButton>button:hover{border-color:#FFC542;box-shadow:0 0 16px rgba(166,87,255,0.35);transform:translateY(-1px)}
+.stButton>button:hover{border-color:#FFC542;box-shadow:0 0 16px rgba(255,197,66,0.35);transform:translateY(-1px)}
 .stButton>button[kind="primary"]{
-  background:linear-gradient(135deg,#FFC542,#7C3AED);border:none;
-  box-shadow:0 4px 16px rgba(166,87,255,0.35);
+  background:linear-gradient(135deg,#FFC542,#FF8C24);border:none;
+  box-shadow:0 4px 16px rgba(255,197,66,0.35);
 }
-.stButton>button[kind="primary"]:hover{box-shadow:0 6px 22px rgba(166,87,255,0.5);transform:translateY(-2px)}
+.stButton>button[kind="primary"]:hover{box-shadow:0 6px 22px rgba(255,197,66,0.5);transform:translateY(-2px)}
 
 /* inline code / badges (ticker chips etc) */
 code{
@@ -139,7 +139,7 @@ code{
   transition:border-color .15s ease;
 }
 .stTextInput input:focus,.stSelectbox [data-baseweb="select"]>div:focus-within{
-  border-color:#FFC542!important;box-shadow:0 0 0 2px rgba(166,87,255,0.25)!important;
+  border-color:#FFC542!important;box-shadow:0 0 0 2px rgba(255,197,66,0.25)!important;
 }
 [data-testid="stExpander"]{
   background:#0F0B1C;border:1px solid #241F14;border-radius:12px;overflow:hidden;
@@ -275,6 +275,78 @@ if "chart_lookback" not in st.session_state:
 with st.sidebar:
     st.markdown("## 🔮 Prediction Dashboard")
     st.caption("Auto-updates every 30 minutes")
+    st.divider()
+
+    # ── Portfolio snapshot ────────────────────────────────────────
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+        '<span style="font-weight:700;font-size:0.92rem;color:#FFFFFF">💼 Portfolio</span>'
+        '<span class="live-dot" style="margin-left:auto"></span>'
+        '</div>', unsafe_allow_html=True
+    )
+    _sb_trades = st.session_state.get("portfolio_trades", [])
+    if not _sb_trades:
+        st.markdown(
+            '<div style="background:#161310;border:1px dashed #332C1A;border-radius:10px;'
+            'padding:12px 14px;color:#6E6754;font-size:0.76rem;text-align:center;margin-bottom:6px">'
+            'No trades yet &mdash; add one in the Portfolio tab</div>', unsafe_allow_html=True
+        )
+    else:
+        @st.cache_data(ttl=60, show_spinner=False)
+        def _sb_live_price(t):
+            return DataManager.get_live_price(t)
+
+        _sb_pnl = 0.0; _sb_invest = 0.0; _sb_open = 0
+        _sb_by_asset = {}
+        for _st in _sb_trades:
+            if _st["status"] == "Open":
+                _sb_live = _sb_live_price(_st["ticker"]) or _st["entry"]
+                _sb_per  = (_sb_live-_st["entry"]) if _st["side"]=="BUY" else (_st["entry"]-_sb_live)
+                _sb_tot  = _sb_per * _st["size"]
+                _sb_open += 1
+                _sb_invest += _st["entry"]*_st["size"]
+            else:
+                _sb_tot = _st.get("pnl",0) or 0
+            _sb_pnl += _sb_tot
+            _sb_by_asset.setdefault(_st["ticker"], 0.0)
+            _sb_by_asset[_st["ticker"]] += _sb_tot
+        _sb_roi = (_sb_pnl/_sb_invest*100) if _sb_invest>0 else 0
+        _sb_pc  = "#34D399" if _sb_pnl>=0 else "#FF4D6D"
+        _sb_rc  = "#34D399" if _sb_roi>=0 else "#FF4D6D"
+
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+            f'<div style="background:#161310;border:1px solid #332C1A;border-radius:9px;padding:9px 11px">'
+            f'<div style="color:#6E6754;font-size:0.62rem;text-transform:uppercase">Total P&amp;L</div>'
+            f'<div style="color:{_sb_pc};font-weight:800;font-size:0.98rem">{"+" if _sb_pnl>=0 else ""}{_sb_pnl:,.2f}</div></div>'
+            f'<div style="background:#161310;border:1px solid #332C1A;border-radius:9px;padding:9px 11px">'
+            f'<div style="color:#6E6754;font-size:0.62rem;text-transform:uppercase">ROI</div>'
+            f'<div style="color:{_sb_rc};font-weight:800;font-size:0.98rem">{_sb_roi:+.2f}%</div></div>'
+            f'<div style="background:#161310;border:1px solid #332C1A;border-radius:9px;padding:9px 11px">'
+            f'<div style="color:#6E6754;font-size:0.62rem;text-transform:uppercase">Open</div>'
+            f'<div style="color:#FFC542;font-weight:800;font-size:0.98rem">{_sb_open}</div></div>'
+            f'<div style="background:#161310;border:1px solid #332C1A;border-radius:9px;padding:9px 11px">'
+            f'<div style="color:#6E6754;font-size:0.62rem;text-transform:uppercase">Trades</div>'
+            f'<div style="color:#FFFFFF;font-weight:800;font-size:0.98rem">{len(_sb_trades)}</div></div>'
+            f'</div>', unsafe_allow_html=True
+        )
+
+        _sb_top = sorted(_sb_by_asset.items(), key=lambda x: -x[1])[:3]
+        if _sb_top:
+            st.caption("Top assets")
+            _sb_rows = ""
+            for _at, _apnl in _sb_top:
+                _ac = "#34D399" if _apnl>=0 else "#FF4D6D"
+                _sb_rows += (
+                    f'<div style="display:flex;justify-content:space-between;padding:4px 0;'
+                    f'border-bottom:1px solid #1A1712;font-size:0.78rem">'
+                    f'<span style="color:#E8E2D5">{_at}</span>'
+                    f'<span style="color:{_ac};font-weight:700">{"+" if _apnl>=0 else ""}{_apnl:,.2f}</span></div>'
+                )
+            st.markdown(
+                f'<div style="background:#161310;border:1px solid #332C1A;border-radius:9px;'
+                f'padding:4px 11px;margin-bottom:4px">{_sb_rows}</div>', unsafe_allow_html=True
+            )
     st.divider()
 
     # ── Upload CSV ──────────────────────────────────────────────────
