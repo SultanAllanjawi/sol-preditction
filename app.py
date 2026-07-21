@@ -37,10 +37,14 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap');
 
 @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,168,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(0,255,168,0)}}
-@keyframes pulseDotRed{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,45,110,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(255,45,110,0)}}
+@keyframes popIn{0%{opacity:0;transform:scale(0.85)}70%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(52,211,153,0)}}
+@keyframes pulseDotRed{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,77,109,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(255,77,109,0)}}
+@keyframes pulseDotGold{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,197,66,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(255,197,66,0)}}
 @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes fillBar{from{width:0}to{width:var(--tw)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 10px 26px rgba(255,140,36,0.35)}50%{box-shadow:0 10px 40px rgba(255,140,36,0.65)}}
 
 * { font-family: 'Inter', -apple-system, sans-serif; }
 code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono', monospace !important; }
@@ -48,11 +52,17 @@ code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono'
 .stApp{
   color:#E8E2D5;
   background:
-    radial-gradient(circle at 12% 8%, rgba(166,87,255,0.14), transparent 42%),
-    radial-gradient(circle at 88% 15%, rgba(0,255,168,0.09), transparent 40%),
-    radial-gradient(circle at 50% 100%, rgba(255,45,110,0.06), transparent 45%),
+    radial-gradient(circle at 12% 8%, rgba(255,197,66,0.12), transparent 42%),
+    radial-gradient(circle at 88% 15%, rgba(52,211,153,0.08), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(255,140,36,0.07), transparent 45%),
     #0A0805;
 }
+.stat-pop{display:inline-block;animation:popIn .5s cubic-bezier(.26,1.4,.4,1) both}
+.status-dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.status-dot.buy{background:#34D399;animation:pulseDot 1.6s infinite}
+.status-dot.sell{background:#FF4D6D;animation:pulseDotRed 1.6s infinite}
+.status-dot.hold{background:#FFC542;animation:pulseDotGold 1.6s infinite}
+.outlook-row{animation:fadeInUp .4s ease both}
 .block-container{padding-top:2.6rem}
 .block-container > div{animation:fadeInUp .45s ease both}
 
@@ -708,16 +718,17 @@ _dot_cls    = "live-dot" if day_chg >= 0 else "live-dot down"
 _chg_color  = "#34D399" if day_chg >= 0 else "#FF4D6D"
 _price_label = "Live Price" if live_price else "Last Close"
 
-def _metric_bar(pct, grad="linear-gradient(90deg,#FFC542,#FF8C24)"):
+def _metric_bar(pct, grad="linear-gradient(90deg,#FFC542,#FF8C24)", delay=0):
     pct = max(2, min(100, pct))
     return (f'<div style="background:#241F14;border-radius:6px;height:6px;margin-top:9px;overflow:hidden">'
-            f'<div style="width:{pct}%;height:100%;background:{grad};border-radius:6px"></div></div>')
+            f'<div style="--tw:{pct}%;width:0;height:100%;background:{grad};border-radius:6px;'
+            f'animation:fillBar 1s ease-out {delay}s forwards"></div></div>')
 
 _prob_grad = "linear-gradient(90deg,#34D399,#2ECC71)" if last_prob > 0.5 else "linear-gradient(90deg,#FF4D6D,#FF2D6E)"
-_acc_bar  = _metric_bar(ens_acc*100)
-_filt_bar = _metric_bar(ens_filt*100)
-_prob_bar = _metric_bar(last_prob*100, _prob_grad)
-_atr_bar  = _metric_bar(min(100, atr_pct*100*10))
+_acc_bar  = _metric_bar(ens_acc*100, delay=0.0)
+_filt_bar = _metric_bar(ens_filt*100, delay=0.1)
+_prob_bar = _metric_bar(last_prob*100, _prob_grad, delay=0.2)
+_atr_bar  = _metric_bar(min(100, atr_pct*100*10), delay=0.3)
 
 col_left, col_right = st.columns([2.1, 1])
 
@@ -730,14 +741,14 @@ with col_left:
         f'text-transform:uppercase;letter-spacing:0.04em">📊 Model Metrics</div>'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 28px">'
         f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">Model Accuracy</div>'
-        f'<div style="color:#FFFFFF;font-size:1.55rem;font-weight:800">{ens_acc*100:.1f}%</div>{_acc_bar}</div>'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.05s">{ens_acc*100:.1f}%</div>{_acc_bar}</div>'
         f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">Filtered Accuracy</div>'
-        f'<div style="color:#FFFFFF;font-size:1.55rem;font-weight:800">{ens_filt*100:.1f}%'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.15s">{ens_filt*100:.1f}%'
         f'<span style="color:#34D399;font-size:0.78rem;font-weight:600"> +{(ens_filt-ens_acc)*100:.1f}%</span></div>{_filt_bar}</div>'
         f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">P(UP Tomorrow)</div>'
-        f'<div style="color:#FFFFFF;font-size:1.55rem;font-weight:800">{last_prob*100:.1f}%</div>{_prob_bar}</div>'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.25s">{last_prob*100:.1f}%</div>{_prob_bar}</div>'
         f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">ATR Volatility</div>'
-        f'<div style="color:#FFFFFF;font-size:1.55rem;font-weight:800">${last_atr:.4f}</div>{_atr_bar}</div>'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.35s">${last_atr:.4f}</div>{_atr_bar}</div>'
         f'</div></div>', unsafe_allow_html=True
     )
 
@@ -748,13 +759,13 @@ with col_right:
         f'box-shadow:0 10px 30px rgba(0,0,0,0.4);margin-bottom:12px">'
         f'<div style="color:#A89F8C;font-size:0.72rem;text-transform:uppercase;font-weight:600">'
         f'<span class="{_dot_cls}"></span>{_price_label}</div>'
-        f'<div style="color:#FFFFFF;font-size:1.75rem;font-weight:800;margin-top:2px">${display_price:,.4f}</div>'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.75rem;font-weight:800;margin-top:2px">${display_price:,.4f}</div>'
         f'<div style="color:{_chg_color};font-weight:700;font-size:0.88rem">{day_chg:+.2f}%</div>'
         f'</div>'
         f'<div style="background:linear-gradient(135deg,#FFC542,#FF8C24);border-radius:16px;'
-        f'padding:16px 20px;box-shadow:0 10px 26px rgba(255,140,36,0.35)">'
+        f'padding:16px 20px;box-shadow:0 10px 26px rgba(255,140,36,0.35);animation:glowPulse 2.4s ease-in-out infinite">'
         f'<div style="color:#241C08;font-size:0.72rem;text-transform:uppercase;font-weight:700">Active Signals</div>'
-        f'<div style="color:#241C08;font-size:1.6rem;font-weight:900">{results["n_signals"]}</div>'
+        f'<div class="stat-pop" style="color:#241C08;font-size:1.6rem;font-weight:900;animation-delay:.2s">{results["n_signals"]}</div>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -781,7 +792,8 @@ with col_sig:
     _sc  = "#34D399" if last_sig=="BUY" else "#FF4D6D" if last_sig=="SELL" else "#8C8168"
     _tc  = "#34D399" if last_sig=="BUY" else "#FF4D6D"
     _slc = "#FF4D6D" if last_sig=="BUY" else "#34D399"
-    _em  = "🟢" if last_sig=="BUY" else "🔴" if last_sig=="SELL" else "⚪"
+    _dotcls2 = "buy" if last_sig=="BUY" else "sell" if last_sig=="SELL" else "hold"
+    _em  = f'<span class="status-dot {_dotcls2}"></span>'
 
     # Pre-compute all values to avoid nested f-strings with quotes
     _tp_disp  = f"${tp_price:,.4f}" if tp_price else "—"
@@ -796,7 +808,7 @@ with col_sig:
         f'<div>'
         f'<div style="color:#A89F8C;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
         f'letter-spacing:0.08em;margin-bottom:6px">{_sig_label}</div>'
-        f'<div style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>'
+        f'<div class="stat-pop" style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>'
         f'<div style="margin-top:7px;font-size:0.85rem">'
         f'<span style="color:#A89F8C">Confidence: </span>'
         f'<span style="color:#FF8C24;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
@@ -1171,21 +1183,40 @@ with col_7d:
             "R/R"        : _rr7,
         })
 
-    _df7 = pd.DataFrame(_rows7)
-    def _cs7(v):
-        if "BUY"  in str(v): return "color:#34D399;font-weight:700"
-        if "SELL" in str(v): return "color:#FF4D6D;font-weight:700"
-        return "color:#8C8168"
-    def _ct7(v): return "color:#34D399;font-weight:600" if v!="—" else "color:#8C8168"
-    def _cl7(v): return "color:#FF4D6D;font-weight:600" if v!="—" else "color:#8C8168"
-    try:
-        _st7 = (_df7.style.map(_cs7,subset=["Signal"])
-                .map(_ct7,subset=["Take Profit"])
-                .map(_cl7,subset=["Stop Loss"])
-                .hide(axis="index"))
-        st.dataframe(_st7, use_container_width=True, height=290)
-    except Exception:
-        st.dataframe(_df7, use_container_width=True, hide_index=True, height=290)
+    def _sig_color7(v):
+        if "BUY"  in str(v): return "#34D399"
+        if "SELL" in str(v): return "#FF4D6D"
+        return "#8C8168"
+
+    _hdr7 = "".join(
+        f'<th style="text-align:left;padding:8px 10px;color:#A89F8C;font-size:0.72rem;'
+        f'text-transform:uppercase;letter-spacing:0.03em;border-bottom:1px solid #241F14">{h}</th>'
+        for h in ["Date","Signal","Conf %","Entry","Take Profit","Stop Loss","R/R"]
+    )
+    _body7 = ""
+    for _i7, _r7 in enumerate(_rows7):
+        _sc7 = _sig_color7(_r7["Signal"])
+        _tp_c7 = "#34D399" if _r7["Take Profit"] != "—" else "#8C8168"
+        _sl_c7 = "#FF4D6D" if _r7["Stop Loss"]   != "—" else "#8C8168"
+        _body7 += (
+            f'<tr class="outlook-row" style="animation-delay:{_i7*0.07:.2f}s">'
+            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Date"]}</td>'
+            f'<td style="padding:8px 10px;color:{_sc7};font-weight:700;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Signal"]}</td>'
+            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Conf %"]}</td>'
+            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Entry"]}</td>'
+            f'<td style="padding:8px 10px;color:{_tp_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Take Profit"]}</td>'
+            f'<td style="padding:8px 10px;color:{_sl_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Stop Loss"]}</td>'
+            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["R/R"]}</td>'
+            f'</tr>'
+        )
+    st.markdown(
+        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
+        f'border:1px solid #332C1A;border-radius:14px;padding:6px 4px;overflow-x:auto;'
+        f'box-shadow:0 8px 24px rgba(0,0,0,0.35)">'
+        f'<table style="width:100%;border-collapse:collapse">'
+        f'<thead><tr>{_hdr7}</tr></thead><tbody>{_body7}</tbody></table></div>',
+        unsafe_allow_html=True
+    )
 
     _nb7 = sum(1 for r in _rows7 if "BUY"  in r["Signal"])
     _ns7 = sum(1 for r in _rows7 if "SELL" in r["Signal"])
@@ -2644,9 +2675,3 @@ with tab8:
         st.dataframe(_cts, use_container_width=True, hide_index=True)
         _tot = sum(t.get("pnl",0) or 0 for t in _ctl)
         st.metric("Total Closed P&L", f"{'+'if _tot>=0 else ''}{_tot:,.4f}")
-
-
-
-
-
-# ════════════════════════════════════════════════════════════════════
