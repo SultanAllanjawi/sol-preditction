@@ -53,11 +53,11 @@ code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono'
     radial-gradient(circle at 50% 100%, rgba(255,45,110,0.06), transparent 45%),
     #0A0805;
 }
-.block-container{padding-top:1.2rem}
+.block-container{padding-top:2.6rem}
 .block-container > div{animation:fadeInUp .45s ease both}
 
 /* header toolbar */
-header[data-testid="stHeader"]{background:rgba(7,6,13,0.75);backdrop-filter:blur(8px)}
+header[data-testid="stHeader"]{background:#0A0805;z-index:999}
 #MainMenu, footer{visibility:hidden}
 
 /* metric tiles */
