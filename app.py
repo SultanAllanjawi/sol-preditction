@@ -229,6 +229,20 @@ def is_crypto(t: str) -> bool:
     return t in _CRYPTO_SET or t.replace("-USD","") in _CRYPTO_SET or t.endswith("-USD")
 from feature_engine import build_features
 
+def empty_state(icon, title, subtitle, cta=None):
+    _cta_html = (f'<div style="color:#FFC542;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
+                 if cta else "")
+    st.markdown(
+        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
+        f'border:1px dashed #332C1A;border-radius:14px;padding:32px 24px;text-align:center;margin:8px 0">'
+        f'<div style="width:44px;height:44px;border-radius:12px;margin:0 auto 12px;'
+        f'background:linear-gradient(135deg,#FFC54230,#FF8C2420);border:1px solid #FFC54250;'
+        f'display:flex;align-items:center;justify-content:center;font-size:1.2rem">{icon}</div>'
+        f'<div style="color:#FFFFFF;font-weight:700;font-size:0.95rem">{title}</div>'
+        f'<div style="color:#A89F8C;font-size:0.82rem;margin-top:4px;line-height:1.5">{subtitle}</div>'
+        f'{_cta_html}</div>', unsafe_allow_html=True
+    )
+
 def dark_fig():
     plt.rcParams.update({
         'figure.facecolor':'#0A0805','axes.facecolor':'#161310',
@@ -1273,13 +1287,9 @@ with tab0:
     _tf_cols = st.columns(len(_tf_options))
     _selected_tf = st.session_state.get("chart_tf","D")
     for _i,((_tf_label,_tf_val),_col) in enumerate(zip(_tf_options.items(),_tf_cols)):
-        _btn_style = (
-            "background:#1F6FEB;color:white;border:1px solid #1F6FEB;"
-            if _selected_tf==_tf_val else
-            "background:#161310;color:#A89F8C;border:1px solid #332C1A;"
-        )
+        _tf_type = "primary" if _selected_tf==_tf_val else "secondary"
         if _col.button(_tf_label, key=f"tf_{_tf_val}",
-                       use_container_width=True):
+                       use_container_width=True, type=_tf_type):
             st.session_state["chart_tf"] = _tf_val
             st.rerun()
 
@@ -1807,7 +1817,7 @@ with tab2:
 with tab3:
     dark_fig()
     if not model_data:
-        st.warning("No model data available.")
+        empty_state("📊", "No model data available", "Try switching assets or forcing a refresh from the sidebar.")
     else:
         names=[*model_data.keys(),'Ensemble']
         accs =[model_data[k]['acc']*100 for k in model_data]+[ens_acc*100]
@@ -1986,9 +1996,9 @@ with tab4:
                 _sc4.metric("Win Rate",      f"{_wr:.0f}%",
                             delta_color="normal" if _wr>=50 else "inverse")
             else:
-                st.info("No signals yet. Try lowering the confidence threshold.")
+                empty_state("📋", "No signals yet", "Try lowering the confidence threshold in the sidebar.")
         else:
-            st.info("No signals found. Try lowering the confidence threshold in the sidebar.")
+            empty_state("📋", "No signals found", "Try lowering the confidence threshold in the sidebar.")
 
 # ── FOOTER ─────────────────────────────────────────────────────────
 st.divider()
@@ -2017,7 +2027,7 @@ with tab5:
     # ── Crypto News ───────────────────────────────────────────────
     with _ntab:
         if not _cnews:
-            st.info("No crypto news found. This will load live on Streamlit Cloud.")
+            empty_state("📰", "No crypto news found", "This loads live once deployed on Streamlit Cloud.")
         else:
             _pos = sum(1 for n in _cnews if "Positive" in n.get("sentiment",""))
             _neg = sum(1 for n in _cnews if "Negative" in n.get("sentiment",""))
@@ -2239,7 +2249,8 @@ with tab6:
 
     # ── Open positions ───────────────────────────────────────────
     if not st.session_state.portfolio_trades:
-        st.info("No trades yet. Add your first trade above to start tracking.")
+        empty_state("💼", "No trades logged yet",
+                     "Trades you add here track live P&amp;L against your entry, TP and SL automatically.")
     else:
         trades = st.session_state.portfolio_trades
 
@@ -2441,10 +2452,9 @@ with tab7:
     _scan_time    = st.session_state.get("scan_time", None)
 
     if not _scan_results:
-        st.info(
-            "Click **Scan All Assets Now** to see live signals for all assets in one view. "
-            "First scan takes ~30 seconds (trains models for each asset)."
-        )
+        empty_state("🔀", "No scan run yet",
+                     "Click Scan All Assets Now to see live signals for every asset in one view "
+                     "&mdash; first scan takes ~30 seconds.")
     else:
         if _scan_time:
             st.caption(f"Last scanned: {_scan_time.strftime('%H:%M %d %b')} Dubai time")
@@ -2568,7 +2578,7 @@ with tab8:
         _msig = results["multi_signals"]
 
     if _msig is None or _msig.empty:
-        st.info("No signal data available.")
+        empty_state("📈", "No signal data available", "Try switching assets or forcing a refresh from the sidebar.")
     else:
         _cap = float(_start_cap); _equity = [_cap]
         _wins = _losses = 0; _peak = _cap; _max_dd = 0.0; _trades_log = []
@@ -2675,6 +2685,19 @@ with tab8:
         st.dataframe(_cts, use_container_width=True, hide_index=True)
         _tot = sum(t.get("pnl",0) or 0 for t in _ctl)
         st.metric("Total Closed P&L", f"{'+'if _tot>=0 else ''}{_tot:,.4f}")
+
+# ═══════════════════════════════════════════════════════════════════
+# FOOTER
+# ═══════════════════════════════════════════════════════════════════
+st.markdown(
+    '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #241F14;'
+    'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+    '<div style="display:flex;align-items:center;gap:7px;color:#6E6754;font-size:0.75rem">'
+    '<span style="width:6px;height:6px;border-radius:50%;background:#FFC542;display:inline-block"></span>'
+    'Prediction Dashboard &middot; research tool, not financial advice</div>'
+    '<div style="color:#6E6754;font-size:0.72rem">Data refreshes every 6h</div>'
+    '</div>', unsafe_allow_html=True
+)
 
 
 
