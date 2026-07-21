@@ -2675,3 +2675,9 @@ with tab8:
         st.dataframe(_cts, use_container_width=True, hide_index=True)
         _tot = sum(t.get("pnl",0) or 0 for t in _ctl)
         st.metric("Total Closed P&L", f"{'+'if _tot>=0 else ''}{_tot:,.4f}")
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
