@@ -113,6 +113,12 @@ class ModelEngine:
     def _prepare(self):
         d=self.df; sp=int(len(d)*self.split)
         if len(d)<100: raise RuntimeError(f"Not enough data: {len(d)} rows. Need ≥100.")
+        if len(d)-sp <= SEQ_LEN:
+            raise RuntimeError(
+                f"Not enough test-period data after the 80/20 split: only {len(d)-sp} rows, "
+                f"need >{SEQ_LEN}. This usually means the data source returned a short/partial "
+                f"history (e.g. an API rate-limit or fallback) — try Force Refresh Data."
+            )
         self.tr=d.iloc[:sp]; self.te=d.iloc[sp:]
         feat=[c for c in FEATURE_COLS if c in d.columns]
         self.feat_cols=feat
