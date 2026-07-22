@@ -314,6 +314,10 @@ def get_market_cap_cached(ticker):
 def get_fear_greed_cached():
     return DataManager.get_fear_greed_index()
 
+@st.cache_data(ttl=600, show_spinner=False)
+def get_active_wallets_cached(ticker):
+    return DataManager.get_active_wallets(ticker)
+
 def empty_state(icon, title, subtitle, cta=None):
     _cta_html = (f'<div style="color:#FFC542;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
                  if cta else "")
@@ -1642,6 +1646,7 @@ with tab_pulse:
         _s24  = get_24h_stats_cached(ticker)
         _fng  = get_fear_greed_cached()
         _ob   = get_order_book_cached(ticker)
+        _aw   = get_active_wallets_cached(ticker)
 
         st.markdown(
             '<div style="color:#FFC542;font-weight:700;font-size:0.9rem;text-transform:uppercase;'
@@ -1659,9 +1664,11 @@ with tab_pulse:
         _fng_c    = ("#FF4D6D" if _fng_val<=25 else "#FF8C24" if _fng_val<=45 else
                      "#FFC542" if _fng_val<=55 else "#34D399" if _fng_val<=75 else "#00E676")
         _trades_str = f"{_s24['trade_count']:,}" if _s24 else "—"
+        _aw_str = f"{_aw['active_addresses']:,}" if _aw else "N/A"
+        _aw_sub = "unique BTC addresses, 24h" if _aw else "no free source for this asset"
 
         st.markdown(
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">'
+            '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">'
             f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
             f'border-radius:12px;padding:14px 16px">'
             f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Market Cap</div>'
@@ -1681,6 +1688,11 @@ with tab_pulse:
             f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Trades</div>'
             f'<div class="stat-pop" style="color:#A78BFA;font-size:1.3rem;font-weight:800;margin-top:3px">{_trades_str}</div>'
             f'<div style="color:#6E6754;font-size:0.68rem">trade count, not wallet count</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Active Wallets</div>'
+            f'<div class="stat-pop" style="color:{"#FFFFFF" if _aw else "#6E6754"};font-size:1.3rem;font-weight:800;margin-top:3px">{_aw_str}</div>'
+            f'<div style="color:#6E6754;font-size:0.68rem">{_aw_sub}</div></div>'
             '</div>', unsafe_allow_html=True
         )
 
@@ -1795,7 +1807,7 @@ with tab_pulse:
             _figm, _axm = plt.subplots(figsize=(14, 3.4))
             _figm.patch.set_facecolor('#0A0805'); _axm.set_facecolor('#161310')
             _xm = np.arange(_nshow)
-            _axm.bar(_xm, _pchg, color='#00E5C7', alpha=0.55, width=0.7, label='Price momentum %')
+            _axm.bar(_xm, _pchg, color='#34D399', alpha=0.55, width=0.7, label='Price momentum %')
             _axm.bar(_xm, _vol_n*_pchg.std()*2, color='#FFC542', alpha=0.35, width=0.4, label='Volume (norm.)')
             _axm.bar(_xm, -_atrn*_pchg.std()*1.5, color='#A78BFA', alpha=0.45, width=0.4, label='Volatility (norm.)')
             _axm.axhline(0, color='#6E6754', lw=0.8, ls='--', alpha=0.6)
