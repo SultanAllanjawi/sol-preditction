@@ -298,6 +298,22 @@ from feature_engine import build_features
 def get_live_price_cached(ticker):
     return DataManager.get_live_price(ticker)
 
+@st.cache_data(ttl=20, show_spinner=False)
+def get_order_book_cached(ticker):
+    return DataManager.get_order_book(ticker, limit=10)
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_24h_stats_cached(ticker):
+    return DataManager.get_24h_stats(ticker)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_market_cap_cached(ticker):
+    return DataManager.get_market_cap(ticker)
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_fear_greed_cached():
+    return DataManager.get_fear_greed_index()
+
 def empty_state(icon, title, subtitle, cta=None):
     _cta_html = (f'<div style="color:#FFC542;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
                  if cta else "")
@@ -1603,8 +1619,9 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════
 # TABS
 # ═══════════════════════════════════════════════════════════════════
-tab0,tab1,tab2,tab3,tab4,tab5,tab7,tab8 = st.tabs([
+tab0,tab_pulse,tab1,tab2,tab3,tab4,tab5,tab7,tab8 = st.tabs([
     "📡 Live Chart",
+    "🌐 Market Pulse",
     "📈 Price & Signals",
     "🎯 Predicted vs Actual",
     "📊 Model Performance",
@@ -1613,6 +1630,182 @@ tab0,tab1,tab2,tab3,tab4,tab5,tab7,tab8 = st.tabs([
     "🔀 Multi-Asset Scanner",
     "📈 Backtest P&L",
 ])
+
+# ── TAB: Market Pulse — order book, sentiment, fear/greed, market cap ──
+with tab_pulse:
+    if not is_crypto(ticker):
+        empty_state("🌐", "Market Pulse is crypto-only",
+                     "Order book, market cap, and the Fear &amp; Greed index all come from crypto-specific "
+                     "data sources (Binance, CoinGecko) that don't have equivalents for stocks or UAE assets.")
+    else:
+        _mc   = get_market_cap_cached(ticker)
+        _s24  = get_24h_stats_cached(ticker)
+        _fng  = get_fear_greed_cached()
+        _ob   = get_order_book_cached(ticker)
+
+        st.markdown(
+            '<div style="color:#FFC542;font-weight:700;font-size:0.9rem;text-transform:uppercase;'
+            'letter-spacing:.04em;margin-bottom:14px">🌐 Market Pulse — Live</div>',
+            unsafe_allow_html=True
+        )
+
+        # ── Top stat row ──────────────────────────────────────────
+        _mcap_str = f"${_mc['market_cap']/1e9:.2f}B" if _mc and _mc['market_cap'] else "—"
+        _vol_str  = f"${_s24['volume_quote']/1e6:.1f}M" if _s24 else (f"${_mc['volume_24h']/1e6:.1f}M" if _mc else "—")
+        _chg24    = _s24['price_change_pct'] if _s24 else (_mc['change_24h'] if _mc else 0)
+        _chg_c    = "#34D399" if _chg24 >= 0 else "#FF4D6D"
+        _fng_val  = _fng['value'] if _fng else 50
+        _fng_cls  = _fng['classification'] if _fng else "Neutral"
+        _fng_c    = ("#FF4D6D" if _fng_val<=25 else "#FF8C24" if _fng_val<=45 else
+                     "#FFC542" if _fng_val<=55 else "#34D399" if _fng_val<=75 else "#00E676")
+        _trades_str = f"{_s24['trade_count']:,}" if _s24 else "—"
+
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Market Cap</div>'
+            f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.3rem;font-weight:800;margin-top:3px">{_mcap_str}</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Volume</div>'
+            f'<div class="stat-pop" style="color:{_chg_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_vol_str}</div>'
+            f'<div style="color:{_chg_c};font-size:0.72rem;font-weight:600">{_chg24:+.2f}% (24h)</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Fear &amp; Greed</div>'
+            f'<div class="stat-pop" style="color:{_fng_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_fng_val} &middot; {_fng_cls}</div>'
+            f'<div style="color:#6E6754;font-size:0.68rem">market-wide index</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'border-radius:12px;padding:14px 16px">'
+            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Trades</div>'
+            f'<div class="stat-pop" style="color:#A78BFA;font-size:1.3rem;font-weight:800;margin-top:3px">{_trades_str}</div>'
+            f'<div style="color:#6E6754;font-size:0.68rem">trade count, not wallet count</div></div>'
+            '</div>', unsafe_allow_html=True
+        )
+
+        _pulse_left, _pulse_right = st.columns([1.2, 1])
+
+        # ── Order book ───────────────────────────────────────────
+        with _pulse_left:
+            st.markdown(
+                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin-bottom:8px">📖 Order Book — Top 10</div>',
+                unsafe_allow_html=True
+            )
+            if not _ob or not _ob.get("bids") or not _ob.get("asks"):
+                empty_state("📖", "Order book unavailable", "Binance depth data didn't load — try refreshing.")
+            else:
+                _max_qty = max(
+                    max((q for _, q in _ob["bids"]), default=1),
+                    max((q for _, q in _ob["asks"]), default=1),
+                ) or 1
+                _bid_rows = ""
+                for _p, _q in _ob["bids"][:10]:
+                    _w = min(100, _q / _max_qty * 100)
+                    _bid_rows += (
+                        f'<div style="position:relative;padding:3px 8px;font-size:0.78rem;'
+                        f'font-family:ui-monospace,monospace">'
+                        f'<div style="position:absolute;inset:0;background:rgba(52,211,153,0.12);'
+                        f'width:{_w:.0f}%;border-radius:3px"></div>'
+                        f'<div style="position:relative;display:flex;justify-content:space-between">'
+                        f'<span style="color:#34D399;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#A89F8C">{_q:.3f}</span></div></div>'
+                    )
+                _ask_rows = ""
+                for _p, _q in _ob["asks"][:10]:
+                    _w = min(100, _q / _max_qty * 100)
+                    _ask_rows += (
+                        f'<div style="position:relative;padding:3px 8px;font-size:0.78rem;'
+                        f'font-family:ui-monospace,monospace">'
+                        f'<div style="position:absolute;inset:0;background:rgba(255,77,109,0.12);'
+                        f'width:{_w:.0f}%;border-radius:3px"></div>'
+                        f'<div style="position:relative;display:flex;justify-content:space-between">'
+                        f'<span style="color:#FF4D6D;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#A89F8C">{_q:.3f}</span></div></div>'
+                    )
+                st.markdown(
+                    f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+                    f'border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+                    f'<div><div style="color:#34D399;font-size:0.68rem;text-transform:uppercase;'
+                    f'font-weight:700;margin-bottom:4px">Bids</div>{_bid_rows}</div>'
+                    f'<div><div style="color:#FF4D6D;font-size:0.68rem;text-transform:uppercase;'
+                    f'font-weight:700;margin-bottom:4px">Asks</div>{_ask_rows}</div>'
+                    f'</div>', unsafe_allow_html=True
+                )
+
+        # ── Social sentiment ─────────────────────────────────────
+        with _pulse_right:
+            st.markdown(
+                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin-bottom:8px">💬 Social Sentiment</div>',
+                unsafe_allow_html=True
+            )
+            _sent_lbl  = "Bullish" if _sentiment>0.1 else "Bearish" if _sentiment<-0.1 else "Neutral"
+            _sent_c    = "#34D399" if _sentiment>0.1 else "#FF4D6D" if _sentiment<-0.1 else "#8C8168"
+            _sent_pct  = int((_sentiment + 1) / 2 * 100)  # -1..1 -> 0..100
+            st.markdown(
+                f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);'
+                f'border:1px solid #332C1A;border-radius:12px;padding:16px">'
+                f'<div style="color:{_sent_c};font-size:1.4rem;font-weight:800">{_sent_lbl}</div>'
+                f'<div style="color:#A89F8C;font-size:0.78rem;margin:2px 0 10px">CryptoPanic score: {_sentiment:+.3f}</div>'
+                f'<div style="background:#241F14;border-radius:6px;height:8px;overflow:hidden">'
+                f'<div style="width:{_sent_pct}%;height:100%;background:linear-gradient(90deg,#FF4D6D,#8C8168,#34D399);'
+                f'border-radius:6px"></div></div>'
+                f'<div style="display:flex;justify-content:space-between;color:#6E6754;font-size:0.66rem;margin-top:3px">'
+                f'<span>Bearish</span><span>Neutral</span><span>Bullish</span></div>'
+                f'</div>', unsafe_allow_html=True
+            )
+
+            st.markdown(
+                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin:16px 0 8px">📊 24h Range</div>',
+                unsafe_allow_html=True
+            )
+            if _s24:
+                _rng_pct = ((display_price - _s24['low']) / max(_s24['high']-_s24['low'], 0.0001)) * 100
+                st.markdown(
+                    f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);'
+                    f'border:1px solid #332C1A;border-radius:12px;padding:16px">'
+                    f'<div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:6px">'
+                    f'<span style="color:#FF4D6D">${_s24["low"]:,.4f}</span>'
+                    f'<span style="color:#FFC542;font-weight:700">${display_price:,.4f}</span>'
+                    f'<span style="color:#34D399">${_s24["high"]:,.4f}</span></div>'
+                    f'<div style="background:#241F14;border-radius:6px;height:6px;position:relative">'
+                    f'<div style="position:absolute;left:{max(0,min(96,_rng_pct)):.0f}%;top:-3px;width:12px;height:12px;'
+                    f'border-radius:50%;background:#FFC542;box-shadow:0 0 8px rgba(255,197,66,0.6)"></div></div>'
+                    f'</div>', unsafe_allow_html=True
+                )
+            else:
+                st.caption("24h high/low unavailable.")
+
+        # ── Layered momentum bar chart (Nexus-inspired teal/gold/violet) ──
+        st.markdown(
+            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            'letter-spacing:.04em;margin:20px 0 8px">📈 Momentum Stream — last 48 candles</div>',
+            unsafe_allow_html=True
+        )
+        try:
+            dark_fig()
+            _nshow = min(48, len(df_feat))
+            _dshow = df_feat.iloc[-_nshow:]
+            _pchg  = _dshow['Close'].pct_change().fillna(0).values * 100
+            _vol_n = (_dshow['Volume'].values / max(_dshow['Volume'].max(), 1e-9)) if 'Volume' in _dshow.columns else np.zeros(_nshow)
+            _atrn  = (_dshow['ATR'].values / max(_dshow['ATR'].max(), 1e-9)) if 'ATR' in _dshow.columns else np.zeros(_nshow)
+            _figm, _axm = plt.subplots(figsize=(14, 3.4))
+            _figm.patch.set_facecolor('#0A0805'); _axm.set_facecolor('#161310')
+            _xm = np.arange(_nshow)
+            _axm.bar(_xm, _pchg, color='#00E5C7', alpha=0.55, width=0.7, label='Price momentum %')
+            _axm.bar(_xm, _vol_n*_pchg.std()*2, color='#FFC542', alpha=0.35, width=0.4, label='Volume (norm.)')
+            _axm.bar(_xm, -_atrn*_pchg.std()*1.5, color='#A78BFA', alpha=0.45, width=0.4, label='Volatility (norm.)')
+            _axm.axhline(0, color='#6E6754', lw=0.8, ls='--', alpha=0.6)
+            _axm.set_xticks([]); _axm.legend(loc='upper left', ncol=3, fontsize=7.5, framealpha=0.15)
+            _axm.spines[['top','right','left']].set_visible(False)
+            _axm.set_yticks([])
+            plt.tight_layout()
+            st.pyplot(_figm, use_container_width=True); plt.close()
+        except Exception:
+            st.caption("Momentum chart unavailable for this asset right now.")
 
 # ── TAB 0: Live Chart + Signal Dashboard ──────────────────────────
 with tab0:
