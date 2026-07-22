@@ -103,6 +103,35 @@ hr{border-color:#241F14}
 /* sidebar */
 [data-testid="stSidebar"]{background:#0B0813;border-right:1px solid #241F14}
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem}
+[data-testid="stSidebar"] .block-container{animation:fadeInUp .45s ease both}
+.sb-section{
+  color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;
+  letter-spacing:.04em;display:flex;align-items:center;gap:6px;margin:4px 0 2px;
+}
+
+/* alerts / info boxes — override Streamlit's default blue */
+.stAlert, [data-testid="stNotification"], [data-testid^="stAlertContent"]{
+  background:#161310!important;border:1px solid #332C1A!important;
+  border-radius:10px!important;color:#E8E2D5!important;
+}
+.stAlert p, [data-testid^="stAlertContent"] p{color:#E8E2D5!important}
+[data-testid="stAlertContentInfo"]{border-left:3px solid #FFC542!important}
+[data-testid="stAlertContentSuccess"]{border-left:3px solid #34D399!important}
+[data-testid="stAlertContentWarning"]{border-left:3px solid #FF8C24!important}
+[data-testid="stAlertContentError"]{border-left:3px solid #FF4D6D!important}
+[data-testid="stAlertContentInfo"] svg{color:#FFC542!important;fill:#FFC542!important}
+[data-testid="stAlertContentSuccess"] svg{color:#34D399!important;fill:#34D399!important}
+[data-testid="stAlertContentWarning"] svg{color:#FF8C24!important;fill:#FF8C24!important}
+[data-testid="stAlertContentError"] svg{color:#FF4D6D!important;fill:#FF4D6D!important}
+
+/* radio groups — pill-style hover + gold accent */
+[data-testid="stRadio"] label{
+  border-radius:8px;padding:4px 8px;margin:1px 0;transition:background .15s ease;
+  accent-color:#FFC542;
+}
+[data-testid="stRadio"] label:hover{background:rgba(255,197,66,0.08)}
+[data-testid="stRadio"] [data-baseweb="radio"] div:first-child{border-color:#332C1A!important}
+[data-testid="stCheckbox"]{accent-color:#FFC542}
 
 /* tabs */
 .stTabs [data-baseweb="tab-list"]{background:#161310;border-radius:10px;padding:4px;gap:2px}
@@ -290,7 +319,7 @@ with st.sidebar:
     st.divider()
 
     # ── Upload CSV ──────────────────────────────────────────────────
-    st.subheader("📁 Upload CSV Data")
+    st.markdown('<div class="sb-section">📁 Upload CSV Data</div>', unsafe_allow_html=True)
 
     # Upload mode selector
     _umode = st.radio("Upload for:", ["🇦🇪 UAE / DFM Stock", "📈 Other Asset"],
@@ -369,7 +398,7 @@ with st.sidebar:
     st.divider()
 
     # ── Asset Selection — base list + any uploaded CSVs ────────────
-    st.subheader("📊 Asset Selection")
+    st.markdown('<div class="sb-section">📊 Asset Selection</div>', unsafe_allow_html=True)
 
     _CRYPTO  = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
     _US      = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
@@ -448,7 +477,7 @@ with st.sidebar:
         st.info(f"📡 Auto-fetching from **{_src}** · Updates every 30 min")
 
     st.divider()
-    st.subheader("⚙️ Signal Settings")
+    st.markdown('<div class="sb-section">⚙️ Signal Settings</div>', unsafe_allow_html=True)
 
     signal_mode = st.radio(
         "Signal Mode",
