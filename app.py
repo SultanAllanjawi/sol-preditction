@@ -254,6 +254,10 @@ def is_crypto(t: str) -> bool:
     return t in _CRYPTO_SET or t.replace("-USD","") in _CRYPTO_SET or t.endswith("-USD")
 from feature_engine import build_features
 
+@st.cache_data(ttl=30, show_spinner=False)
+def get_live_price_cached(ticker):
+    return DataManager.get_live_price(ticker)
+
 def empty_state(icon, title, subtitle, cta=None):
     _cta_html = (f'<div style="color:#FFC542;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
                  if cta else "")
@@ -519,11 +523,10 @@ def render_portfolio_page():
     with st.expander("➕ Add a Trade", expanded=len(st.session_state.portfolio_trades)==0):
         _pt1,_pt2,_pt3 = st.columns(3)
         with _pt1:
-            _pt_ticker = st.selectbox("Asset", ["SOL-USD","BTC-USD","ETH-USD","AAPL","TSLA","NVDA"],
-                                       key="pf_pt_ticker")
+            _pt_ticker = st.selectbox("Asset", all_assets_full, key="pf_pt_ticker")
             _pt_side   = st.selectbox("Side", ["BUY","SELL"], key="pf_pt_side")
         with _pt2:
-            _pt_live_default = DataManager.get_live_price(_pt_ticker) or 0.0
+            _pt_live_default = get_live_price_cached(_pt_ticker) or 0.0
             _pt_entry  = st.number_input("Entry Price ($)", min_value=0.0, value=float(_pt_live_default),
                                           format="%.4f", key="pf_pt_entry")
             _pt_size   = st.number_input("Position Size (units)", min_value=0.001,
@@ -554,7 +557,7 @@ def render_portfolio_page():
     total_pnl = 0.0; total_invest = 0.0; open_count = 0
     _rows = []
     for _t in trades:
-        _live = DataManager.get_live_price(_t["ticker"]) or _t["entry"]
+        _live = get_live_price_cached(_t["ticker"]) or _t["entry"]
         _is_open = _t["status"] == "Open"
         if _is_open:
             _pnl_per = (_live - _t["entry"]) if _t["side"]=="BUY" else (_t["entry"] - _live)
@@ -718,7 +721,7 @@ def render_portfolio_page():
         _close_idx = st.number_input("Trade # to close (1-based)", min_value=1,
                                       max_value=len(trades), value=1, key="pf_close_idx")
         _exit_price = st.number_input("Exit price ($)", min_value=0.0,
-                                       value=float(DataManager.get_live_price(trades[int(_close_idx)-1]["ticker"]) or 0.0),
+                                       value=float(get_live_price_cached(trades[int(_close_idx)-1]["ticker"]) or 0.0),
                                        format="%.4f", key="pf_exit_p")
         if st.button("✅ Close Trade", use_container_width=True, key="pf_close_btn"):
             _idx = int(_close_idx) - 1
@@ -928,7 +931,7 @@ prev_close  = float(df_feat['Close'].iloc[-2])
 day_chg     = (last_close - prev_close) / prev_close * 100
 
 # Get LIVE price (may differ from yesterday's close)
-live_price = DataManager.get_live_price(ticker)
+live_price = get_live_price_cached(ticker)
 display_price = live_price if (live_price and live_price > 0) else last_close
 if not display_price or display_price != display_price:  # NaN check
     display_price = float(df_feat['Close'].dropna().iloc[-1]) if len(df_feat['Close'].dropna()) > 0 else 1.0
@@ -1084,6 +1087,8 @@ with col_right:
         f'padding:16px 20px;box-shadow:0 10px 26px rgba(255,140,36,0.35);animation:glowPulse 2.4s ease-in-out infinite">'
         f'<div style="color:#241C08;font-size:0.72rem;text-transform:uppercase;font-weight:700">Active Signals</div>'
         f'<div class="stat-pop" style="color:#241C08;font-size:1.6rem;font-weight:900;animation-delay:.2s">{results["n_signals"]}</div>'
+        f'<div style="color:#241C08;font-size:0.7rem;font-weight:700;opacity:0.75">'
+        f'🟢 {int((signals==1).sum())} buy &middot; 🔴 {int((signals==-1).sum())} sell</div>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -1367,6 +1372,13 @@ except Exception:
 
 _ai_system = (
     f"You are a trading AI assistant. {name} ({ticker}) | Price:{_ai_pr_str} | {last_sig} {last_conf:.0f}% conf | TP:{_ai_tp_str} SL:{_ai_sl_str} | Acc:{ens_filt*100:.0f}% | News:{_ai_news_str[:100]}. Answer any question concisely."
+)
+
+st.markdown(
+    '<div style="color:#A78BFA;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+    'letter-spacing:.04em;margin:4px 0 8px;display:flex;align-items:center;gap:6px">'
+    '<span style="width:6px;height:6px;border-radius:50%;background:#A78BFA;display:inline-block"></span>'
+    '🤖 AI Assistant</div>', unsafe_allow_html=True
 )
 
 # Quick question buttons + clear
