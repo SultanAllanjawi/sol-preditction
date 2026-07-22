@@ -658,6 +658,26 @@ class DataManager:
             return None
 
     @staticmethod
+    def get_active_wallets(ticker: str) -> dict | None:
+        """Active on-chain addresses. Only Bitcoin has a free, no-key, reliable public source
+        (blockchain.info). No honest equivalent exists for other chains without a paid API key,
+        and it has no meaning at all for stocks/commodities — so this returns None for anything
+        that isn't BTC, and callers should show an explicit 'not available' state rather than a
+        fabricated number."""
+        t = ticker.upper().replace("-USD", "")
+        if t != "BTC":
+            return None
+        try:
+            r = requests.get("https://api.blockchain.info/charts/n-unique-addresses",
+                params={"timespan": "2days", "format": "json", "cors": "true"}, timeout=8)
+            if r.status_code != 200: return None
+            vals = r.json().get("values", [])
+            if not vals: return None
+            return {"active_addresses": int(vals[-1]["y"])}
+        except Exception:
+            return None
+
+    @staticmethod
     def get_ticker_name(ticker: str) -> str:
         return TICKER_INFO.get(ticker,{}).get("name", ticker)
 
