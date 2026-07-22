@@ -662,6 +662,49 @@ class DataManager:
             return None
 
     @staticmethod
+    def get_fear_greed_history(days: int = 14) -> list[int] | None:
+        """Real Fear & Greed values for the last N days, oldest first — for a sparkline, not fake noise."""
+        try:
+            r = requests.get("https://api.alternative.me/fng/", params={"limit": days}, timeout=8)
+            if r.status_code != 200: return None
+            items = r.json().get("data", [])
+            if not items: return None
+            return [int(i.get("value", 50)) for i in reversed(items)]
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_market_chart(ticker: str, days: int = 14) -> dict | None:
+        """Real historical market cap + volume series from CoinGecko, oldest first. Crypto only."""
+        t = ticker.upper()
+        coin = COINGECKO_MAP.get(t, COINGECKO_MAP.get(t.replace("-USD","")))
+        if not coin: return None
+        try:
+            r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart",
+                params={"vs_currency": "usd", "days": days}, headers=HDR, timeout=10)
+            if r.status_code != 200: return None
+            d = r.json()
+            return {
+                "market_caps": [float(p[1]) for p in d.get("market_caps", [])],
+                "volumes":     [float(p[1]) for p in d.get("total_volumes", [])],
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_price_history_lite(ticker: str, days: int = 14) -> list[float] | None:
+        """Lightweight recent daily closes for a small sparkline — not the full model dataset."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/klines",
+                params={"symbol": sym, "interval": "1d", "limit": days}, headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            return [float(k[4]) for k in r.json()]  # close prices, oldest first
+        except Exception:
+            return None
+
+    @staticmethod
     def get_active_wallets(ticker: str) -> dict | None:
         """Active on-chain addresses. Only Bitcoin has a free, no-key, reliable public source
         (blockchain.info). No honest equivalent exists for other chains without a paid API key,
@@ -673,11 +716,14 @@ class DataManager:
             return None
         try:
             r = requests.get("https://api.blockchain.info/charts/n-unique-addresses",
-                params={"timespan": "2days", "format": "json", "cors": "true"}, timeout=8)
+                params={"timespan": "14days", "format": "json", "cors": "true"}, timeout=8)
             if r.status_code != 200: return None
             vals = r.json().get("values", [])
             if not vals: return None
-            return {"active_addresses": int(vals[-1]["y"])}
+            return {
+                "active_addresses": int(vals[-1]["y"]),
+                "history": [int(v["y"]) for v in vals],  # real daily series, oldest first
+            }
         except Exception:
             return None
 
@@ -841,5 +887,3 @@ def get_combined_news(ticker: str) -> dict:
     return {
         "crypto_news"    : crypto_news,
         "forex_calendar" : forex_cal,
-        "sentiment_score": avg_score,
-    }
