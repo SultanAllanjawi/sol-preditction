@@ -589,14 +589,23 @@ class DataManager:
 
     @staticmethod
     def get_order_book(ticker: str, limit: int = 10) -> dict | None:
-        """Live order book depth from Binance. Crypto only. Returns {'bids':[[price,qty]...],'asks':[[price,qty]...]}."""
+        """Live order book depth from Binance. Crypto only. Returns {'bids':[[price,qty]...],'asks':[[price,qty]...]}.
+        Tries api.binance.com first, then the public market-data mirror data-api.binance.vision —
+        cloud-hosted apps sometimes get blocked/rate-limited on one but not the other."""
         sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
         if not sym: return None
+        d = None
+        for base in ("https://api.binance.com", "https://data-api.binance.vision"):
+            try:
+                r = requests.get(f"{base}/api/v3/depth",
+                    params={"symbol": sym, "limit": limit}, headers=HDR, timeout=10)
+                if r.status_code == 200:
+                    d = r.json()
+                    break
+            except Exception:
+                continue
+        if d is None: return None
         try:
-            r = requests.get("https://api.binance.com/api/v3/depth",
-                params={"symbol": sym, "limit": limit}, headers=HDR, timeout=8)
-            if r.status_code != 200: return None
-            d = r.json()
             return {
                 "bids": [[float(p), float(q)] for p, q in d.get("bids", [])],
                 "asks": [[float(p), float(q)] for p, q in d.get("asks", [])],
