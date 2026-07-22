@@ -584,6 +584,80 @@ class DataManager:
         return None
 
     @staticmethod
+    def get_order_book(ticker: str, limit: int = 10) -> dict | None:
+        """Live order book depth from Binance. Crypto only. Returns {'bids':[[price,qty]...],'asks':[[price,qty]...]}."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/depth",
+                params={"symbol": sym, "limit": limit}, headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            d = r.json()
+            return {
+                "bids": [[float(p), float(q)] for p, q in d.get("bids", [])],
+                "asks": [[float(p), float(q)] for p, q in d.get("asks", [])],
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_24h_stats(ticker: str) -> dict | None:
+        """24h ticker stats from Binance: change %, volume, quote volume, trade count. Crypto only."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/ticker/24hr",
+                params={"symbol": sym}, headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            d = r.json()
+            return {
+                "price_change_pct": float(d.get("priceChangePercent", 0) or 0),
+                "volume_base": float(d.get("volume", 0) or 0),
+                "volume_quote": float(d.get("quoteVolume", 0) or 0),
+                "trade_count": int(d.get("count", 0) or 0),
+                "high": float(d.get("highPrice", 0) or 0),
+                "low": float(d.get("lowPrice", 0) or 0),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_market_cap(ticker: str) -> dict | None:
+        """Market cap + 24h volume/change from CoinGecko's free public API. Crypto only."""
+        t = ticker.upper()
+        coin = COINGECKO_MAP.get(t, COINGECKO_MAP.get(t.replace("-USD","")))
+        if not coin: return None
+        try:
+            r = requests.get("https://api.coingecko.com/api/v3/simple/price",
+                params={"ids": coin, "vs_currencies": "usd", "include_market_cap": "true",
+                        "include_24hr_vol": "true", "include_24hr_change": "true"},
+                headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            d = r.json().get(coin, {})
+            if not d: return None
+            return {
+                "market_cap": float(d.get("usd_market_cap", 0) or 0),
+                "volume_24h": float(d.get("usd_24h_vol", 0) or 0),
+                "change_24h": float(d.get("usd_24h_change", 0) or 0),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_fear_greed_index() -> dict | None:
+        """Crypto Fear & Greed Index — a market-wide (not per-asset) sentiment gauge. Free, no key needed."""
+        try:
+            r = requests.get("https://api.alternative.me/fng/", params={"limit": 1}, timeout=8)
+            if r.status_code != 200: return None
+            item = r.json().get("data", [{}])[0]
+            return {
+                "value": int(item.get("value", 50)),
+                "classification": item.get("value_classification", "Neutral"),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
     def get_ticker_name(ticker: str) -> str:
         return TICKER_INFO.get(ticker,{}).get("name", ticker)
 
