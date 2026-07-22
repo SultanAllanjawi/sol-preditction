@@ -495,6 +495,10 @@ with st.sidebar:
         _INDICES = ["GC=F","SI=F","SPY","QQQ"]   # Gold, Silver, S&P500, Nasdaq
         _UAE     = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
                     "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+        # Abu Dhabi Exchange stocks Yahoo Finance has no live data for at all —
+        # verified directly against Yahoo's API (every symbol variant 404s or
+        # resolves to an unrelated/stale instrument). CSV upload only.
+        _UAE_ADX_MANUAL = {"FAB.ADX","ALDAR.ADX","ADCB.ADX"}
         _UAE_NAMES = {
             "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
             "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
@@ -559,9 +563,11 @@ with st.sidebar:
         elif ticker in _INDICES:
             _idx_names = {"GC=F":"Gold","SI=F":"Silver","SPY":"S&P 500","QQQ":"Nasdaq 100"}
             st.info(f"📡 **{_idx_names.get(ticker,ticker)}** · Yahoo Finance · Updates every 30 min")
+        elif ticker in _UAE_ADX_MANUAL:
+            st.warning("📁 **ADX stock** · No free auto-fetch source exists for this ticker · Upload a CSV below")
         elif ticker in _UAE:
             st.info("📡 **UAE / DFM** · Auto-fetching from Yahoo Finance · No CSV needed")
-            st.caption("Auto-updates every 6h · Sources: yfinance → Stooq → Alpha Vantage")
+            st.caption("Auto-updates every 6h")
         else:
             _src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","XRP","LTC"] else "Yahoo Finance"
             st.info(f"📡 Auto-fetching from **{_src}** · Updates every 30 min")
@@ -943,30 +949,39 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
 </div>""", unsafe_allow_html=True)
         if _is_uae_err:
             # Build direct download links for this specific stock
-            _yf_sym  = {"EMAAR.DFM":"EMAAR.AE","ENBD.DFM":"ENBD.AE","DIB.DFM":"DIB.AE",
+            _yf_sym  = {"EMAAR.DFM":"EMAAR.AE","ENBD.DFM":"EMIRATESNBD.AE","DIB.DFM":"DIB.AE",
                         "DU.DFM":"DU.AE","DEWA.DFM":"DEWA.AE","SALIK.DFM":"SALIK.AE",
-                        "FAB.ADX":"FAB.AE","ALDAR.ADX":"ALDAR.AE",
-                        "ADCB.ADX":"ADCB.AE","MASQ.DFM":"MASQ.AE"}.get(ticker, ticker)
+                        "MASQ.DFM":"MASQ.AE"}.get(ticker)
             _inv_sl  = {"EMAAR.DFM":"emaar-properties","ENBD.DFM":"emirates-nbd",
                         "DIB.DFM":"dubai-islamic-bank","DU.DFM":"emirates-integrated-telecom",
                         "DEWA.DFM":"dubai-electricity-water","SALIK.DFM":"salik-pjsc",
                         "FAB.ADX":"first-abu-dhabi-bank","ALDAR.ADX":"aldar-properties",
                         "ADCB.ADX":"abu-dhabi-commercial-bank","MASQ.DFM":"mashreqbank"}.get(ticker,"")
-            _yf_csv  = f"https://query1.finance.yahoo.com/v7/finance/download/{_yf_sym}?interval=1d&range=5y&events=history"
             _inv_url = f"https://www.investing.com/equities/{_inv_sl}-historical-data"
+            # Yahoo Finance has no data at all for the three ADX-listed stocks (verified
+            # directly against their API), so only offer the Yahoo option when it can work.
+            _no_yahoo = ticker in _UAE_ADX_MANUAL
+            _yf_history_url = f"https://finance.yahoo.com/quote/{_yf_sym}/history/" if _yf_sym else ""
 
+            _reason = ("No free auto-fetch source exists for this Abu Dhabi Exchange (ADX) stock."
+                       if _no_yahoo else
+                       "The automatic fetch from Yahoo Finance failed (likely rate-limited/blocked).")
+            _yahoo_option_html = "" if _no_yahoo else (
+                f'<b>Option 1 — Yahoo Finance:</b><br>'
+                f'&nbsp;&nbsp;→ <a href="{_yf_history_url}" target="_blank" '
+                f'style="color:#2DD4BF">Open {_yf_sym} history on Yahoo Finance</a> → click Download<br><br>'
+            )
+            _inv_option_num = "1" if _no_yahoo else "2"
             st.markdown(f"""
 <div style="background:#1A1826;border:1px solid #F59E0B;border-radius:8px;padding:16px 20px">
   <div style="color:#F59E0B;font-weight:bold;margin-bottom:10px">
     🇦🇪 {ticker} — Auto-fetch failed
   </div>
   <div style="color:#E2E8F0;font-size:0.88rem;line-height:1.9">
-    Auto-fetch via yfinance/Stooq is not returning data for this stock.<br>
+    {_reason}<br>
     <b>Quick fix — download CSV manually (30 seconds):</b><br><br>
-    <b>Option 1 — Yahoo Finance:</b><br>
-    &nbsp;&nbsp;→ <a href="{_yf_csv}" target="_blank" 
-      style="color:#2DD4BF">Click to download {_yf_sym} CSV directly</a><br><br>
-    <b>Option 2 — Investing.com:</b><br>
+    {_yahoo_option_html}
+    <b>Option {_inv_option_num} — Investing.com:</b><br>
     &nbsp;&nbsp;→ <a href="{_inv_url}" target="_blank"
       style="color:#2DD4BF">Open {ticker} historical data on Investing.com</a>
       → click Download<br><br>
@@ -978,10 +993,10 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
                 st.cache_data.clear()
                 st.rerun()
             col_r2.markdown(
-                f'<a href="{_yf_csv}" target="_blank" style="display:inline-block;'
+                f'<a href="{_inv_url}" target="_blank" style="display:inline-block;'
                 f'background:#2DD4BF;color:white;border-radius:5px;padding:8px 16px;'
                 f'text-decoration:none;font-size:0.85rem;margin-top:4px">'
-                f'⬇️ Download CSV for {_yf_sym}</a>',
+                f'⬇️ Open Investing.com for {ticker}</a>',
                 unsafe_allow_html=True
             )
         else:
