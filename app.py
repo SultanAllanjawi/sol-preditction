@@ -318,6 +318,40 @@ def get_fear_greed_cached():
 def get_active_wallets_cached(ticker):
     return DataManager.get_active_wallets(ticker)
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_fear_greed_history_cached(days=14):
+    return DataManager.get_fear_greed_history(days)
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_market_chart_cached(ticker, days=14):
+    return DataManager.get_market_chart(ticker, days)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_price_history_lite_cached(ticker, days=14):
+    return DataManager.get_price_history_lite(ticker, days)
+
+def sparkline_svg(values, color="#2DD4BF", width=100, height=32):
+    """Tiny inline SVG area-sparkline from a real numeric series. No JS, no external libs."""
+    if not values or len(values) < 2:
+        return f'<svg viewBox="0 0 {width} {height}" style="width:100%;height:{height}px"></svg>'
+    lo, hi = min(values), max(values)
+    rng = (hi - lo) or 1.0
+    n = len(values)
+    pts = [(i/(n-1)*width, height - ((v-lo)/rng)*height*0.85 - height*0.05) for i, v in enumerate(values)]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = f"0,{height} " + line + f" {width},{height}"
+    gid = f"sg{abs(hash(tuple(values)))%100000}"
+    return (
+        f'<svg viewBox="0 0 {width} {height}" preserveAspectRatio="none" style="width:100%;height:{height}px">'
+        f'<defs><linearGradient id="{gid}" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0%" stop-color="{color}" stop-opacity="0.45"/>'
+        f'<stop offset="100%" stop-color="{color}" stop-opacity="0"/></linearGradient></defs>'
+        f'<polygon points="{area}" fill="url(#{gid})"/>'
+        f'<polyline points="{line}" fill="none" stroke="{color}" stroke-width="1.6" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'</svg>'
+    )
+
 def empty_state(icon, title, subtitle, cta=None):
     _cta_html = (f'<div style="color:#2DD4BF;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
                  if cta else "")
@@ -1206,6 +1240,8 @@ if is_crypto(ticker):
     _fng  = get_fear_greed_cached()
     _ob   = get_order_book_cached(ticker)
     _aw   = get_active_wallets_cached(ticker)
+    _mchart = get_market_chart_cached(ticker)
+    _fng_hist = get_fear_greed_history_cached()
 
     st.markdown(
         '<div style="color:#2DD4BF;font-weight:700;font-size:0.9rem;text-transform:uppercase;'
@@ -1226,32 +1262,40 @@ if is_crypto(ticker):
     _aw_str = f"{_aw['active_addresses']:,}" if _aw else "N/A"
     _aw_sub = "unique BTC addresses, 24h" if _aw else "no free source for this asset"
 
+    _spk_mcap  = sparkline_svg(_mchart['market_caps'], "#2DD4BF") if _mchart and _mchart.get('market_caps') else ""
+    _spk_vol   = sparkline_svg(_mchart['volumes'], "#F59E0B") if _mchart and _mchart.get('volumes') else ""
+    _spk_fng   = sparkline_svg(_fng_hist, "#FB7185") if _fng_hist else ""
+    _spk_aw    = sparkline_svg(_aw['history'], "#38BDF8") if _aw and _aw.get('history') else ""
+
     st.markdown(
         '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">'
         f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
-        f'border-radius:12px;padding:14px 16px">'
+        f'border-radius:12px;padding:14px 16px;overflow:hidden">'
         f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Market Cap</div>'
-        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.3rem;font-weight:800;margin-top:3px">{_mcap_str}</div></div>'
+        f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.3rem;font-weight:800;margin-top:3px">{_mcap_str}</div>'
+        f'<div style="margin-top:6px">{_spk_mcap}</div></div>'
         f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
-        f'border-radius:12px;padding:14px 16px">'
+        f'border-radius:12px;padding:14px 16px;overflow:hidden">'
         f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Volume</div>'
         f'<div class="stat-pop" style="color:{_chg_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_vol_str}</div>'
-        f'<div style="color:{_chg_c};font-size:0.72rem;font-weight:600">{_chg24:+.2f}% (24h)</div></div>'
+        f'<div style="color:{_chg_c};font-size:0.72rem;font-weight:600">{_chg24:+.2f}% (24h)</div>'
+        f'<div style="margin-top:2px">{_spk_vol}</div></div>'
         f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
-        f'border-radius:12px;padding:14px 16px">'
+        f'border-radius:12px;padding:14px 16px;overflow:hidden">'
         f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Fear &amp; Greed</div>'
         f'<div class="stat-pop" style="color:{_fng_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_fng_val} &middot; {_fng_cls}</div>'
-        f'<div style="color:#475569;font-size:0.68rem">market-wide index</div></div>'
+        f'<div style="margin-top:6px">{_spk_fng}</div></div>'
         f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:12px;padding:14px 16px">'
         f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Trades</div>'
         f'<div class="stat-pop" style="color:#A78BFA;font-size:1.3rem;font-weight:800;margin-top:3px">{_trades_str}</div>'
-        f'<div style="color:#475569;font-size:0.68rem">trade count, not wallet count</div></div>'
+        f'<div style="color:#475569;font-size:0.68rem">trade count &mdash; no free history source</div></div>'
         f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
-        f'border-radius:12px;padding:14px 16px">'
+        f'border-radius:12px;padding:14px 16px;overflow:hidden">'
         f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Active Wallets</div>'
         f'<div class="stat-pop" style="color:{"#FFFFFF" if _aw else "#475569"};font-size:1.3rem;font-weight:800;margin-top:3px">{_aw_str}</div>'
-        f'<div style="color:#475569;font-size:0.68rem">{_aw_sub}</div></div>'
+        f'<div style="color:#475569;font-size:0.68rem">{_aw_sub}</div>'
+        f'<div style="margin-top:2px">{_spk_aw}</div></div>'
         '</div>', unsafe_allow_html=True
     )
 
@@ -1459,11 +1503,14 @@ if is_crypto(ticker):
                 continue
             _mch = _m24b['price_change_pct']
             _mc2 = "#2DD4BF" if _mch >= 0 else "#FB7185"
+            _mhist = get_price_history_lite_cached(_mt)
+            _mspk = sparkline_svg(_mhist, _mc2, width=64, height=28) if _mhist else ""
             _mover_rows += (
                 f'<div style="display:flex;justify-content:space-between;align-items:center;'
                 f'padding:8px 0;border-top:1px solid #1A1E2B">'
                 f'<div><div style="font-size:0.82rem;font-weight:700">{_mt.replace("-USD","")}</div>'
                 f'<div style="color:#475569;font-size:0.68rem">{DataManager.get_ticker_name(_mt) or _mt}</div></div>'
+                f'<div style="width:64px;margin:0 8px">{_mspk}</div>'
                 f'<div style="text-align:right"><div style="font-family:ui-monospace,monospace;font-size:0.78rem">'
                 f'${_mpx:,.4f}</div><div style="color:{_mc2};font-size:0.7rem">{_mch:+.2f}%</div></div></div>'
             )
