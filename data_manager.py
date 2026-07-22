@@ -60,18 +60,22 @@ TICKER_INFO = {
 }
 
 # ── UAE DFM/ADX → Yahoo Finance ticker translation ──────────────────
+# NOTE: Yahoo Finance simply does not carry live chart data for FAB.ADX,
+# ALDAR.ADX or ADCB.ADX (verified directly against their API — every symbol
+# variant either 404s or resolves to an unrelated/stale instrument). Those
+# three are CSV-upload-only; see UAE_NO_AUTO_FETCH below.
 UAE_YAHOO_MAP = {
     "EMAAR.DFM" : "EMAAR.AE",
-    "ENBD.DFM"  : "ENBD.AE",
+    "ENBD.DFM"  : "EMIRATESNBD.AE",   # NOT "ENBD.AE" — that symbol is delisted/404 on Yahoo
     "DIB.DFM"   : "DIB.AE",
     "DU.DFM"    : "DU.AE",
     "DEWA.DFM"  : "DEWA.AE",
     "SALIK.DFM" : "SALIK.AE",
-    "FAB.ADX"   : "FAB.AE",
-    "ALDAR.ADX" : "ALDAR.AE",
-    "ADCB.ADX"  : "ADCB.AE",
     "MASQ.DFM"  : "MASQ.AE",
 }
+
+# UAE tickers with no working free auto-fetch source — CSV upload required.
+UAE_NO_AUTO_FETCH = {"FAB.ADX", "ALDAR.ADX", "ADCB.ADX"}
 
 HDR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -261,7 +265,7 @@ class DataManager:
     def _yahoo(self):
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=max",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -280,40 +284,23 @@ class DataManager:
 
 
     def _yahoo_uae(self):
-        """Fetch UAE DFM/ADX stocks using yfinance library (handles auth)."""
+        """Fetch UAE DFM stocks straight from Yahoo Finance's chart endpoint.
+
+        IMPORTANT: use range=5y/10y, never range=max — Yahoo silently drops to
+        MONTHLY granularity ("dataGranularity":"1mo") when range=max is combined
+        with interval=1d, which was quietly starving newer listings (e.g. SALIK,
+        DEWA, both IPO'd 2022) of enough rows to clear the pipeline's minimums.
+        Raw requests go first because they're verified to work with nothing but
+        a User-Agent — no crumb/cookie dance — whereas the yfinance library adds
+        a layer (cookies, crumb-fetching, curl_cffi) that is one more thing that
+        can silently fail on a given host."""
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
 
-        # Method 1: yfinance library (handles Yahoo cookies/crumb automatically)
-        try:
-            import yfinance as _yf
-            _raw = _yf.download(yf_ticker, period="max", interval="1d",
-                                progress=False, auto_adjust=True)
-            if _raw is not None and len(_raw) >= 30:
-                _raw = _raw.reset_index()
-                # Handle MultiIndex columns from yfinance
-                if hasattr(_raw.columns, 'levels'):
-                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
-                df = pd.DataFrame()
-                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
-                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
-                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
-                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
-                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
-                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
-                df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change() * 100
-                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                if len(df) >= 30:
-                    return df
-        except Exception as _e:
-            pass  # fall through to raw requests
-
-        # Method 2: Raw requests with session (fallback)
         for base in ["https://query1.finance.yahoo.com",
                      "https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(
-                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=max",
+                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
                 result = r.json()["chart"]["result"][0]
@@ -339,79 +326,33 @@ class DataManager:
                     return df
             except Exception:
                 continue
-        return None
 
-
-    def _investing_com_uae(self) -> pd.DataFrame | None:
-        """
-        Fetch DFM/ADX stock data from Investing.com.
-        Uses their public chart data endpoint — no API key needed.
-        """
-        inv_map = {
-            "EMAAR.DFM": "2352",   # Investing.com internal ID for Emaar
-            "ENBD.DFM" : "28218",
-            "DIB.DFM"  : "28221",
-            "DU.DFM"   : "28222",
-            "DEWA.DFM" : "1192118",
-            "SALIK.DFM": "1271890",
-            "FAB.ADX"  : "28215",
-            "ALDAR.ADX": "28216",
-            "ADCB.ADX" : "28219",
-            "MASQ.DFM" : "28220",
-        }
-        inv_id = inv_map.get(self.ticker)
-        if not inv_id:
-            return None
-
-        # Investing.com chart data endpoint
-        headers = {
-            "User-Agent"  : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer"     : "https://www.investing.com/",
-            "X-Requested-With": "XMLHttpRequest",
-            "Accept"      : "application/json, text/javascript, */*; q=0.01",
-        }
+        # Fallback: yfinance library (handles cookies/crumb itself)
         try:
-            import time as _t
-            end_ts   = int(_t.time())
-            start_ts = end_ts - 5 * 365 * 24 * 3600  # 5 years back
-
-            r = requests.get(
-                f"https://api.investing.com/api/financialdata/{inv_id}/historical/chart/",
-                params={
-                    "period"    : "MAX",
-                    "startDate" : start_ts,
-                    "endDate"   : end_ts,
-                    "pointscount": 1200,
-                },
-                headers=headers, timeout=15
-            )
-            if r.status_code == 200:
-                data = r.json().get("data", [])
-                if data:
-                    rows = []
-                    for pt in data:
-                        # pt = [timestamp_ms, open, high, low, close, volume]
-                        try:
-                            rows.append({
-                                "Date"  : datetime.fromtimestamp(pt[0]/1000, tz=timezone.utc).date(),
-                                "Open"  : float(pt[1]),
-                                "High"  : float(pt[2]),
-                                "Low"   : float(pt[3]),
-                                "Close" : float(pt[4]),
-                                "Volume": float(pt[5]) / 1e6 if len(pt) > 5 else 1.0,
-                            })
-                        except Exception:
-                            continue
-                    if rows:
-                        df = pd.DataFrame(rows)
-                        df["Date"] = pd.to_datetime(df["Date"])
-                        df["Change_Pct"] = df["Close"].pct_change() * 100
-                        return (df.sort_values("Date")
-                                  .drop_duplicates("Date")
-                                  .reset_index(drop=True))
+            import yfinance as _yf
+            _raw = _yf.download(yf_ticker, period="10y", interval="1d",
+                                progress=False, auto_adjust=True)
+            if _raw is not None and len(_raw) >= 30:
+                _raw = _raw.reset_index()
+                # Handle MultiIndex columns from yfinance
+                if hasattr(_raw.columns, 'levels'):
+                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
+                df = pd.DataFrame()
+                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
+                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
+                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
+                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
+                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
+                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
+                df = df.dropna(subset=["Close"])
+                df["Change_Pct"] = df["Close"].pct_change() * 100
+                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+                if len(df) >= 30:
+                    return df
         except Exception:
             pass
         return None
+
 
     def _coingecko(self):
         t=self.ticker.replace("-USD","").upper()
