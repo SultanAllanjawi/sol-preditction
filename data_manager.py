@@ -186,36 +186,59 @@ class DataManager:
 
     # ── Daily fetch (all sources) ───────────────────────────────────
     def _fetch_daily(self):
+        """Tries sources in priority order, but — critically — a source that returns SOME
+        data isn't necessarily returning ENOUGH data. Accepting the first non-empty result
+        unconditionally (the old behavior) meant a source that succeeded with a short/partial
+        response (e.g. a transient truncation) got treated as final, and richer fallbacks were
+        never even attempted. Now: keep the first result that clears a healthy row-count floor,
+        and otherwise remember the longest partial result and keep trying other sources before
+        giving up and returning that best-effort partial."""
         t = self.ticker.upper()
         clean = t.replace("-USD","")
+        MIN_ROWS = 200
         # UAE stocks — route to dedicated multi-source fetcher
         if self.ticker in UAE_YAHOO_MAP:
             return self._yahoo_uae()
+        best = None
+        def _consider(df):
+            nonlocal best
+            if df is None: return None
+            if len(df) >= MIN_ROWS: return df  # good enough — short-circuit
+            if best is None or len(df) > len(best): best = df
+            return None
         if t in BINANCE_MAP or clean in BINANCE_MAP:
-            df = self._binance_daily()
-            if df is not None: return df
-            df = self._cryptocompare()
-            if df is not None: return df
-        df = self._yahoo()
-        if df is not None: return df
-        return self._coingecko()
+            r = _consider(self._binance_daily())
+            if r is not None: return r
+            r = _consider(self._cryptocompare())
+            if r is not None: return r
+        r = _consider(self._yahoo())
+        if r is not None: return r
+        r = _consider(self._coingecko())
+        if r is not None: return r
+        return best  # every source gave a short result — return the longest one rather than None
 
     def _binance_daily(self):
         sym = BINANCE_MAP.get(self.ticker, BINANCE_MAP.get(self.ticker.replace("-USD","")))
         if not sym: return None
-        try:
-            r = requests.get("https://api.binance.com/api/v3/klines",
-                params={"symbol":sym,"interval":"1d","limit":1000},
-                headers=HDR, timeout=15)
-            if r.status_code != 200: return None
-            rows = [{"Date":datetime.fromtimestamp(k[0]/1000,tz=timezone.utc).date(),
-                     "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
-                     "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
-            df = pd.DataFrame(rows)
-            df["Date"] = pd.to_datetime(df["Date"])
-            df["Change_Pct"] = df["Close"].pct_change()*100
-            return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-        except Exception: return None
+        # Try api.binance.com first, then the public market-data mirror — same reasoning as
+        # get_order_book: cloud-hosted apps sometimes get blocked/rate-limited on one but not
+        # the other, and this is the single most important fetch in the whole app.
+        for base in ("https://api.binance.com", "https://data-api.binance.vision"):
+            try:
+                r = requests.get(f"{base}/api/v3/klines",
+                    params={"symbol":sym,"interval":"1d","limit":1000},
+                    headers=HDR, timeout=15)
+                if r.status_code != 200: continue
+                rows = [{"Date":datetime.fromtimestamp(k[0]/1000,tz=timezone.utc).date(),
+                         "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
+                         "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
+                df = pd.DataFrame(rows)
+                df["Date"] = pd.to_datetime(df["Date"])
+                df["Change_Pct"] = df["Close"].pct_change()*100
+                return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+            except Exception:
+                continue
+        return None
 
     def _cryptocompare(self):
         sym = self.ticker.replace("-USD","").upper()
