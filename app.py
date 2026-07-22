@@ -99,7 +99,7 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
   transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
 }
 [data-testid="metric-container"]:hover{
-  border-color:#FFC542; transform:perspective(600px) translateY(-4px) rotateX(4deg) rotateY(-3deg) scale(1.015);
+  border-color:#FFC542; transform:translateY(-4px);
   box-shadow:0 16px 32px rgba(255,197,66,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 [data-testid="stMetricValue"]{color:#FFFFFF;font-size:1.7rem!important;font-weight:800}
@@ -120,7 +120,7 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
   transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
 }
 .signal-card:hover{
-  transform:perspective(700px) translateY(-4px) rotateX(3deg) rotateY(-2deg) scale(1.01);
+  transform:translateY(-4px);
   border-color:#FFC542; box-shadow:0 16px 32px rgba(255,197,66,0.18);
 }
 .buy-card{border-left:5px solid #34D399}.sell-card{border-left:5px solid #FF4D6D}.hold-card{border-left:5px solid #8C8168}
@@ -129,7 +129,7 @@ hr{border-color:#241F14}
 /* generic tilt-card — apply class="tilt-card" to any custom HTML card div */
 .tilt-card{transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease}
 .tilt-card:hover{
-  transform:perspective(600px) translateY(-4px) rotateX(4deg) rotateY(-3deg) scale(1.015)!important;
+  transform:translateY(-4px)!important;
   border-color:#FFC542!important; box-shadow:0 16px 32px rgba(255,197,66,0.22)!important;
 }
 
