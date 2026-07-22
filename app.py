@@ -1238,7 +1238,6 @@ if is_crypto(ticker):
     _mc   = get_market_cap_cached(ticker)
     _s24  = get_24h_stats_cached(ticker)
     _fng  = get_fear_greed_cached()
-    _ob   = get_order_book_cached(ticker)
     _aw   = get_active_wallets_cached(ticker)
     _mchart = get_market_chart_cached(ticker)
     _fng_hist = get_fear_greed_history_cached()
@@ -1349,51 +1348,59 @@ if is_crypto(ticker):
             f'</div>', unsafe_allow_html=True
         )
 
-        st.markdown(
-            '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
-            'letter-spacing:.04em;margin-bottom:8px">📖 Order Book — Top 8</div>',
-            unsafe_allow_html=True
-        )
-        if not _ob or not _ob.get("bids") or not _ob.get("asks"):
-            empty_state("📖", "Order book unavailable", "Binance depth data didn't load — try refreshing.")
-        else:
-            _max_qty = max(
-                max((q for _, q in _ob["bids"]), default=1),
-                max((q for _, q in _ob["asks"]), default=1),
-            ) or 1
-            _bid_rows = ""
-            for _p, _q in _ob["bids"][:8]:
-                _w = min(100, _q / _max_qty * 100)
-                _bid_rows += (
-                    f'<div style="position:relative;padding:3px 8px;font-size:0.76rem;'
-                    f'font-family:ui-monospace,monospace">'
-                    f'<div style="position:absolute;inset:0;background:rgba(45,212,191,0.12);'
-                    f'width:{_w:.0f}%;border-radius:3px"></div>'
-                    f'<div style="position:relative;display:flex;justify-content:space-between">'
-                    f'<span style="color:#2DD4BF;font-weight:700">${_p:,.4f}</span>'
-                    f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
-                )
-            _ask_rows = ""
-            for _p, _q in _ob["asks"][:8]:
-                _w = min(100, _q / _max_qty * 100)
-                _ask_rows += (
-                    f'<div style="position:relative;padding:3px 8px;font-size:0.76rem;'
-                    f'font-family:ui-monospace,monospace">'
-                    f'<div style="position:absolute;inset:0;background:rgba(251,113,133,0.12);'
-                    f'width:{_w:.0f}%;border-radius:3px"></div>'
-                    f'<div style="position:relative;display:flex;justify-content:space-between">'
-                    f'<span style="color:#FB7185;font-weight:700">${_p:,.4f}</span>'
-                    f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
-                )
+        @st.fragment(run_every=8)
+        def _order_book_fragment(_ticker):
+            _ob_f = get_order_book_cached(_ticker)
             st.markdown(
-                f'<div style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
-                f'border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-                f'<div><div style="color:#2DD4BF;font-size:0.68rem;text-transform:uppercase;'
-                f'font-weight:700;margin-bottom:4px">Bids</div>{_bid_rows}</div>'
-                f'<div><div style="color:#FB7185;font-size:0.68rem;text-transform:uppercase;'
-                f'font-weight:700;margin-bottom:4px">Asks</div>{_ask_rows}</div>'
-                f'</div>', unsafe_allow_html=True
+                '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                'letter-spacing:.04em;margin-bottom:8px;display:flex;align-items:center;gap:8px">'
+                '📖 Order Book — Top 8 <span class="live-dot" style="margin:0"></span>'
+                '<span style="color:#475569;font-weight:400;text-transform:none;font-size:0.68rem">'
+                'updates every 8s</span></div>',
+                unsafe_allow_html=True
             )
+            if not _ob_f or not _ob_f.get("bids") or not _ob_f.get("asks"):
+                empty_state("📖", "Order book unavailable", "Binance depth data didn't load — try refreshing.")
+            else:
+                _max_qty = max(
+                    max((q for _, q in _ob_f["bids"]), default=1),
+                    max((q for _, q in _ob_f["asks"]), default=1),
+                ) or 1
+                _bid_rows = ""
+                for _p, _q in _ob_f["bids"][:8]:
+                    _w = min(100, _q / _max_qty * 100)
+                    _bid_rows += (
+                        f'<div style="position:relative;padding:3px 8px;font-size:0.76rem;'
+                        f'font-family:ui-monospace,monospace">'
+                        f'<div style="position:absolute;inset:0;background:rgba(45,212,191,0.12);'
+                        f'width:{_w:.0f}%;border-radius:3px"></div>'
+                        f'<div style="position:relative;display:flex;justify-content:space-between">'
+                        f'<span style="color:#2DD4BF;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
+                    )
+                _ask_rows = ""
+                for _p, _q in _ob_f["asks"][:8]:
+                    _w = min(100, _q / _max_qty * 100)
+                    _ask_rows += (
+                        f'<div style="position:relative;padding:3px 8px;font-size:0.76rem;'
+                        f'font-family:ui-monospace,monospace">'
+                        f'<div style="position:absolute;inset:0;background:rgba(251,113,133,0.12);'
+                        f'width:{_w:.0f}%;border-radius:3px"></div>'
+                        f'<div style="position:relative;display:flex;justify-content:space-between">'
+                        f'<span style="color:#FB7185;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
+                    )
+                st.markdown(
+                    f'<div style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
+                    f'border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+                    f'<div><div style="color:#2DD4BF;font-size:0.68rem;text-transform:uppercase;'
+                    f'font-weight:700;margin-bottom:4px">Bids</div>{_bid_rows}</div>'
+                    f'<div><div style="color:#FB7185;font-size:0.68rem;text-transform:uppercase;'
+                    f'font-weight:700;margin-bottom:4px">Asks</div>{_ask_rows}</div>'
+                    f'</div>', unsafe_allow_html=True
+                )
+
+        _order_book_fragment(ticker)
 
     # ── Center: hero momentum chart + 24h range + comparison mini-charts ──
     with _pulse_center:
