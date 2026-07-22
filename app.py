@@ -1080,6 +1080,48 @@ else:
     tp_str = f"${tp_price:,.4f}"; sl_str = f"${sl_price:,.4f}" 
 
 # ═══════════════════════════════════════════════════════════════════
+# HERO HEADER — big price + range selector (Nexus-style)
+# ═══════════════════════════════════════════════════════════════════
+_hero_name  = DataManager.get_ticker_name(ticker) or ticker
+_hero_pair  = f'{ticker.replace("-USD","")} <span style="color:#475569">/</span> USD' if ticker.upper().endswith("-USD") else ticker
+_hero_chg_c = "#2DD4BF" if day_chg >= 0 else "#FB7185"
+_hero_arrow = "&#8599;" if day_chg >= 0 else "&#8600;"
+_hero_mc    = get_market_cap_cached(ticker) if is_crypto(ticker) else None
+_hero_s24   = get_24h_stats_cached(ticker) if is_crypto(ticker) else None
+_hero_vol   = (f"${_hero_s24['volume_quote']/1e6:.1f}M" if _hero_s24 else
+               (f"${_hero_mc['volume_24h']/1e6:.1f}M" if _hero_mc else None))
+_hero_cap   = f"${_hero_mc['market_cap']/1e9:.2f}B" if _hero_mc and _hero_mc.get('market_cap') else None
+_hero_sub   = " &middot; ".join(filter(None, [
+    f"Vol {_hero_vol}" if _hero_vol else None,
+    f"Cap {_hero_cap}" if _hero_cap else None,
+])) or f"{len(df_feat):,} trading days"
+
+st.markdown(
+    f'<div style="color:#94A3B8;font-size:0.78rem;display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    f'<span class="live-dot"></span>Live feed &middot; auto-refreshing &middot; {_hero_name}</div>'
+    f'<div style="font-size:2.2rem;font-weight:800;line-height:1.1">'
+    f'{_hero_pair} <span style="color:#475569">&middot;</span> '
+    f'<span style="font-family:ui-monospace,monospace">${display_price:,.4f}</span></div>'
+    f'<div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:0.85rem">'
+    f'<span style="background:{_hero_chg_c}18;color:{_hero_chg_c};border-radius:6px;padding:2px 8px;'
+    f'font-weight:700">{_hero_arrow} {day_chg:+.2f}%</span>'
+    f'<span style="color:#94A3B8">{_hero_sub}</span></div>',
+    unsafe_allow_html=True
+)
+_hero_ranges = ["1H","24H","7D","1M","1Y","ALL"]
+if "hero_range" not in st.session_state:
+    st.session_state.hero_range = "24H"
+_hero_cols = st.columns(len(_hero_ranges) + 6)  # push buttons right, leave room
+for _hi, _hr in enumerate(_hero_ranges):
+    if _hero_cols[_hi+6].button(_hr, key=f"hero_rng_{_hr}", use_container_width=True,
+                                 type="primary" if st.session_state.hero_range==_hr else "secondary"):
+        st.session_state.hero_range = _hr
+        st.rerun()
+st.caption("This selector doesn't drive a chart yet — the reference's own version doesn't either. "
+           "Real range control lives in the Price & Signals tab's lookback buttons.")
+st.divider()
+
+# ═══════════════════════════════════════════════════════════════════
 # HEADER + PROTOCOL/TOKEN METRICS — card-grid dashboard layout
 # ═══════════════════════════════════════════════════════════════════
 name = DataManager.get_ticker_name(ticker) or ticker
