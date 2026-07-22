@@ -104,10 +104,6 @@ hr{border-color:#241F14}
 [data-testid="stSidebar"]{background:#0B0813;border-right:1px solid #241F14}
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem}
 [data-testid="stSidebar"] .block-container{animation:fadeInUp .45s ease both}
-.sb-section{
-  color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;
-  letter-spacing:.04em;display:flex;align-items:center;gap:6px;margin:4px 0 2px;
-}
 
 /* alerts / info boxes — override Streamlit's default blue */
 .stAlert, [data-testid="stNotification"], [data-testid^="stAlertContent"]{
@@ -319,182 +315,177 @@ with st.sidebar:
     st.divider()
 
     # ── Upload CSV ──────────────────────────────────────────────────
-    st.markdown('<div class="sb-section">📁 Upload CSV Data</div>', unsafe_allow_html=True)
-
-    # Upload mode selector
-    _umode = st.radio("Upload for:", ["🇦🇪 UAE / DFM Stock", "📈 Other Asset"],
-                      horizontal=True, key="upload_mode")
-
-    uploaded = st.file_uploader(
-        "Drop CSV here (Investing.com or Yahoo Finance format)",
-        type=["csv"], key="csv_uploader"
-    )
-
-    if uploaded is not None:
-        if _umode == "🇦🇪 UAE / DFM Stock":
-            # Show dropdown of DFM stocks — user just picks which one
-            _DFM_PICK = {
-                "Emaar Properties"    : "EMAAR.DFM",
-                "Emirates NBD"        : "ENBD.DFM",
-                "Dubai Islamic Bank"  : "DIB.DFM",
-                "du Telecom"          : "DU.DFM",
-                "Dubai Electricity"   : "DEWA.DFM",
-                "Salik"               : "SALIK.DFM",
-                "First Abu Dhabi Bank": "FAB.ADX",
-                "Aldar Properties"    : "ALDAR.ADX",
-                "ADCB Bank"           : "ADCB.ADX",
-                "Mashreq Bank"        : "MASQ.DFM",
-            }
-            _picked = st.selectbox(
-                "Which stock is this CSV for?",
-                list(_DFM_PICK.keys()),
-                key="dfm_csv_pick"
-            )
-            _ticker_for_csv = _DFM_PICK[_picked]
-            st.caption(f"Will be saved as: **{_ticker_for_csv}**")
-
-            if st.button("✅ Apply to " + _picked, use_container_width=True,
-                         type="primary", key="dfm_csv_add"):
-                _bytes = uploaded.read()
-                st.session_state.uploaded_assets[_ticker_for_csv] = _bytes
-                st.session_state.selected_ticker = _ticker_for_csv
-                # Save CSV to disk — persists across restarts
-                save_uploaded_csv(_ticker_for_csv, _bytes)
-                save_settings({**load_settings(), "last_ticker": _ticker_for_csv})
-                st.success(f"✅ Saved! {_picked} ({_ticker_for_csv}) — data saved permanently 💾")
-                st.rerun()
-
-        else:
-            # Other asset — user types ticker manually
-            _col1, _col2 = st.columns([2, 1])
-            with _col1:
-                csv_ticker = st.text_input(
-                    "Asset ticker",
-                    placeholder="e.g. SOL-USD, AAPL, TSLA",
-                    key="csv_ticker_input"
-                ).upper().strip()
-            with _col2:
-                st.write(""); st.write("")
-                if st.button("➕ Add", use_container_width=True, key="other_csv_add") and csv_ticker:
-                    _obytes = uploaded.read()
-                    st.session_state.uploaded_assets[csv_ticker] = _obytes
-                    st.session_state.selected_ticker = csv_ticker
-                    save_uploaded_csv(csv_ticker, _obytes)
-                    st.success(f"✅ Saved! {csv_ticker} — data saved permanently 💾")
+    with st.expander("📁 Upload CSV Data", expanded=False):
+        # Upload mode selector
+        _umode = st.radio("Upload for:", ["🇦🇪 UAE / DFM Stock", "📈 Other Asset"],
+                          horizontal=True, key="upload_mode")
+    
+        uploaded = st.file_uploader(
+            "Drop CSV here (Investing.com or Yahoo Finance format)",
+            type=["csv"], key="csv_uploader"
+        )
+    
+        if uploaded is not None:
+            if _umode == "🇦🇪 UAE / DFM Stock":
+                # Show dropdown of DFM stocks — user just picks which one
+                _DFM_PICK = {
+                    "Emaar Properties"    : "EMAAR.DFM",
+                    "Emirates NBD"        : "ENBD.DFM",
+                    "Dubai Islamic Bank"  : "DIB.DFM",
+                    "du Telecom"          : "DU.DFM",
+                    "Dubai Electricity"   : "DEWA.DFM",
+                    "Salik"               : "SALIK.DFM",
+                    "First Abu Dhabi Bank": "FAB.ADX",
+                    "Aldar Properties"    : "ALDAR.ADX",
+                    "ADCB Bank"           : "ADCB.ADX",
+                    "Mashreq Bank"        : "MASQ.DFM",
+                }
+                _picked = st.selectbox(
+                    "Which stock is this CSV for?",
+                    list(_DFM_PICK.keys()),
+                    key="dfm_csv_pick"
+                )
+                _ticker_for_csv = _DFM_PICK[_picked]
+                st.caption(f"Will be saved as: **{_ticker_for_csv}**")
+    
+                if st.button("✅ Apply to " + _picked, use_container_width=True,
+                             type="primary", key="dfm_csv_add"):
+                    _bytes = uploaded.read()
+                    st.session_state.uploaded_assets[_ticker_for_csv] = _bytes
+                    st.session_state.selected_ticker = _ticker_for_csv
+                    # Save CSV to disk — persists across restarts
+                    save_uploaded_csv(_ticker_for_csv, _bytes)
+                    save_settings({**load_settings(), "last_ticker": _ticker_for_csv})
+                    st.success(f"✅ Saved! {_picked} ({_ticker_for_csv}) — data saved permanently 💾")
                     st.rerun()
-
-    # Show what's uploaded — with persistent save indicator
-    if st.session_state.uploaded_assets:
-        st.caption("💾 These CSVs are saved permanently — survive app restarts")
-        _ul = list(st.session_state.uploaded_assets.keys())
-        for _ut in _ul:
-            _uc1, _uc2 = st.columns([3,1])
-            _uc1.caption(f"💾 {_ut}")
-            if _uc2.button("✕", key=f"del_{_ut}", use_container_width=True):
-                del st.session_state.uploaded_assets[_ut]
-                delete_uploaded_csv(_ut)
-                st.rerun()
-
-    st.divider()
-
+    
+            else:
+                # Other asset — user types ticker manually
+                _col1, _col2 = st.columns([2, 1])
+                with _col1:
+                    csv_ticker = st.text_input(
+                        "Asset ticker",
+                        placeholder="e.g. SOL-USD, AAPL, TSLA",
+                        key="csv_ticker_input"
+                    ).upper().strip()
+                with _col2:
+                    st.write(""); st.write("")
+                    if st.button("➕ Add", use_container_width=True, key="other_csv_add") and csv_ticker:
+                        _obytes = uploaded.read()
+                        st.session_state.uploaded_assets[csv_ticker] = _obytes
+                        st.session_state.selected_ticker = csv_ticker
+                        save_uploaded_csv(csv_ticker, _obytes)
+                        st.success(f"✅ Saved! {csv_ticker} — data saved permanently 💾")
+                        st.rerun()
+    
+        # Show what's uploaded — with persistent save indicator
+        if st.session_state.uploaded_assets:
+            st.caption("💾 These CSVs are saved permanently — survive app restarts")
+            _ul = list(st.session_state.uploaded_assets.keys())
+            for _ut in _ul:
+                _uc1, _uc2 = st.columns([3,1])
+                _uc1.caption(f"💾 {_ut}")
+                if _uc2.button("✕", key=f"del_{_ut}", use_container_width=True):
+                    del st.session_state.uploaded_assets[_ut]
+                    delete_uploaded_csv(_ut)
+                    st.rerun()
+    
     # ── Asset Selection — base list + any uploaded CSVs ────────────
-    st.markdown('<div class="sb-section">📊 Asset Selection</div>', unsafe_allow_html=True)
-
-    _CRYPTO  = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
-    _US      = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
-    _INDICES = ["GC=F","SI=F","SPY","QQQ"]   # Gold, Silver, S&P500, Nasdaq
-    _UAE     = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
-                "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
-    _UAE_NAMES = {
-        "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
-        "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
-        "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
-        "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
-        "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
-        # Commodities & Indices
-        "GC=F":"Gold (Futures)","SI=F":"Silver (Futures)",
-        "SPY":"S&P 500 ETF","QQQ":"Nasdaq 100 ETF",
-    }
-    BASE_ASSETS = _CRYPTO + _US + _INDICES + _UAE
-
-    _cat = st.radio("Category",
-        ["🔵 Crypto","🟢 US Stocks","📊 Commodities & Indices","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
-        horizontal=False, key="asset_category")
-
-    if   _cat == "🔵 Crypto":                _asset_list = _CRYPTO
-    elif _cat == "🟢 US Stocks":             _asset_list = _US
-    elif _cat == "📊 Commodities & Indices": _asset_list = _INDICES
-    elif _cat == "🇦🇪 UAE / DFM":            _asset_list = _UAE
-    elif _cat == "📁 Uploaded":              _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
-    else:                                     _asset_list = []
-
-    if _cat == "✏️ Custom":
-        all_assets = ["✏️ Custom ticker..."]
-    else:
-        all_assets = _asset_list + (["✏️ Custom ticker..."] if _cat != "📁 Uploaded" else [])
-
-    # Display names for UAE stocks
-    _disp = {t: (f"{_UAE_NAMES[t]} ({t})" if t in _UAE_NAMES else t) for t in all_assets}
-    _disp_opts = [_disp.get(t, t) for t in all_assets]
-
-    # Merge uploaded into list
-    all_assets_full = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
-
-    # Default index
-    _def_idx = 0
-    if st.session_state.selected_ticker in all_assets:
-        _def_idx = all_assets.index(st.session_state.selected_ticker)
-
-    if _cat == "✏️ Custom":
-        ticker = st.text_input(
-            "Enter ticker symbol",
-            placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
-        ).upper().strip() or "SOL-USD"
-    elif _cat == "📁 Uploaded" and not st.session_state.uploaded_assets:
-        st.caption("No uploads yet — use the uploader above")
-        ticker = st.session_state.selected_ticker
-    else:
-        _sel_disp = st.selectbox("Select asset", _disp_opts, index=_def_idx)
-        _rev_map  = {v: k for k, v in _disp.items()}
-        ticker    = _rev_map.get(_sel_disp, _sel_disp)
-
-    # Keep session state in sync + save to disk
-    if ticker != st.session_state.selected_ticker:
-        st.session_state.selected_ticker = ticker
-        save_settings({**_saved_settings, "last_ticker": ticker})
-
-    # Show source badge
-    if ticker in st.session_state.uploaded_assets:
-        st.success(f"📂 Using uploaded CSV for **{ticker}**")
-    elif ticker in _INDICES:
-        _idx_names = {"GC=F":"Gold","SI=F":"Silver","SPY":"S&P 500","QQQ":"Nasdaq 100"}
-        st.info(f"📡 **{_idx_names.get(ticker,ticker)}** · Yahoo Finance · Updates every 30 min")
-    elif ticker in _UAE:
-        st.info("📡 **UAE / DFM** · Auto-fetching from Yahoo Finance · No CSV needed")
-        st.caption("Auto-updates every 6h · Sources: yfinance → Stooq → Alpha Vantage")
-    else:
-        _src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","XRP","LTC"] else "Yahoo Finance"
-        st.info(f"📡 Auto-fetching from **{_src}** · Updates every 30 min")
-
-    st.divider()
-    st.markdown('<div class="sb-section">⚙️ Signal Settings</div>', unsafe_allow_html=True)
-
-    signal_mode = st.radio(
-        "Signal Mode",
-        ["📅 Daily", "⚡ Intraday (1h)"],
-        index=0,
-        horizontal=True, key="signal_mode",
-        help="Daily: ~73% accuracy · 1 signal/day · recommended\nIntraday: ~68% accuracy · multiple signals/day · more noise"
-    )
-    if st.session_state.get("signal_mode","📅 Daily") == "⚡ Intraday (1h)":
-        st.caption("⚡ Intraday: ~68% accuracy (hourly noise). Daily = ~73%")
-
-    confidence_thresh = st.slider(
-        "Signal Confidence Threshold", 0.50, 0.80, 0.60, 0.01,
-        help="Higher = fewer but more reliable signals"
-    )
-    lookback_days = st.selectbox("Chart lookback", [30,60,90,120,180,365], index=2)
-
+    with st.expander("📊 Asset Selection", expanded=True):
+        _CRYPTO  = ["SOL-USD","BTC-USD","ETH-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","XRP-USD"]
+        _US      = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"]
+        _INDICES = ["GC=F","SI=F","SPY","QQQ"]   # Gold, Silver, S&P500, Nasdaq
+        _UAE     = ["EMAAR.DFM","ENBD.DFM","DIB.DFM","DU.DFM","DEWA.DFM",
+                    "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
+        _UAE_NAMES = {
+            "EMAAR.DFM":"Emaar Properties","ENBD.DFM":"Emirates NBD",
+            "DIB.DFM":"Dubai Islamic Bank","DU.DFM":"du Telecom",
+            "DEWA.DFM":"Dubai Electricity","SALIK.DFM":"Salik",
+            "FAB.ADX":"First Abu Dhabi Bank","ALDAR.ADX":"Aldar Properties",
+            "ADCB.ADX":"ADCB Bank","MASQ.DFM":"Mashreq Bank",
+            # Commodities & Indices
+            "GC=F":"Gold (Futures)","SI=F":"Silver (Futures)",
+            "SPY":"S&P 500 ETF","QQQ":"Nasdaq 100 ETF",
+        }
+        BASE_ASSETS = _CRYPTO + _US + _INDICES + _UAE
+    
+        _cat = st.radio("Category",
+            ["🔵 Crypto","🟢 US Stocks","📊 Commodities & Indices","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
+            horizontal=False, key="asset_category")
+    
+        if   _cat == "🔵 Crypto":                _asset_list = _CRYPTO
+        elif _cat == "🟢 US Stocks":             _asset_list = _US
+        elif _cat == "📊 Commodities & Indices": _asset_list = _INDICES
+        elif _cat == "🇦🇪 UAE / DFM":            _asset_list = _UAE
+        elif _cat == "📁 Uploaded":              _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
+        else:                                     _asset_list = []
+    
+        if _cat == "✏️ Custom":
+            all_assets = ["✏️ Custom ticker..."]
+        else:
+            all_assets = _asset_list + (["✏️ Custom ticker..."] if _cat != "📁 Uploaded" else [])
+    
+        # Display names for UAE stocks
+        _disp = {t: (f"{_UAE_NAMES[t]} ({t})" if t in _UAE_NAMES else t) for t in all_assets}
+        _disp_opts = [_disp.get(t, t) for t in all_assets]
+    
+        # Merge uploaded into list
+        all_assets_full = BASE_ASSETS + [k for k in st.session_state.uploaded_assets if k not in BASE_ASSETS]
+    
+        # Default index
+        _def_idx = 0
+        if st.session_state.selected_ticker in all_assets:
+            _def_idx = all_assets.index(st.session_state.selected_ticker)
+    
+        if _cat == "✏️ Custom":
+            ticker = st.text_input(
+                "Enter ticker symbol",
+                placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
+            ).upper().strip() or "SOL-USD"
+        elif _cat == "📁 Uploaded" and not st.session_state.uploaded_assets:
+            st.caption("No uploads yet — use the uploader above")
+            ticker = st.session_state.selected_ticker
+        else:
+            _sel_disp = st.selectbox("Select asset", _disp_opts, index=_def_idx)
+            _rev_map  = {v: k for k, v in _disp.items()}
+            ticker    = _rev_map.get(_sel_disp, _sel_disp)
+    
+        # Keep session state in sync + save to disk
+        if ticker != st.session_state.selected_ticker:
+            st.session_state.selected_ticker = ticker
+            save_settings({**_saved_settings, "last_ticker": ticker})
+    
+        # Show source badge
+        if ticker in st.session_state.uploaded_assets:
+            st.success(f"📂 Using uploaded CSV for **{ticker}**")
+        elif ticker in _INDICES:
+            _idx_names = {"GC=F":"Gold","SI=F":"Silver","SPY":"S&P 500","QQQ":"Nasdaq 100"}
+            st.info(f"📡 **{_idx_names.get(ticker,ticker)}** · Yahoo Finance · Updates every 30 min")
+        elif ticker in _UAE:
+            st.info("📡 **UAE / DFM** · Auto-fetching from Yahoo Finance · No CSV needed")
+            st.caption("Auto-updates every 6h · Sources: yfinance → Stooq → Alpha Vantage")
+        else:
+            _src = "Binance" if ticker.replace("-USD","").upper() in ["SOL","BTC","ETH","ADA","DOGE","BNB","AVAX","XRP","LTC"] else "Yahoo Finance"
+            st.info(f"📡 Auto-fetching from **{_src}** · Updates every 30 min")
+    
+    # ── Signal Settings ────────────────────────────────────────────
+    with st.expander("⚙️ Signal Settings", expanded=False):
+        signal_mode = st.radio(
+            "Signal Mode",
+            ["📅 Daily", "⚡ Intraday (1h)"],
+            index=0,
+            horizontal=True, key="signal_mode",
+            help="Daily: ~73% accuracy · 1 signal/day · recommended\nIntraday: ~68% accuracy · multiple signals/day · more noise"
+        )
+        if st.session_state.get("signal_mode","📅 Daily") == "⚡ Intraday (1h)":
+            st.caption("⚡ Intraday: ~68% accuracy (hourly noise). Daily = ~73%")
+    
+        confidence_thresh = st.slider(
+            "Signal Confidence Threshold", 0.50, 0.80, 0.60, 0.01,
+            help="Higher = fewer but more reliable signals"
+        )
+        lookback_days = st.selectbox("Chart lookback", [30,60,90,120,180,365], index=2)
+    
     st.divider()
     force_refresh = st.button("🔄 Force Refresh Data", use_container_width=True)
     if force_refresh:
