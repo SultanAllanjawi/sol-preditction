@@ -38,30 +38,30 @@ st.markdown("""
 
 @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes popIn{0%{opacity:0;transform:scale(0.85)}70%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
-@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(52,211,153,0)}}
-@keyframes pulseDotRed{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,77,109,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(255,77,109,0)}}
-@keyframes pulseDotGold{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,197,66,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(255,197,66,0)}}
+@keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(45,212,191,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(45,212,191,0)}}
+@keyframes pulseDotRed{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(251,113,133,0.55)}50%{opacity:0.75;box-shadow:0 0 0 6px rgba(251,113,133,0)}}
+@keyframes pulseDotGold{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(245,158,11,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(245,158,11,0)}}
 @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes fillBar{from{width:0}to{width:var(--tw)}}
-@keyframes glowPulse{0%,100%{box-shadow:0 10px 26px rgba(255,140,36,0.35)}50%{box-shadow:0 10px 40px rgba(255,140,36,0.65)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 10px 26px rgba(245,158,11,0.35)}50%{box-shadow:0 10px 40px rgba(245,158,11,0.65)}}
 
 * { font-family: 'Inter', -apple-system, sans-serif; }
 code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono', monospace !important; }
 
 .stApp{
-  color:#E8E2D5;
+  color:#E2E8F0;
   background:
-    radial-gradient(circle at 12% 8%, rgba(255,197,66,0.12), transparent 42%),
-    radial-gradient(circle at 88% 15%, rgba(52,211,153,0.08), transparent 40%),
-    radial-gradient(circle at 50% 100%, rgba(255,140,36,0.07), transparent 45%),
-    #0A0805;
+    radial-gradient(circle at 12% 8%, rgba(45,212,191,0.12), transparent 42%),
+    radial-gradient(circle at 88% 15%, rgba(45,212,191,0.08), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(245,158,11,0.07), transparent 45%),
+    #070812;
 }
 .stat-pop{display:inline-block;animation:popIn .5s cubic-bezier(.26,1.4,.4,1) both}
 .status-dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:8px;vertical-align:middle}
-.status-dot.buy{background:#34D399;animation:pulseDot 1.6s infinite}
-.status-dot.sell{background:#FF4D6D;animation:pulseDotRed 1.6s infinite}
-.status-dot.hold{background:#FFC542;animation:pulseDotGold 1.6s infinite}
+.status-dot.buy{background:#2DD4BF;animation:pulseDot 1.6s infinite}
+.status-dot.sell{background:#FB7185;animation:pulseDotRed 1.6s infinite}
+.status-dot.hold{background:#F59E0B;animation:pulseDotGold 1.6s infinite}
 .outlook-row{animation:fadeInUp .4s ease both}
 .block-container{padding-top:2.6rem}
 .block-container > div{animation:fadeInUp .45s ease both}
@@ -78,13 +78,13 @@ code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono'
 [data-testid="stImage"] img{animation:fadeInUp .5s ease both}
 /* shimmer on the loading spinner text */
 [data-testid="stSpinner"] p{
-  background:linear-gradient(90deg,#A89F8C 0%,#FFC542 50%,#A89F8C 100%);
+  background:linear-gradient(90deg,#94A3B8 0%,#2DD4BF 50%,#94A3B8 100%);
   background-size:200% auto;-webkit-background-clip:text;background-clip:text;
   color:transparent;animation:gradientShift 1.8s linear infinite;
 }
 
 /* header toolbar */
-header[data-testid="stHeader"]{background:#0A0805;z-index:999}
+header[data-testid="stHeader"]{background:#070812;z-index:999}
 #MainMenu, footer{visibility:hidden}
 /* hide Streamlit's auto heading-anchor icon (stray floating link/+ glyph on hover) */
 [data-testid="stHeaderActionElements"], .stMarkdown a.anchor-link, [data-testid="stHeadingWithActionElements"] svg{
@@ -93,44 +93,44 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
 
 /* metric tiles */
 [data-testid="metric-container"]{
-  background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);
-  border:1px solid #332C1A;border-radius:14px;padding:16px 20px;
+  background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);
+  border:1px solid #1E2333;border-radius:14px;padding:16px 20px;
   box-shadow:0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
   transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
 }
 [data-testid="metric-container"]:hover{
-  border-color:#FFC542; transform:translateY(-4px);
-  box-shadow:0 16px 32px rgba(255,197,66,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
+  border-color:#2DD4BF; transform:translateY(-4px);
+  box-shadow:0 16px 32px rgba(45,212,191,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 [data-testid="stMetricValue"]{color:#FFFFFF;font-size:1.7rem!important;font-weight:800}
-[data-testid="stMetricLabel"]{color:#A89F8C;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
+[data-testid="stMetricLabel"]{color:#94A3B8;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
 [data-testid="stMetricDelta"]{font-weight:700;border-radius:20px;padding:2px 9px;display:inline-flex}
 [data-testid="stMetricDelta"] svg{display:none}
 
 /* live indicator dot on the price header */
-.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34D399;
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2DD4BF;
   margin-right:6px;animation:pulseDot 1.8s infinite}
-.live-dot.down{background:#FF4D6D;animation-name:pulseDotRed}
+.live-dot.down{background:#FB7185;animation-name:pulseDotRed}
 
 .signal-card{
-  background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);
-  border:1px solid #332C1A;border-radius:16px;padding:18px 22px;margin:6px 0;
+  background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);
+  border:1px solid #1E2333;border-radius:16px;padding:18px 22px;margin:6px 0;
   box-shadow:0 10px 30px rgba(0,0,0,0.4);
   animation:fadeInUp .5s ease both;
   transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
 }
 .signal-card:hover{
   transform:translateY(-4px);
-  border-color:#FFC542; box-shadow:0 16px 32px rgba(255,197,66,0.18);
+  border-color:#2DD4BF; box-shadow:0 16px 32px rgba(45,212,191,0.18);
 }
-.buy-card{border-left:5px solid #34D399}.sell-card{border-left:5px solid #FF4D6D}.hold-card{border-left:5px solid #8C8168}
-hr{border-color:#241F14}
+.buy-card{border-left:5px solid #2DD4BF}.sell-card{border-left:5px solid #FB7185}.hold-card{border-left:5px solid #64748B}
+hr{border-color:#1A1E2B}
 
 /* generic tilt-card — apply class="tilt-card" to any custom HTML card div */
 .tilt-card{transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease}
 .tilt-card:hover{
   transform:translateY(-4px)!important;
-  border-color:#FFC542!important; box-shadow:0 16px 32px rgba(255,197,66,0.22)!important;
+  border-color:#2DD4BF!important; box-shadow:0 16px 32px rgba(45,212,191,0.22)!important;
 }
 
 /* smooth tab panel transitions (client-side, no rerun) */
@@ -141,101 +141,101 @@ hr{border-color:#241F14}
 [data-testid="stExpander"] summary svg{transition:transform .25s ease}
 
 /* sidebar */
-[data-testid="stSidebar"]{background:#0B0813;border-right:1px solid #241F14}
+[data-testid="stSidebar"]{background:#08090F;border-right:1px solid #1A1E2B}
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem}
 [data-testid="stSidebar"] .block-container{animation:fadeInUp .45s ease both}
 
 /* alerts / info boxes — override Streamlit's default blue */
 .stAlert, [data-testid="stNotification"], [data-testid^="stAlertContent"]{
-  background:#161310!important;border:1px solid #332C1A!important;
-  border-radius:10px!important;color:#E8E2D5!important;
+  background:#10121C!important;border:1px solid #1E2333!important;
+  border-radius:10px!important;color:#E2E8F0!important;
 }
-.stAlert p, [data-testid^="stAlertContent"] p{color:#E8E2D5!important}
-[data-testid="stAlertContentInfo"]{border-left:3px solid #FFC542!important}
-[data-testid="stAlertContentSuccess"]{border-left:3px solid #34D399!important}
-[data-testid="stAlertContentWarning"]{border-left:3px solid #FF8C24!important}
-[data-testid="stAlertContentError"]{border-left:3px solid #FF4D6D!important}
-[data-testid="stAlertContentInfo"] svg{color:#FFC542!important;fill:#FFC542!important}
-[data-testid="stAlertContentSuccess"] svg{color:#34D399!important;fill:#34D399!important}
-[data-testid="stAlertContentWarning"] svg{color:#FF8C24!important;fill:#FF8C24!important}
-[data-testid="stAlertContentError"] svg{color:#FF4D6D!important;fill:#FF4D6D!important}
+.stAlert p, [data-testid^="stAlertContent"] p{color:#E2E8F0!important}
+[data-testid="stAlertContentInfo"]{border-left:3px solid #2DD4BF!important}
+[data-testid="stAlertContentSuccess"]{border-left:3px solid #2DD4BF!important}
+[data-testid="stAlertContentWarning"]{border-left:3px solid #F59E0B!important}
+[data-testid="stAlertContentError"]{border-left:3px solid #FB7185!important}
+[data-testid="stAlertContentInfo"] svg{color:#2DD4BF!important;fill:#2DD4BF!important}
+[data-testid="stAlertContentSuccess"] svg{color:#2DD4BF!important;fill:#2DD4BF!important}
+[data-testid="stAlertContentWarning"] svg{color:#F59E0B!important;fill:#F59E0B!important}
+[data-testid="stAlertContentError"] svg{color:#FB7185!important;fill:#FB7185!important}
 
 /* radio groups — pill-style hover + gold accent */
 [data-testid="stRadio"] label{
   border-radius:8px;padding:4px 8px;margin:1px 0;transition:background .15s ease;
-  accent-color:#FFC542;
+  accent-color:#2DD4BF;
 }
-[data-testid="stRadio"] label:hover{background:rgba(255,197,66,0.08)}
-[data-testid="stRadio"] [data-baseweb="radio"] div:first-child{border-color:#332C1A!important}
-[data-testid="stCheckbox"]{accent-color:#FFC542}
+[data-testid="stRadio"] label:hover{background:rgba(45,212,191,0.08)}
+[data-testid="stRadio"] [data-baseweb="radio"] div:first-child{border-color:#1E2333!important}
+[data-testid="stCheckbox"]{accent-color:#2DD4BF}
 
 /* tabs */
-.stTabs [data-baseweb="tab-list"]{background:#161310;border-radius:10px;padding:4px;gap:2px}
-.stTabs [data-baseweb="tab"]{color:#A89F8C;border-radius:8px;transition:color .15s ease}
-.stTabs [data-baseweb="tab"]:hover{color:#E8E2D5}
+.stTabs [data-baseweb="tab-list"]{background:#10121C;border-radius:10px;padding:4px;gap:2px}
+.stTabs [data-baseweb="tab"]{color:#94A3B8;border-radius:8px;transition:color .15s ease}
+.stTabs [data-baseweb="tab"]:hover{color:#E2E8F0}
 .stTabs [aria-selected="true"]{
   color:#FFFFFF!important;
-  background:linear-gradient(90deg,#FFC542,#34D399,#FFC542);
+  background:linear-gradient(90deg,#2DD4BF,#F59E0B,#2DD4BF);
   background-size:200% auto; animation:gradientShift 6s ease infinite;
   border-bottom:2px solid transparent!important;
 }
 
 /* buttons */
 .stButton>button{
-  border-radius:9px;border:1px solid #332C1A;transition:all .15s ease;font-weight:600;
+  border-radius:9px;border:1px solid #1E2333;transition:all .15s ease;font-weight:600;
 }
-.stButton>button:hover{border-color:#FFC542;box-shadow:0 0 16px rgba(255,197,66,0.35);transform:translateY(-1px)}
+.stButton>button:hover{border-color:#2DD4BF;box-shadow:0 0 16px rgba(45,212,191,0.35);transform:translateY(-1px)}
 .stButton>button[kind="primary"]{
-  background:linear-gradient(135deg,#FFC542,#FF8C24);border:none;
-  box-shadow:0 4px 16px rgba(255,197,66,0.35);
+  background:linear-gradient(135deg,#2DD4BF,#F59E0B);border:none;
+  box-shadow:0 4px 16px rgba(45,212,191,0.35);
 }
-.stButton>button[kind="primary"]:hover{box-shadow:0 6px 22px rgba(255,197,66,0.5);transform:translateY(-2px)}
+.stButton>button[kind="primary"]:hover{box-shadow:0 6px 22px rgba(45,212,191,0.5);transform:translateY(-2px)}
 
 /* inline code / badges (ticker chips etc) */
 code{
-  background:linear-gradient(135deg,#34D39922,#FFC54222)!important;
-  color:#34D399!important;border:1px solid #34D39955;border-radius:6px;
+  background:linear-gradient(135deg,#2DD4BF22,#F59E0B22)!important;
+  color:#2DD4BF!important;border:1px solid #2DD4BF55;border-radius:6px;
   padding:2px 7px!important;font-weight:700;
 }
 
 /* inputs, selects, expanders */
 .stTextInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div{
-  background:#161310!important;border:1px solid #332C1A!important;border-radius:8px!important;
+  background:#10121C!important;border:1px solid #1E2333!important;border-radius:8px!important;
   transition:border-color .15s ease;
 }
 .stTextInput input:focus,.stSelectbox [data-baseweb="select"]>div:focus-within{
-  border-color:#FFC542!important;box-shadow:0 0 0 2px rgba(255,197,66,0.25)!important;
+  border-color:#2DD4BF!important;box-shadow:0 0 0 2px rgba(45,212,191,0.25)!important;
 }
 [data-testid="stExpander"]{
-  background:#0F0B1C;border:1px solid #241F14;border-radius:12px;overflow:hidden;
+  background:#0F0B1C;border:1px solid #1A1E2B;border-radius:12px;overflow:hidden;
 }
-.stSlider [role="slider"]{background:#FFC542!important}
+.stSlider [role="slider"]{background:#2DD4BF!important}
 [data-testid="stFileUploaderDropzone"]{
-  background:#0F0B1C!important;border:1.5px dashed #332C1A!important;border-radius:12px!important;
+  background:#0F0B1C!important;border:1.5px dashed #1E2333!important;border-radius:12px!important;
   transition:border-color .15s ease;
 }
-[data-testid="stFileUploaderDropzone"]:hover{border-color:#FFC542!important}
+[data-testid="stFileUploaderDropzone"]:hover{border-color:#2DD4BF!important}
 
 /* toast / alerts */
-[data-testid="stToast"]{background:#161310;border:1px solid #332C1A;border-radius:12px}
+[data-testid="stToast"]{background:#10121C;border:1px solid #1E2333;border-radius:12px}
 .stAlert{border-radius:10px;animation:fadeInUp .3s ease both}
 
 /* chat bubbles */
 [data-testid="stChatMessage"]{
-  background:#161310;border:1px solid #241F14;border-radius:12px;animation:fadeInUp .3s ease both;
+  background:#10121C;border:1px solid #1A1E2B;border-radius:12px;animation:fadeInUp .3s ease both;
 }
 
 /* dataframe */
-[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden;border:1px solid #241F14}
+[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden;border:1px solid #1A1E2B}
 
 ::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-track{background:#0A0805}
-::-webkit-scrollbar-thumb{background:#332C1A;border-radius:4px}
-::-webkit-scrollbar-thumb:hover{background:#FFC542}
+::-webkit-scrollbar-track{background:#070812}
+::-webkit-scrollbar-thumb{background:#1E2333;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#2DD4BF}
 </style>""", unsafe_allow_html=True)
 
-C_UP='#34D399';C_DOWN='#FF4D6D';C_BLUE='#FFC542'
-C_GOLD='#FF8C24';C_GREY='#8C8168';C_WHITE='#FFFFFF';C_DIM='#A89F8C'
+C_UP='#2DD4BF';C_DOWN='#FB7185';C_BLUE='#2DD4BF'
+C_GOLD='#F59E0B';C_GREY='#64748B';C_WHITE='#FFFFFF';C_DIM='#94A3B8'
 
 
 
@@ -319,26 +319,26 @@ def get_active_wallets_cached(ticker):
     return DataManager.get_active_wallets(ticker)
 
 def empty_state(icon, title, subtitle, cta=None):
-    _cta_html = (f'<div style="color:#FFC542;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
+    _cta_html = (f'<div style="color:#2DD4BF;font-size:0.78rem;font-weight:700;margin-top:12px">{cta}</div>'
                  if cta else "")
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
-        f'border:1px dashed #332C1A;border-radius:14px;padding:32px 24px;text-align:center;margin:8px 0">'
+        f'<div style="background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);'
+        f'border:1px dashed #1E2333;border-radius:14px;padding:32px 24px;text-align:center;margin:8px 0">'
         f'<div style="width:44px;height:44px;border-radius:12px;margin:0 auto 12px;'
-        f'background:linear-gradient(135deg,#FFC54230,#FF8C2420);border:1px solid #FFC54250;'
+        f'background:linear-gradient(135deg,#2DD4BF30,#F59E0B20);border:1px solid #2DD4BF50;'
         f'display:flex;align-items:center;justify-content:center;font-size:1.2rem">{icon}</div>'
         f'<div style="color:#FFFFFF;font-weight:700;font-size:0.95rem">{title}</div>'
-        f'<div style="color:#A89F8C;font-size:0.82rem;margin-top:4px;line-height:1.5">{subtitle}</div>'
+        f'<div style="color:#94A3B8;font-size:0.82rem;margin-top:4px;line-height:1.5">{subtitle}</div>'
         f'{_cta_html}</div>', unsafe_allow_html=True
     )
 
 def dark_fig():
     plt.rcParams.update({
-        'figure.facecolor':'#0A0805','axes.facecolor':'#161310',
-        'axes.edgecolor':'#332C1A','axes.labelcolor':'#E8E2D5',
-        'xtick.color':'#A89F8C','ytick.color':'#A89F8C','text.color':'#E8E2D5',
-        'grid.color':'#241F14','grid.linewidth':0.5,'legend.facecolor':'#161310',
-        'legend.edgecolor':'#332C1A','legend.fontsize':8,'font.size':9,
+        'figure.facecolor':'#070812','axes.facecolor':'#10121C',
+        'axes.edgecolor':'#1E2333','axes.labelcolor':'#E2E8F0',
+        'xtick.color':'#94A3B8','ytick.color':'#94A3B8','text.color':'#E2E8F0',
+        'grid.color':'#1A1E2B','grid.linewidth':0.5,'legend.facecolor':'#10121C',
+        'legend.edgecolor':'#1E2333','legend.fontsize':8,'font.size':9,
     })
 
 # ═══════════════════════════════════════════════════════════════════
@@ -570,9 +570,9 @@ def render_portfolio_page():
         '<div style="display:flex;justify-content:space-between;align-items:flex-end;'
         'flex-wrap:wrap;gap:8px;margin-bottom:14px">'
         '<div><div style="font-size:1.4rem;font-weight:800;color:#FFFFFF">💼 Portfolio</div>'
-        '<div style="color:#A89F8C;font-size:0.8rem;margin-top:2px">'
+        '<div style="color:#94A3B8;font-size:0.8rem;margin-top:2px">'
         'Track which signals you acted on · P&amp;L updates live on refresh</div></div>'
-        '<div style="display:flex;align-items:center;gap:6px;color:#6E6754;font-size:0.72rem">'
+        '<div style="display:flex;align-items:center;gap:6px;color:#475569;font-size:0.72rem">'
         '<span class="live-dot"></span>Session data · resets on page close</div>'
         '</div>', unsafe_allow_html=True
     )
@@ -639,26 +639,26 @@ def render_portfolio_page():
         })
 
     roi = (total_pnl/total_invest*100) if total_invest>0 else 0
-    _pnl_c = "#34D399" if total_pnl>=0 else "#FF4D6D"
-    _roi_c = "#34D399" if roi>=0 else "#FF4D6D"
+    _pnl_c = "#2DD4BF" if total_pnl>=0 else "#FB7185"
+    _roi_c = "#2DD4BF" if roi>=0 else "#FB7185"
     st.markdown(
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">'
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:12px;padding:14px 16px">'
-        f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total Trades</div>'
+        f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total Trades</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.35rem;font-weight:800;margin-top:3px">{len(trades)}</div></div>'
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:12px;padding:14px 16px">'
-        f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Open Positions</div>'
-        f'<div class="stat-pop" style="color:#FFC542;font-size:1.35rem;font-weight:800;margin-top:3px">{open_count}</div></div>'
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Open Positions</div>'
+        f'<div class="stat-pop" style="color:#2DD4BF;font-size:1.35rem;font-weight:800;margin-top:3px">{open_count}</div></div>'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:12px;padding:14px 16px">'
-        f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total P&amp;L</div>'
+        f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total P&amp;L</div>'
         f'<div class="stat-pop" style="color:{_pnl_c};font-size:1.35rem;font-weight:800;margin-top:3px">'
         f'{"+" if total_pnl>=0 else ""}{total_pnl:,.2f}</div></div>'
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:12px;padding:14px 16px">'
-        f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">ROI</div>'
+        f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">ROI</div>'
         f'<div class="stat-pop" style="color:{_roi_c};font-size:1.35rem;font-weight:800;margin-top:3px">{roi:+.2f}%</div></div>'
         '</div>', unsafe_allow_html=True
     )
@@ -666,7 +666,7 @@ def render_portfolio_page():
     _pf_left, _pf_right = st.columns([2, 1])
     with _pf_left:
         st.markdown(
-            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
             'letter-spacing:.04em;margin-bottom:8px">📈 Portfolio Performance</div>',
             unsafe_allow_html=True
         )
@@ -675,12 +675,12 @@ def render_portfolio_page():
             _cum = np.cumsum([r["pnl"] for r in _sorted_rows])
             dark_fig()
             _figp, _axp = plt.subplots(figsize=(9, 3.2))
-            _figp.patch.set_facecolor('#0A0805'); _axp.set_facecolor('#161310')
+            _figp.patch.set_facecolor('#070812'); _axp.set_facecolor('#10121C')
             _xs = range(len(_cum))
-            _lc = '#34D399' if (len(_cum)==0 or _cum[-1]>=0) else '#FF4D6D'
+            _lc = '#2DD4BF' if (len(_cum)==0 or _cum[-1]>=0) else '#FB7185'
             _axp.plot(_xs, _cum, color=_lc, lw=1.8, marker='o', ms=3.5)
-            _axp.fill_between(_xs, 0, _cum, where=(_cum>=0), alpha=0.14, color='#34D399')
-            _axp.fill_between(_xs, 0, _cum, where=(_cum<0),  alpha=0.14, color='#FF4D6D')
+            _axp.fill_between(_xs, 0, _cum, where=(_cum>=0), alpha=0.14, color='#2DD4BF')
+            _axp.fill_between(_xs, 0, _cum, where=(_cum<0),  alpha=0.14, color='#FB7185')
             _axp.axhline(0, color='#6B7290', lw=0.8, ls='--', alpha=0.6)
             _axp.set_xticks(_xs); _axp.set_xticklabels([r["date"][5:10] for r in _sorted_rows],
                                                          rotation=30, ha='right', fontsize=7.5)
@@ -694,7 +694,7 @@ def render_portfolio_page():
 
     with _pf_right:
         st.markdown(
-            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
             'letter-spacing:.04em;margin-bottom:8px">🏆 Top Assets</div>',
             unsafe_allow_html=True
         )
@@ -705,66 +705,66 @@ def render_portfolio_page():
         _asset_ranked = sorted(_by_asset.items(), key=lambda x: -abs(x[1]))[:5]
         _ASSET_GRAD = {
             "SOL-USD": "linear-gradient(135deg,#9945FF,#14F195)",
-            "BTC-USD": "linear-gradient(135deg,#F7931A,#FFC542)",
+            "BTC-USD": "linear-gradient(135deg,#F7931A,#2DD4BF)",
             "ETH-USD": "linear-gradient(135deg,#3C3C3D,#8C8C8C)",
         }
         _asset_html = ""
         for _at, _apnl in _asset_ranked:
-            _ac = "#34D399" if _apnl>=0 else "#FF4D6D"
-            _ag = _ASSET_GRAD.get(_at, "linear-gradient(135deg,#FFC542,#FF8C24)")
+            _ac = "#2DD4BF" if _apnl>=0 else "#FB7185"
+            _ag = _ASSET_GRAD.get(_at, "linear-gradient(135deg,#2DD4BF,#F59E0B)")
             _asset_html += (
                 f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                f'padding:8px 0;border-bottom:1px solid #1A1712">'
+                f'padding:8px 0;border-bottom:1px solid #141726">'
                 f'<div style="display:flex;align-items:center;gap:8px">'
                 f'<div style="width:26px;height:26px;border-radius:7px;background:{_ag};'
                 f'display:flex;align-items:center;justify-content:center;font-size:0.7rem;'
-                f'font-weight:800;color:#100D08">{_at[0]}</div>'
-                f'<span style="color:#E8E2D5;font-size:0.82rem;font-weight:600">{_at}</span></div>'
+                f'font-weight:800;color:#0B0F1A">{_at[0]}</div>'
+                f'<span style="color:#E2E8F0;font-size:0.82rem;font-weight:600">{_at}</span></div>'
                 f'<span style="color:{_ac};font-size:0.82rem;font-weight:700">'
                 f'{"+" if _apnl>=0 else ""}{_apnl:,.2f}</span></div>'
             )
         if not _asset_html:
-            _asset_html = '<div style="color:#6E6754;font-size:0.8rem">No assets yet</div>'
+            _asset_html = '<div style="color:#475569;font-size:0.8rem">No assets yet</div>'
         st.markdown(
-            f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:6px 14px">{_asset_html}</div>',
             unsafe_allow_html=True
         )
 
     st.markdown(
-        '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+        '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
         'letter-spacing:.04em;margin:20px 0 8px">📋 Transactions</div>',
         unsafe_allow_html=True
     )
     _tx_hdr = "".join(
-        f'<th style="text-align:left;padding:8px 10px;color:#A89F8C;font-size:0.7rem;'
-        f'text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #241F14">{h}</th>'
+        f'<th style="text-align:left;padding:8px 10px;color:#94A3B8;font-size:0.7rem;'
+        f'text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #1A1E2B">{h}</th>'
         for h in ["Date","Asset","Side","Entry","Size","Live / Exit","P&L","Status"]
     )
     _tx_body = ""
     for _i, r in enumerate(_rows):
-        _sc = "#34D399" if r["side"]=="BUY" else "#FF4D6D"
-        _pc = "#34D399" if r["pnl"]>=0 else "#FF4D6D"
-        _stc, _stb = ("#FFC542","rgba(255,197,66,0.12)") if r["status"]=="Open" else ("#8C8168","rgba(140,129,104,0.14)")
+        _sc = "#2DD4BF" if r["side"]=="BUY" else "#FB7185"
+        _pc = "#2DD4BF" if r["pnl"]>=0 else "#FB7185"
+        _stc, _stb = ("#2DD4BF","rgba(45,212,191,0.12)") if r["status"]=="Open" else ("#64748B","rgba(100,116,139,0.14)")
         _tx_body += (
             f'<tr class="outlook-row" style="animation-delay:{_i*0.05:.2f}s">'
-            f'<td style="padding:9px 10px;color:#A89F8C;font-size:0.8rem;border-bottom:1px solid #1A1712">{r["date"]}</td>'
-            f'<td style="padding:9px 10px;color:#FFFFFF;font-weight:600;font-size:0.82rem;border-bottom:1px solid #1A1712">{r["ticker"]}</td>'
-            f'<td style="padding:9px 10px;border-bottom:1px solid #1A1712">'
+            f'<td style="padding:9px 10px;color:#94A3B8;font-size:0.8rem;border-bottom:1px solid #141726">{r["date"]}</td>'
+            f'<td style="padding:9px 10px;color:#FFFFFF;font-weight:600;font-size:0.82rem;border-bottom:1px solid #141726">{r["ticker"]}</td>'
+            f'<td style="padding:9px 10px;border-bottom:1px solid #141726">'
             f'<span class="status-dot {"buy" if r["side"]=="BUY" else "sell"}" style="width:8px;height:8px"></span>'
             f'<span style="color:{_sc};font-weight:700;font-size:0.8rem">{r["side"]}</span></td>'
-            f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">${r["entry"]:,.4f}</td>'
-            f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">{r["size"]:.4f}</td>'
-            f'<td style="padding:9px 10px;color:#E8E2D5;font-size:0.82rem;border-bottom:1px solid #1A1712">${r["live"]:,.4f}</td>'
-            f'<td style="padding:9px 10px;color:{_pc};font-weight:700;font-size:0.82rem;border-bottom:1px solid #1A1712">'
+            f'<td style="padding:9px 10px;color:#E2E8F0;font-size:0.82rem;border-bottom:1px solid #141726">${r["entry"]:,.4f}</td>'
+            f'<td style="padding:9px 10px;color:#E2E8F0;font-size:0.82rem;border-bottom:1px solid #141726">{r["size"]:.4f}</td>'
+            f'<td style="padding:9px 10px;color:#E2E8F0;font-size:0.82rem;border-bottom:1px solid #141726">${r["live"]:,.4f}</td>'
+            f'<td style="padding:9px 10px;color:{_pc};font-weight:700;font-size:0.82rem;border-bottom:1px solid #141726">'
             f'{"+" if r["pnl"]>=0 else ""}{r["pnl"]:,.2f} ({"+" if r["pnl_pct"]>=0 else ""}{r["pnl_pct"]:.2f}%)</td>'
-            f'<td style="padding:9px 10px;border-bottom:1px solid #1A1712">'
+            f'<td style="padding:9px 10px;border-bottom:1px solid #141726">'
             f'<span class="chip" style="color:{_stc};background:{_stb};font-size:0.68rem;font-weight:700;'
             f'padding:3px 9px;border-radius:999px">{r["status"].upper()}</span></td>'
             f'</tr>'
         )
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
         f'border-radius:14px;padding:6px 4px;overflow-x:auto">'
         f'<table style="width:100%;border-collapse:collapse"><thead><tr>{_tx_hdr}</tr></thead>'
         f'<tbody>{_tx_body}</tbody></table></div>',
@@ -772,7 +772,7 @@ def render_portfolio_page():
     )
 
     st.markdown(
-        '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+        '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
         'letter-spacing:.04em;margin:20px 0 8px">⚙️ Manage Trades</div>',
         unsafe_allow_html=True
     )
@@ -817,7 +817,7 @@ def render_portfolio_page():
     _ctl = st.session_state.get("closed_trades_log", [])
     if _ctl:
         st.markdown(
-            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
             'letter-spacing:.04em;margin:20px 0 8px">📜 Closed Trades History</div>',
             unsafe_allow_html=True
         )
@@ -901,8 +901,8 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
                       "SALIK.DFM","FAB.ADX","ALDAR.ADX","ADCB.ADX","MASQ.DFM"]
         _is_uae_err = ticker in _uae_list
         st.markdown(f"""
-<div style="background:#2E121A;border:2px solid #FF4D6D;border-radius:10px;padding:20px 24px;margin:20px 0">
-  <div style="color:#FF4D6D;font-size:1.1rem;font-weight:bold;margin-bottom:8px">
+<div style="background:#241521;border:2px solid #FB7185;border-radius:10px;padding:20px 24px;margin:20px 0">
+  <div style="color:#FB7185;font-size:1.1rem;font-weight:bold;margin-bottom:8px">
     ❌ Error Loading Data for {ticker}
   </div>
   <div style="color:#FFFFFF;font-size:0.88rem">{str(e).split(chr(10))[0]}</div>
@@ -922,19 +922,19 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
             _inv_url = f"https://www.investing.com/equities/{_inv_sl}-historical-data"
 
             st.markdown(f"""
-<div style="background:#1C160E;border:1px solid #FF8C24;border-radius:8px;padding:16px 20px">
-  <div style="color:#FF8C24;font-weight:bold;margin-bottom:10px">
+<div style="background:#1A1826;border:1px solid #F59E0B;border-radius:8px;padding:16px 20px">
+  <div style="color:#F59E0B;font-weight:bold;margin-bottom:10px">
     🇦🇪 {ticker} — Auto-fetch failed
   </div>
-  <div style="color:#E8E2D5;font-size:0.88rem;line-height:1.9">
+  <div style="color:#E2E8F0;font-size:0.88rem;line-height:1.9">
     Auto-fetch via yfinance/Stooq is not returning data for this stock.<br>
     <b>Quick fix — download CSV manually (30 seconds):</b><br><br>
     <b>Option 1 — Yahoo Finance:</b><br>
     &nbsp;&nbsp;→ <a href="{_yf_csv}" target="_blank" 
-      style="color:#FFC542">Click to download {_yf_sym} CSV directly</a><br><br>
+      style="color:#2DD4BF">Click to download {_yf_sym} CSV directly</a><br><br>
     <b>Option 2 — Investing.com:</b><br>
     &nbsp;&nbsp;→ <a href="{_inv_url}" target="_blank"
-      style="color:#FFC542">Open {ticker} historical data on Investing.com</a>
+      style="color:#2DD4BF">Open {ticker} historical data on Investing.com</a>
       → click Download<br><br>
     Then upload via sidebar → <b>🇦🇪 UAE / DFM Stock</b> → select stock → Apply
   </div>
@@ -945,16 +945,16 @@ with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 mi
                 st.rerun()
             col_r2.markdown(
                 f'<a href="{_yf_csv}" target="_blank" style="display:inline-block;'
-                f'background:#2ECC71;color:white;border-radius:5px;padding:8px 16px;'
+                f'background:#2DD4BF;color:white;border-radius:5px;padding:8px 16px;'
                 f'text-decoration:none;font-size:0.85rem;margin-top:4px">'
                 f'⬇️ Download CSV for {_yf_sym}</a>',
                 unsafe_allow_html=True
             )
         else:
             st.markdown("""
-<div style="background:#1C160E;border:1px solid #332C1A;border-radius:8px;padding:16px 20px">
-  <div style="color:#FF8C24;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
-  <div style="color:#E8E2D5;font-size:0.88rem;line-height:1.8">
+<div style="background:#1A1826;border:1px solid #1E2333;border-radius:8px;padding:16px 20px">
+  <div style="color:#F59E0B;font-weight:bold;margin-bottom:8px">💡 What to do:</div>
+  <div style="color:#E2E8F0;font-size:0.88rem;line-height:1.8">
     1. For crypto (SOL, BTC, ETH): auto-loads from Binance<br>
     2. For US stocks: auto-loads from Yahoo Finance<br>
     3. Click <b>Force Refresh Data</b> in the sidebar<br>
@@ -1089,23 +1089,23 @@ st.markdown(
     f'<span style="font-size:1.5rem">🔮</span> '
     f'<span style="font-size:1.4rem;font-weight:800;color:#FFFFFF">{name}</span> '
     f'<code style="font-size:0.95rem">{ticker}</code>'
-    f'<div style="color:#A89F8C;font-size:0.8rem;margin-top:2px">'
+    f'<div style="color:#94A3B8;font-size:0.8rem;margin-top:2px">'
     f'Source: {data_src} · Last candle {last_date.strftime("%d %b %Y")} · {len(df_feat):,} trading days</div>'
     f'</div>', unsafe_allow_html=True
 )
 st.divider()
 
 _dot_cls    = "live-dot" if day_chg >= 0 else "live-dot down"
-_chg_color  = "#34D399" if day_chg >= 0 else "#FF4D6D"
+_chg_color  = "#2DD4BF" if day_chg >= 0 else "#FB7185"
 _price_label = "Live Price" if live_price else "Last Close"
 
-def _metric_bar(pct, grad="linear-gradient(90deg,#FFC542,#FF8C24)", delay=0):
+def _metric_bar(pct, grad="linear-gradient(90deg,#2DD4BF,#F59E0B)", delay=0):
     pct = max(2, min(100, pct))
-    return (f'<div style="background:#241F14;border-radius:6px;height:6px;margin-top:9px;overflow:hidden">'
+    return (f'<div style="background:#1A1E2B;border-radius:6px;height:6px;margin-top:9px;overflow:hidden">'
             f'<div style="--tw:{pct}%;width:0;height:100%;background:{grad};border-radius:6px;'
             f'animation:fillBar 1s ease-out {delay}s forwards"></div></div>')
 
-_prob_grad = "linear-gradient(90deg,#34D399,#2ECC71)" if last_prob > 0.5 else "linear-gradient(90deg,#FF4D6D,#FF2D6E)"
+_prob_grad = "linear-gradient(90deg,#2DD4BF,#14B8A6)" if last_prob > 0.5 else "linear-gradient(90deg,#FB7185,#E11D48)"
 _acc_bar  = _metric_bar(ens_acc*100, delay=0.0)
 _filt_bar = _metric_bar(ens_filt*100, delay=0.1)
 _prob_bar = _metric_bar(last_prob*100, _prob_grad, delay=0.2)
@@ -1115,39 +1115,39 @@ col_left, col_right = st.columns([2.1, 1])
 
 with col_left:
     st.markdown(
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
-        f'border:1px solid #332C1A;border-radius:16px;padding:20px 22px;height:100%;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);'
+        f'border:1px solid #1E2333;border-radius:16px;padding:20px 22px;height:100%;'
         f'box-shadow:0 10px 30px rgba(0,0,0,0.4)">'
-        f'<div style="color:#FFC542;font-weight:700;font-size:0.9rem;margin-bottom:16px;'
+        f'<div style="color:#2DD4BF;font-weight:700;font-size:0.9rem;margin-bottom:16px;'
         f'text-transform:uppercase;letter-spacing:0.04em">📊 Model Metrics</div>'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 28px">'
-        f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">Model Accuracy</div>'
+        f'<div><div style="color:#94A3B8;font-size:0.74rem;text-transform:uppercase">Model Accuracy</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.05s">{ens_acc*100:.1f}%</div>{_acc_bar}</div>'
-        f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">Filtered Accuracy</div>'
+        f'<div><div style="color:#94A3B8;font-size:0.74rem;text-transform:uppercase">Filtered Accuracy</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.15s">{ens_filt*100:.1f}%'
-        f'<span style="color:#34D399;font-size:0.78rem;font-weight:600"> +{(ens_filt-ens_acc)*100:.1f}%</span></div>{_filt_bar}</div>'
-        f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">P(UP Tomorrow)</div>'
+        f'<span style="color:#2DD4BF;font-size:0.78rem;font-weight:600"> +{(ens_filt-ens_acc)*100:.1f}%</span></div>{_filt_bar}</div>'
+        f'<div><div style="color:#94A3B8;font-size:0.74rem;text-transform:uppercase">P(UP Tomorrow)</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.25s">{last_prob*100:.1f}%</div>{_prob_bar}</div>'
-        f'<div><div style="color:#A89F8C;font-size:0.74rem;text-transform:uppercase">ATR Volatility</div>'
+        f'<div><div style="color:#94A3B8;font-size:0.74rem;text-transform:uppercase">ATR Volatility</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.55rem;font-weight:800;animation-delay:.35s">${last_atr:.4f}</div>{_atr_bar}</div>'
         f'</div></div>', unsafe_allow_html=True
     )
 
 with col_right:
     st.markdown(
-        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
-        f'border:1px solid #332C1A;border-radius:16px;padding:16px 20px;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);'
+        f'border:1px solid #1E2333;border-radius:16px;padding:16px 20px;'
         f'box-shadow:0 10px 30px rgba(0,0,0,0.4);margin-bottom:12px">'
-        f'<div style="color:#A89F8C;font-size:0.72rem;text-transform:uppercase;font-weight:600">'
+        f'<div style="color:#94A3B8;font-size:0.72rem;text-transform:uppercase;font-weight:600">'
         f'<span class="{_dot_cls}"></span>{_price_label}</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.75rem;font-weight:800;margin-top:2px">${display_price:,.4f}</div>'
         f'<div style="color:{_chg_color};font-weight:700;font-size:0.88rem">{day_chg:+.2f}%</div>'
         f'</div>'
-        f'<div class="tilt-card" style="background:linear-gradient(135deg,#FFC542,#FF8C24);border-radius:16px;'
-        f'padding:16px 20px;box-shadow:0 10px 26px rgba(255,140,36,0.35);animation:glowPulse 2.4s ease-in-out infinite">'
-        f'<div style="color:#241C08;font-size:0.72rem;text-transform:uppercase;font-weight:700">Active Signals</div>'
-        f'<div class="stat-pop" style="color:#241C08;font-size:1.6rem;font-weight:900;animation-delay:.2s">{results["n_signals"]}</div>'
-        f'<div style="color:#241C08;font-size:0.7rem;font-weight:700;opacity:0.75">'
+        f'<div class="tilt-card" style="background:linear-gradient(135deg,#2DD4BF,#F59E0B);border-radius:16px;'
+        f'padding:16px 20px;box-shadow:0 10px 26px rgba(245,158,11,0.35);animation:glowPulse 2.4s ease-in-out infinite">'
+        f'<div style="color:#0B1220;font-size:0.72rem;text-transform:uppercase;font-weight:700">Active Signals</div>'
+        f'<div class="stat-pop" style="color:#0B1220;font-size:1.6rem;font-weight:900;animation-delay:.2s">{results["n_signals"]}</div>'
+        f'<div style="color:#0B1220;font-size:0.7rem;font-weight:700;opacity:0.75">'
         f'🟢 {int((signals==1).sum())} buy &middot; 🔴 {int((signals==-1).sum())} sell</div>'
         f'</div>',
         unsafe_allow_html=True
@@ -1170,58 +1170,58 @@ _sig_label = (_today_date.strftime("TODAY — %A %d %b %Y · Live")
 col_sig, col_7d = st.columns([1, 2])
 
 with col_sig:
-    _bc  = "#12241A" if last_sig=="BUY" else "#2E121A" if last_sig=="SELL" else "#161310"
-    _brd = "#34D399" if last_sig=="BUY" else "#FF4D6D" if last_sig=="SELL" else "#332C1A"
-    _sc  = "#34D399" if last_sig=="BUY" else "#FF4D6D" if last_sig=="SELL" else "#8C8168"
-    _tc  = "#34D399" if last_sig=="BUY" else "#FF4D6D"
-    _slc = "#FF4D6D" if last_sig=="BUY" else "#34D399"
+    _bc  = "#0F2420" if last_sig=="BUY" else "#241521" if last_sig=="SELL" else "#10121C"
+    _brd = "#2DD4BF" if last_sig=="BUY" else "#FB7185" if last_sig=="SELL" else "#1E2333"
+    _sc  = "#2DD4BF" if last_sig=="BUY" else "#FB7185" if last_sig=="SELL" else "#64748B"
+    _tc  = "#2DD4BF" if last_sig=="BUY" else "#FB7185"
+    _slc = "#FB7185" if last_sig=="BUY" else "#2DD4BF"
     _dotcls2 = "buy" if last_sig=="BUY" else "sell" if last_sig=="SELL" else "hold"
     _em  = f'<span class="status-dot {_dotcls2}"></span>'
 
     # Pre-compute all values to avoid nested f-strings with quotes
     _tp_disp  = f"${tp_price:,.4f}" if tp_price else "—"
-    _tp_pct_s = f'<span style="color:#A89F8C;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ""
+    _tp_pct_s = f'<span style="color:#94A3B8;font-size:0.75rem"> ({tp_pct:+.2f}%)</span>' if tp_price else ""
     _sl_disp  = f"${sl_price:,.4f}" if sl_price else "—"
-    _sl_pct_s = f'<span style="color:#A89F8C;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ""
+    _sl_pct_s = f'<span style="color:#94A3B8;font-size:0.75rem"> ({sl_pct:+.2f}%)</span>' if sl_price else ""
 
     st.markdown(
         f'<div style="background:{_bc};border:2px solid {_brd};border-radius:14px;'
         f'padding:20px 22px;margin-bottom:10px">'
         f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
         f'<div>'
-        f'<div style="color:#A89F8C;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
+        f'<div style="color:#94A3B8;font-size:0.72rem;font-weight:600;text-transform:uppercase;'
         f'letter-spacing:0.08em;margin-bottom:6px">{_sig_label}</div>'
         f'<div class="stat-pop" style="font-size:2.6rem;font-weight:800;color:{_sc};line-height:1.0">{_em} {last_sig}</div>'
         f'<div style="margin-top:7px;font-size:0.85rem">'
-        f'<span style="color:#A89F8C">Confidence: </span>'
-        f'<span style="color:#FF8C24;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
-        f'<span style="color:#8C8168;margin:0 6px">|</span>'
-        f'<span style="color:#A89F8C">P(UP): </span>'
-        f'<span style="color:#FFC542;font-weight:700">{last_prob*100:.1f}%</span>'
+        f'<span style="color:#94A3B8">Confidence: </span>'
+        f'<span style="color:#F59E0B;font-weight:700;font-size:0.95rem">{last_conf:.1f}%</span>'
+        f'<span style="color:#64748B;margin:0 6px">|</span>'
+        f'<span style="color:#94A3B8">P(UP): </span>'
+        f'<span style="color:#2DD4BF;font-weight:700">{last_prob*100:.1f}%</span>'
         f'</div></div>'
         f'<div style="text-align:right">'
-        f'<div style="background:#0A0805;border:1px solid #332C1A;border-radius:8px;padding:8px 14px">'
-        f'<div style="color:#8C8168;font-size:0.68rem;text-transform:uppercase">Accuracy</div>'
-        f'<div style="color:#FF8C24;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>'
-        f'<div style="color:#8C8168;font-size:0.65rem">filtered</div>'
+        f'<div style="background:#070812;border:1px solid #1E2333;border-radius:8px;padding:8px 14px">'
+        f'<div style="color:#64748B;font-size:0.68rem;text-transform:uppercase">Accuracy</div>'
+        f'<div style="color:#F59E0B;font-size:1.5rem;font-weight:800">{ens_filt*100:.1f}%</div>'
+        f'<div style="color:#64748B;font-size:0.65rem">filtered</div>'
         f'</div></div></div>'
         f'<div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:14px 16px">'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        f'<div><div style="color:#8C8168;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>'
+        f'<div><div style="color:#64748B;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Live Price</div>'
         f'<div style="color:#FFFFFF;font-size:1.1rem;font-weight:700">${display_price:,.4f}</div></div>'
-        f'<div><div style="color:#8C8168;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>'
-        f'<div style="color:#FFC542;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div></div>'
-        f'<div><div style="color:#8C8168;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>'
+        f'<div><div style="color:#64748B;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">Entry</div>'
+        f'<div style="color:#2DD4BF;font-size:1.1rem;font-weight:700">${entry_p:,.4f}</div></div>'
+        f'<div><div style="color:#64748B;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🎯 Take Profit</div>'
         f'<div style="color:{_tc};font-size:1.05rem;font-weight:700">{_tp_disp}{_tp_pct_s}</div></div>'
-        f'<div><div style="color:#8C8168;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>'
+        f'<div><div style="color:#64748B;font-size:0.72rem;text-transform:uppercase;margin-bottom:2px">🛑 Stop Loss</div>'
         f'<div style="color:{_slc};font-size:1.05rem;font-weight:700">{_sl_disp}{_sl_pct_s}</div></div>'
         f'</div>'
-        f'<div style="border-top:1px solid #332C1A;margin-top:12px;padding-top:10px;'
+        f'<div style="border-top:1px solid #1E2333;margin-top:12px;padding-top:10px;'
         f'display:flex;justify-content:space-between;align-items:center">'
-        f'<div><span style="color:#8C8168;font-size:0.78rem">R/R: </span>'
+        f'<div><span style="color:#64748B;font-size:0.78rem">R/R: </span>'
         f'<span style="color:#FFFFFF;font-weight:700">1 : {rr:.2f}</span>'
-        f'<span style="color:#8C8168;font-size:0.72rem;margin-left:10px">ATR {atr_pct*100:.2f}%</span></div>'
-        f'<div style="color:#8C8168;font-size:0.68rem">Not financial advice</div>'
+        f'<span style="color:#64748B;font-size:0.72rem;margin-left:10px">ATR {atr_pct*100:.2f}%</span></div>'
+        f'<div style="color:#64748B;font-size:0.68rem">Not financial advice</div>'
         f'</div></div></div>',
         unsafe_allow_html=True
     )
@@ -1245,11 +1245,11 @@ with col_sig:
             )
     st.session_state[_prev_status_key] = _ss
     _STATUS = {
-        "ACTIVE" : ("🟡","#FF8C24","#332800","Signal ACTIVE"),
-        "HIT_TP" : ("🎯","#34D399","#12241A","TARGET HIT ✅"),
-        "HIT_SL" : ("🛑","#FF4D6D","#2E121A","STOP LOSS HIT"),
-        "EXPIRED": ("⏰","#8C8168","#161310","Signal EXPIRED"),
-        "NONE"   : ("⚪","#8C8168","#161310","No active signal"),
+        "ACTIVE" : ("🟡","#F59E0B","#2E2410","Signal ACTIVE"),
+        "HIT_TP" : ("🎯","#2DD4BF","#0F2420","TARGET HIT ✅"),
+        "HIT_SL" : ("🛑","#FB7185","#241521","STOP LOSS HIT"),
+        "EXPIRED": ("⏰","#64748B","#10121C","Signal EXPIRED"),
+        "NONE"   : ("⚪","#64748B","#10121C","No active signal"),
     }
     _si,_sc2,_sb,_sl2 = _STATUS.get(_ss,_STATUS["NONE"])
     _rem  = _sig_status.get("remaining_h",0)
@@ -1257,16 +1257,16 @@ with col_sig:
     _hold = _sig_status.get("hours_old",0)
 
     if _ss != "NONE":
-        _pnl_html = (f'<div style="color:{"#34D399" if _pnl>=0 else "#FF4D6D"};'
+        _pnl_html = (f'<div style="color:{"#2DD4BF" if _pnl>=0 else "#FB7185"};'
                      f'font-weight:600;margin-top:5px;font-size:0.88rem">'
                      f'P&L: {"+" if _pnl>=0 else ""}{_pnl:.2f}%</div>'
                      if _ss not in ("NONE","EXPIRED") else "")
-        _enter_html = (f'<div style="background:#12241A;border-radius:6px;'
-                       f'padding:7px 11px;margin-top:8px;color:#34D399;font-size:0.80rem">'
+        _enter_html = (f'<div style="background:#0F2420;border-radius:6px;'
+                       f'padding:7px 11px;margin-top:8px;color:#2DD4BF;font-size:0.80rem">'
                        f'✅ Enter within {min(4,_rem):.0f}h · TP ${tp_price:,.4f} · SL ${sl_price:,.4f}</div>'
                        if _ss=="ACTIVE" and last_sig!="HOLD" and tp_price and sl_price else "")
         _exp_html = ('<div style="background:#2A1C00;border-radius:6px;padding:7px 11px;'
-                     'margin-top:8px;color:#FF8C24;font-size:0.80rem">'
+                     'margin-top:8px;color:#F59E0B;font-size:0.80rem">'
                      '⚠️ EXPIRED — Do NOT enter. Wait for next signal.</div>'
                      if _ss=="EXPIRED" else "")
         _hold_str = f"{_hold:.0f}h since signal"
@@ -1275,7 +1275,7 @@ with col_sig:
             f'<div style="background:{_sb};border:2px solid {_sc2};border-radius:10px;padding:12px 16px">'
             f'<div style="display:flex;justify-content:space-between;align-items:center">'
             f'<span style="color:{_sc2};font-weight:700">{_si} {_sl2}</span>'
-            f'<div style="text-align:right;font-size:0.75rem;color:#A89F8C">'
+            f'<div style="text-align:right;font-size:0.75rem;color:#94A3B8">'
             f'{_hold_str} {_rem_str}</div>'
             f'</div>'
             f'{_pnl_html}{_enter_html}{_exp_html}'
@@ -1304,9 +1304,9 @@ with col_sig:
             for _day, _day_sigs in list(_days_map.items())[:7]:
                 n = len(_day_sigs)
                 st.markdown(
-                    f'<div style="color:#A89F8C;font-size:0.74rem;margin:8px 0 3px 0;'
-                    f'font-weight:600;border-bottom:1px solid #241F14;padding-bottom:3px">'
-                    f'📅 {_day} — <span style="color:#FFC542">{n} signal{"s" if n>1 else ""}</span></div>',
+                    f'<div style="color:#94A3B8;font-size:0.74rem;margin:8px 0 3px 0;'
+                    f'font-weight:600;border-bottom:1px solid #1A1E2B;padding-bottom:3px">'
+                    f'📅 {_day} — <span style="color:#2DD4BF">{n} signal{"s" if n>1 else ""}</span></div>',
                     unsafe_allow_html=True)
                 for _ir in _day_sigs:
                     try:
@@ -1316,7 +1316,7 @@ with col_sig:
                         _im   = max(0.6, min(1.5, 0.8 + (_icf-60)/100))
                         _itp  = round(_ip + _im*last_atr, 4) if _ibs else round(_ip - _im*last_atr, 4)
                         _isl  = round(_ip - _im*0.9*last_atr, 4) if _ibs else round(_ip + _im*0.9*last_atr, 4)
-                        _ic   = "#34D399" if _ibs else "#FF4D6D"
+                        _ic   = "#2DD4BF" if _ibs else "#FB7185"
                         _full = str(_ir.get("Date",""))
                         _time = _full[11:16] if len(_full) > 10 else "00:00"
 
@@ -1331,26 +1331,26 @@ with col_sig:
                             pass
 
                         _status_badge = (
-                            '<span style="color:#8C8168;font-size:0.72rem">⏰ EXPIRED</span>'
+                            '<span style="color:#64748B;font-size:0.72rem">⏰ EXPIRED</span>'
                             if _expired else
-                            '<span style="color:#34D399;font-size:0.72rem">✅ LIVE</span>'
+                            '<span style="color:#2DD4BF;font-size:0.72rem">✅ LIVE</span>'
                             if _day == str(_now_sig.date()) else
-                            '<span style="color:#A89F8C;font-size:0.72rem">📋 PAST</span>'
+                            '<span style="color:#94A3B8;font-size:0.72rem">📋 PAST</span>'
                         )
 
                         st.markdown(
-                            f'<div style="background:{"#17140F" if _expired else "#161310"};'
-                            f'border-left:3px solid {"#332C1A" if _expired else _ic};'
+                            f'<div style="background:{"#14141C" if _expired else "#10121C"};'
+                            f'border-left:3px solid {"#1E2333" if _expired else _ic};'
                             f'border-radius:5px;padding:6px 12px;margin-bottom:2px;'
                             f'display:flex;justify-content:space-between;flex-wrap:wrap;'
                             f'font-size:0.80rem;gap:4px;opacity:{"0.5" if _expired else "1"}">'
                             f'<span style="color:{"#555" if _expired else _ic};font-weight:700">'
                             f'{"🟢 BUY" if _ibs else "🔴 SELL"}</span>'
-                            f'<span style="color:#A89F8C">{_time}</span>'
+                            f'<span style="color:#94A3B8">{_time}</span>'
                             f'<span style="color:{"#555" if _expired else "#FFFFFF"};font-weight:600">{_ir.get("Price","")}</span>'
-                            f'<span style="color:{"#555" if _expired else "#34D399"}">TP ${_itp:,.4f}</span>'
-                            f'<span style="color:{"#555" if _expired else "#FF4D6D"}">SL ${_isl:,.4f}</span>'
-                            f'<span style="color:#FF8C24">{_ir.get("Confidence","")}</span>'
+                            f'<span style="color:{"#555" if _expired else "#2DD4BF"}">TP ${_itp:,.4f}</span>'
+                            f'<span style="color:{"#555" if _expired else "#FB7185"}">SL ${_isl:,.4f}</span>'
+                            f'<span style="color:#F59E0B">{_ir.get("Confidence","")}</span>'
                             f'{_status_badge}'
                             f'</div>',
                             unsafe_allow_html=True)
@@ -1364,17 +1364,17 @@ with col_sig:
             for _at,_as in sorted(_actl,key=lambda x:x[1].get("timestamp",""),reverse=True):
                 _astat=_as.get("status","ACTIVE"); _asig=_as.get("signal","")
                 _ae=_as.get("entry",0); _atp=_as.get("tp"); _asl=_as.get("sl")
-                _ac="#FF8C24" if _astat=="ACTIVE" else "#34D399" if _astat=="HIT_TP" else "#FF4D6D"
+                _ac="#F59E0B" if _astat=="ACTIVE" else "#2DD4BF" if _astat=="HIT_TP" else "#FB7185"
                 _ai="🟡" if _astat=="ACTIVE" else "🎯" if _astat=="HIT_TP" else "🛑"
                 st.markdown(
-                    f'<div style="background:#161310;border-left:3px solid {_ac};'
+                    f'<div style="background:#10121C;border-left:3px solid {_ac};'
                     f'border-radius:5px;padding:6px 12px;margin-bottom:3px;'
                     f'display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:0.81rem">'
                     f'<span style="color:#FFFFFF;font-weight:600">{_at}</span>'
                     f'<span style="color:{_ac}">{_ai} {_astat}</span>'
-                    f'<span style="color:#A89F8C">{"BUY" if _asig=="BUY" else "SELL"} @ ${_ae:,.4f}</span>'
-                    f'{"<span style=color:#34D399>TP $"+f"{_atp:,.4f}</span>" if _atp else ""}'
-                    f'{"<span style=color:#FF4D6D> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
+                    f'<span style="color:#94A3B8">{"BUY" if _asig=="BUY" else "SELL"} @ ${_ae:,.4f}</span>'
+                    f'{"<span style=color:#2DD4BF>TP $"+f"{_atp:,.4f}</span>" if _atp else ""}'
+                    f'{"<span style=color:#FB7185> SL $"+f"{_asl:,.4f}</span>" if _asl else ""}'
                     f'</div>', unsafe_allow_html=True)
 
 # ── AI Assistant (inline, below signal card) ─────────────────────
@@ -1574,34 +1574,34 @@ with col_7d:
         })
 
     def _sig_color7(v):
-        if "BUY"  in str(v): return "#34D399"
-        if "SELL" in str(v): return "#FF4D6D"
-        return "#8C8168"
+        if "BUY"  in str(v): return "#2DD4BF"
+        if "SELL" in str(v): return "#FB7185"
+        return "#64748B"
 
     _hdr7 = "".join(
-        f'<th style="text-align:left;padding:8px 10px;color:#A89F8C;font-size:0.72rem;'
-        f'text-transform:uppercase;letter-spacing:0.03em;border-bottom:1px solid #241F14">{h}</th>'
+        f'<th style="text-align:left;padding:8px 10px;color:#94A3B8;font-size:0.72rem;'
+        f'text-transform:uppercase;letter-spacing:0.03em;border-bottom:1px solid #1A1E2B">{h}</th>'
         for h in ["Date","Signal","Conf %","Entry","Take Profit","Stop Loss","R/R"]
     )
     _body7 = ""
     for _i7, _r7 in enumerate(_rows7):
         _sc7 = _sig_color7(_r7["Signal"])
-        _tp_c7 = "#34D399" if _r7["Take Profit"] != "—" else "#8C8168"
-        _sl_c7 = "#FF4D6D" if _r7["Stop Loss"]   != "—" else "#8C8168"
+        _tp_c7 = "#2DD4BF" if _r7["Take Profit"] != "—" else "#64748B"
+        _sl_c7 = "#FB7185" if _r7["Stop Loss"]   != "—" else "#64748B"
         _body7 += (
             f'<tr class="outlook-row" style="animation-delay:{_i7*0.07:.2f}s">'
-            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Date"]}</td>'
-            f'<td style="padding:8px 10px;color:{_sc7};font-weight:700;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Signal"]}</td>'
-            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Conf %"]}</td>'
-            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Entry"]}</td>'
-            f'<td style="padding:8px 10px;color:{_tp_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Take Profit"]}</td>'
-            f'<td style="padding:8px 10px;color:{_sl_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["Stop Loss"]}</td>'
-            f'<td style="padding:8px 10px;color:#E8E2D5;font-size:0.85rem;border-bottom:1px solid #1A1712">{_r7["R/R"]}</td>'
+            f'<td style="padding:8px 10px;color:#E2E8F0;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Date"]}</td>'
+            f'<td style="padding:8px 10px;color:{_sc7};font-weight:700;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Signal"]}</td>'
+            f'<td style="padding:8px 10px;color:#E2E8F0;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Conf %"]}</td>'
+            f'<td style="padding:8px 10px;color:#E2E8F0;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Entry"]}</td>'
+            f'<td style="padding:8px 10px;color:{_tp_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Take Profit"]}</td>'
+            f'<td style="padding:8px 10px;color:{_sl_c7};font-weight:600;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["Stop Loss"]}</td>'
+            f'<td style="padding:8px 10px;color:#E2E8F0;font-size:0.85rem;border-bottom:1px solid #141726">{_r7["R/R"]}</td>'
             f'</tr>'
         )
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
-        f'border:1px solid #332C1A;border-radius:14px;padding:6px 4px;overflow-x:auto;'
+        f'<div style="background:linear-gradient(160deg,#161B2C 0%,#10121C 100%);'
+        f'border:1px solid #1E2333;border-radius:14px;padding:6px 4px;overflow-x:auto;'
         f'box-shadow:0 8px 24px rgba(0,0,0,0.35)">'
         f'<table style="width:100%;border-collapse:collapse">'
         f'<thead><tr>{_hdr7}</tr></thead><tbody>{_body7}</tbody></table></div>',
@@ -1649,7 +1649,7 @@ with tab_pulse:
         _aw   = get_active_wallets_cached(ticker)
 
         st.markdown(
-            '<div style="color:#FFC542;font-weight:700;font-size:0.9rem;text-transform:uppercase;'
+            '<div style="color:#2DD4BF;font-weight:700;font-size:0.9rem;text-transform:uppercase;'
             'letter-spacing:.04em;margin-bottom:14px">🌐 Market Pulse — Live</div>',
             unsafe_allow_html=True
         )
@@ -1658,41 +1658,41 @@ with tab_pulse:
         _mcap_str = f"${_mc['market_cap']/1e9:.2f}B" if _mc and _mc['market_cap'] else "—"
         _vol_str  = f"${_s24['volume_quote']/1e6:.1f}M" if _s24 else (f"${_mc['volume_24h']/1e6:.1f}M" if _mc else "—")
         _chg24    = _s24['price_change_pct'] if _s24 else (_mc['change_24h'] if _mc else 0)
-        _chg_c    = "#34D399" if _chg24 >= 0 else "#FF4D6D"
+        _chg_c    = "#2DD4BF" if _chg24 >= 0 else "#FB7185"
         _fng_val  = _fng['value'] if _fng else 50
         _fng_cls  = _fng['classification'] if _fng else "Neutral"
-        _fng_c    = ("#FF4D6D" if _fng_val<=25 else "#FF8C24" if _fng_val<=45 else
-                     "#FFC542" if _fng_val<=55 else "#34D399" if _fng_val<=75 else "#00E676")
+        _fng_c    = ("#FB7185" if _fng_val<=25 else "#F59E0B" if _fng_val<=45 else
+                     "#A78BFA" if _fng_val<=55 else "#2DD4BF" if _fng_val<=75 else "#5EEAD4")
         _trades_str = f"{_s24['trade_count']:,}" if _s24 else "—"
         _aw_str = f"{_aw['active_addresses']:,}" if _aw else "N/A"
         _aw_sub = "unique BTC addresses, 24h" if _aw else "no free source for this asset"
 
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">'
-            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:14px 16px">'
-            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Market Cap</div>'
+            f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Market Cap</div>'
             f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.3rem;font-weight:800;margin-top:3px">{_mcap_str}</div></div>'
-            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:14px 16px">'
-            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Volume</div>'
+            f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Volume</div>'
             f'<div class="stat-pop" style="color:{_chg_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_vol_str}</div>'
             f'<div style="color:{_chg_c};font-size:0.72rem;font-weight:600">{_chg24:+.2f}% (24h)</div></div>'
-            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:14px 16px">'
-            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Fear &amp; Greed</div>'
+            f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Fear &amp; Greed</div>'
             f'<div class="stat-pop" style="color:{_fng_c};font-size:1.3rem;font-weight:800;margin-top:3px">{_fng_val} &middot; {_fng_cls}</div>'
-            f'<div style="color:#6E6754;font-size:0.68rem">market-wide index</div></div>'
-            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div style="color:#475569;font-size:0.68rem">market-wide index</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:14px 16px">'
-            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Trades</div>'
+            f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">24h Trades</div>'
             f'<div class="stat-pop" style="color:#A78BFA;font-size:1.3rem;font-weight:800;margin-top:3px">{_trades_str}</div>'
-            f'<div style="color:#6E6754;font-size:0.68rem">trade count, not wallet count</div></div>'
-            f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+            f'<div style="color:#475569;font-size:0.68rem">trade count, not wallet count</div></div>'
+            f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
             f'border-radius:12px;padding:14px 16px">'
-            f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Active Wallets</div>'
-            f'<div class="stat-pop" style="color:{"#FFFFFF" if _aw else "#6E6754"};font-size:1.3rem;font-weight:800;margin-top:3px">{_aw_str}</div>'
-            f'<div style="color:#6E6754;font-size:0.68rem">{_aw_sub}</div></div>'
+            f'<div style="color:#94A3B8;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Active Wallets</div>'
+            f'<div class="stat-pop" style="color:{"#FFFFFF" if _aw else "#475569"};font-size:1.3rem;font-weight:800;margin-top:3px">{_aw_str}</div>'
+            f'<div style="color:#475569;font-size:0.68rem">{_aw_sub}</div></div>'
             '</div>', unsafe_allow_html=True
         )
 
@@ -1701,7 +1701,7 @@ with tab_pulse:
         # ── Order book ───────────────────────────────────────────
         with _pulse_left:
             st.markdown(
-                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
                 'letter-spacing:.04em;margin-bottom:8px">📖 Order Book — Top 10</div>',
                 unsafe_allow_html=True
             )
@@ -1718,11 +1718,11 @@ with tab_pulse:
                     _bid_rows += (
                         f'<div style="position:relative;padding:3px 8px;font-size:0.78rem;'
                         f'font-family:ui-monospace,monospace">'
-                        f'<div style="position:absolute;inset:0;background:rgba(52,211,153,0.12);'
+                        f'<div style="position:absolute;inset:0;background:rgba(45,212,191,0.12);'
                         f'width:{_w:.0f}%;border-radius:3px"></div>'
                         f'<div style="position:relative;display:flex;justify-content:space-between">'
-                        f'<span style="color:#34D399;font-weight:700">${_p:,.4f}</span>'
-                        f'<span style="color:#A89F8C">{_q:.3f}</span></div></div>'
+                        f'<span style="color:#2DD4BF;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
                     )
                 _ask_rows = ""
                 for _p, _q in _ob["asks"][:10]:
@@ -1730,18 +1730,18 @@ with tab_pulse:
                     _ask_rows += (
                         f'<div style="position:relative;padding:3px 8px;font-size:0.78rem;'
                         f'font-family:ui-monospace,monospace">'
-                        f'<div style="position:absolute;inset:0;background:rgba(255,77,109,0.12);'
+                        f'<div style="position:absolute;inset:0;background:rgba(251,113,133,0.12);'
                         f'width:{_w:.0f}%;border-radius:3px"></div>'
                         f'<div style="position:relative;display:flex;justify-content:space-between">'
-                        f'<span style="color:#FF4D6D;font-weight:700">${_p:,.4f}</span>'
-                        f'<span style="color:#A89F8C">{_q:.3f}</span></div></div>'
+                        f'<span style="color:#FB7185;font-weight:700">${_p:,.4f}</span>'
+                        f'<span style="color:#94A3B8">{_q:.3f}</span></div></div>'
                     )
                 st.markdown(
-                    f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+                    f'<div style="background:linear-gradient(160deg,#161B2C,#10121C);border:1px solid #1E2333;'
                     f'border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-                    f'<div><div style="color:#34D399;font-size:0.68rem;text-transform:uppercase;'
+                    f'<div><div style="color:#2DD4BF;font-size:0.68rem;text-transform:uppercase;'
                     f'font-weight:700;margin-bottom:4px">Bids</div>{_bid_rows}</div>'
-                    f'<div><div style="color:#FF4D6D;font-size:0.68rem;text-transform:uppercase;'
+                    f'<div><div style="color:#FB7185;font-size:0.68rem;text-transform:uppercase;'
                     f'font-weight:700;margin-bottom:4px">Asks</div>{_ask_rows}</div>'
                     f'</div>', unsafe_allow_html=True
                 )
@@ -1749,43 +1749,43 @@ with tab_pulse:
         # ── Social sentiment ─────────────────────────────────────
         with _pulse_right:
             st.markdown(
-                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
                 'letter-spacing:.04em;margin-bottom:8px">💬 Social Sentiment</div>',
                 unsafe_allow_html=True
             )
             _sent_lbl  = "Bullish" if _sentiment>0.1 else "Bearish" if _sentiment<-0.1 else "Neutral"
-            _sent_c    = "#34D399" if _sentiment>0.1 else "#FF4D6D" if _sentiment<-0.1 else "#8C8168"
+            _sent_c    = "#2DD4BF" if _sentiment>0.1 else "#FB7185" if _sentiment<-0.1 else "#64748B"
             _sent_pct  = int((_sentiment + 1) / 2 * 100)  # -1..1 -> 0..100
             st.markdown(
-                f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);'
-                f'border:1px solid #332C1A;border-radius:12px;padding:16px">'
+                f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);'
+                f'border:1px solid #1E2333;border-radius:12px;padding:16px">'
                 f'<div style="color:{_sent_c};font-size:1.4rem;font-weight:800">{_sent_lbl}</div>'
-                f'<div style="color:#A89F8C;font-size:0.78rem;margin:2px 0 10px">CryptoPanic score: {_sentiment:+.3f}</div>'
-                f'<div style="background:#241F14;border-radius:6px;height:8px;overflow:hidden">'
-                f'<div style="width:{_sent_pct}%;height:100%;background:linear-gradient(90deg,#FF4D6D,#8C8168,#34D399);'
+                f'<div style="color:#94A3B8;font-size:0.78rem;margin:2px 0 10px">CryptoPanic score: {_sentiment:+.3f}</div>'
+                f'<div style="background:#1A1E2B;border-radius:6px;height:8px;overflow:hidden">'
+                f'<div style="width:{_sent_pct}%;height:100%;background:linear-gradient(90deg,#FB7185,#64748B,#2DD4BF);'
                 f'border-radius:6px"></div></div>'
-                f'<div style="display:flex;justify-content:space-between;color:#6E6754;font-size:0.66rem;margin-top:3px">'
+                f'<div style="display:flex;justify-content:space-between;color:#475569;font-size:0.66rem;margin-top:3px">'
                 f'<span>Bearish</span><span>Neutral</span><span>Bullish</span></div>'
                 f'</div>', unsafe_allow_html=True
             )
 
             st.markdown(
-                '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+                '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
                 'letter-spacing:.04em;margin:16px 0 8px">📊 24h Range</div>',
                 unsafe_allow_html=True
             )
             if _s24:
                 _rng_pct = ((display_price - _s24['low']) / max(_s24['high']-_s24['low'], 0.0001)) * 100
                 st.markdown(
-                    f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);'
-                    f'border:1px solid #332C1A;border-radius:12px;padding:16px">'
+                    f'<div class="tilt-card" style="background:linear-gradient(160deg,#161B2C,#10121C);'
+                    f'border:1px solid #1E2333;border-radius:12px;padding:16px">'
                     f'<div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:6px">'
-                    f'<span style="color:#FF4D6D">${_s24["low"]:,.4f}</span>'
-                    f'<span style="color:#FFC542;font-weight:700">${display_price:,.4f}</span>'
-                    f'<span style="color:#34D399">${_s24["high"]:,.4f}</span></div>'
-                    f'<div style="background:#241F14;border-radius:6px;height:6px;position:relative">'
+                    f'<span style="color:#FB7185">${_s24["low"]:,.4f}</span>'
+                    f'<span style="color:#2DD4BF;font-weight:700">${display_price:,.4f}</span>'
+                    f'<span style="color:#2DD4BF">${_s24["high"]:,.4f}</span></div>'
+                    f'<div style="background:#1A1E2B;border-radius:6px;height:6px;position:relative">'
                     f'<div style="position:absolute;left:{max(0,min(96,_rng_pct)):.0f}%;top:-3px;width:12px;height:12px;'
-                    f'border-radius:50%;background:#FFC542;box-shadow:0 0 8px rgba(255,197,66,0.6)"></div></div>'
+                    f'border-radius:50%;background:#2DD4BF;box-shadow:0 0 8px rgba(45,212,191,0.6)"></div></div>'
                     f'</div>', unsafe_allow_html=True
                 )
             else:
@@ -1793,7 +1793,7 @@ with tab_pulse:
 
         # ── Layered momentum bar chart (Nexus-inspired teal/gold/violet) ──
         st.markdown(
-            '<div style="color:#FFC542;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
+            '<div style="color:#2DD4BF;font-weight:700;font-size:0.82rem;text-transform:uppercase;'
             'letter-spacing:.04em;margin:20px 0 8px">📈 Momentum Stream — last 48 candles</div>',
             unsafe_allow_html=True
         )
@@ -1805,12 +1805,12 @@ with tab_pulse:
             _vol_n = (_dshow['Volume'].values / max(_dshow['Volume'].max(), 1e-9)) if 'Volume' in _dshow.columns else np.zeros(_nshow)
             _atrn  = (_dshow['ATR'].values / max(_dshow['ATR'].max(), 1e-9)) if 'ATR' in _dshow.columns else np.zeros(_nshow)
             _figm, _axm = plt.subplots(figsize=(14, 3.4))
-            _figm.patch.set_facecolor('#0A0805'); _axm.set_facecolor('#161310')
+            _figm.patch.set_facecolor('#070812'); _axm.set_facecolor('#10121C')
             _xm = np.arange(_nshow)
-            _axm.bar(_xm, _pchg, color='#34D399', alpha=0.55, width=0.7, label='Price momentum %')
-            _axm.bar(_xm, _vol_n*_pchg.std()*2, color='#FFC542', alpha=0.35, width=0.4, label='Volume (norm.)')
+            _axm.bar(_xm, _pchg, color='#2DD4BF', alpha=0.55, width=0.7, label='Price momentum %')
+            _axm.bar(_xm, _vol_n*_pchg.std()*2, color='#2DD4BF', alpha=0.35, width=0.4, label='Volume (norm.)')
             _axm.bar(_xm, -_atrn*_pchg.std()*1.5, color='#A78BFA', alpha=0.45, width=0.4, label='Volatility (norm.)')
-            _axm.axhline(0, color='#6E6754', lw=0.8, ls='--', alpha=0.6)
+            _axm.axhline(0, color='#475569', lw=0.8, ls='--', alpha=0.6)
             _axm.set_xticks([]); _axm.legend(loc='upper left', ncol=3, fontsize=7.5, framealpha=0.15)
             _axm.spines[['top','right','left']].set_visible(False)
             _axm.set_yticks([])
@@ -1865,8 +1865,8 @@ with tab0:
     _buy_str  = " | ".join(_buy_dates[:5])  if _buy_dates  else "—"
     _sell_str = " | ".join(_sell_dates[:5]) if _sell_dates else "—"
 
-    _sig_color  = "#34D399" if last_sig=="BUY" else "#FF4D6D" if last_sig=="SELL" else "#8C8168"
-    _price_chg_color = "#34D399" if day_chg >= 0 else "#FF4D6D"
+    _sig_color  = "#2DD4BF" if last_sig=="BUY" else "#FB7185" if last_sig=="SELL" else "#64748B"
+    _price_chg_color = "#2DD4BF" if day_chg >= 0 else "#FB7185"
     _tp_disp    = f"${tp_price:,.4f}" if tp_price else "—"
     _sl_disp    = f"${sl_price:,.4f}" if sl_price else "—"
     _tp_pct_disp= f"{tp_pct:+.2f}%" if tp_price else "No signal"
@@ -1875,25 +1875,25 @@ with tab0:
     # TradingView chart + integrated signal bar
     _tv_live_html = f"""
 <style>
-body{{background:#0A0805}}
+body{{background:#070812}}
 .sb{{
   display:flex;justify-content:space-between;align-items:center;
-  background:#0A0805;border-top:1px solid #332C1A;
+  background:#070812;border-top:1px solid #1E2333;
   padding:12px 24px;flex-wrap:wrap;gap:8px;
 }}
 .sb-item{{text-align:center;min-width:120px}}
-.sb-label{{color:#A89F8C;font-size:0.72rem;font-family:sans-serif;
+.sb-label{{color:#94A3B8;font-size:0.72rem;font-family:sans-serif;
   text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px}}
 .sb-value{{font-size:1.05rem;font-weight:700;font-family:sans-serif}}
 .sb-sub{{font-size:0.72rem;font-family:sans-serif;margin-top:1px}}
-.divider{{width:1px;background:#332C1A;height:40px;align-self:center}}
+.divider{{width:1px;background:#1E2333;height:40px;align-self:center}}
 .rec-bar{{
-  background:#0A0805;border-top:1px solid #241F14;
-  padding:8px 24px;font-size:0.75rem;font-family:sans-serif;color:#8C8168;
+  background:#070812;border-top:1px solid #1A1E2B;
+  padding:8px 24px;font-size:0.75rem;font-family:sans-serif;color:#64748B;
 }}
 </style>
 
-<div style="background:#0A0805;border-radius:10px;overflow:hidden;border:1px solid #332C1A">
+<div style="background:#070812;border-radius:10px;overflow:hidden;border:1px solid #1E2333">
   <!-- Chart -->
   <div class="tradingview-widget-container" style="height:520px;width:100%">
     <div id="tv_live_main" style="height:520px;width:100%"></div>
@@ -1909,12 +1909,12 @@ body{{background:#0A0805}}
       "theme"             : "dark",
       "style"             : "1",
       "locale"            : "en",
-      "toolbar_bg"        : "#161310",
+      "toolbar_bg"        : "#10121C",
       "hide_side_toolbar" : false,
       "hide_top_toolbar"  : false,
       "allow_symbol_change": true,
       "save_image"        : false,
-      "backgroundColor"   : "#0A0805",
+      "backgroundColor"   : "#070812",
       "studies"           : [
         "Volume@tv-basicstudies",
         "RSI@tv-basicstudies",
@@ -1922,18 +1922,18 @@ body{{background:#0A0805}}
         "BB@tv-basicstudies"
       ],
       "overrides": {{
-        "paneProperties.background"                      : "#0A0805",
+        "paneProperties.background"                      : "#070812",
         "paneProperties.backgroundType"                  : "solid",
-        "paneProperties.vertGridProperties.color"        : "#1C160E",
-        "paneProperties.horzGridProperties.color"        : "#1C160E",
+        "paneProperties.vertGridProperties.color"        : "#1A1826",
+        "paneProperties.horzGridProperties.color"        : "#1A1826",
         "symbolWatermarkProperties.color"                : "rgba(0,0,0,0)",
-        "scalesProperties.textColor"                     : "#A89F8C",
-        "mainSeriesProperties.candleStyle.upColor"       : "#34D399",
-        "mainSeriesProperties.candleStyle.downColor"     : "#FF4D6D",
-        "mainSeriesProperties.candleStyle.borderUpColor" : "#34D399",
-        "mainSeriesProperties.candleStyle.borderDownColor": "#FF4D6D",
-        "mainSeriesProperties.candleStyle.wickUpColor"   : "#34D399",
-        "mainSeriesProperties.candleStyle.wickDownColor" : "#FF4D6D"
+        "scalesProperties.textColor"                     : "#94A3B8",
+        "mainSeriesProperties.candleStyle.upColor"       : "#2DD4BF",
+        "mainSeriesProperties.candleStyle.downColor"     : "#FB7185",
+        "mainSeriesProperties.candleStyle.borderUpColor" : "#2DD4BF",
+        "mainSeriesProperties.candleStyle.borderDownColor": "#FB7185",
+        "mainSeriesProperties.candleStyle.wickUpColor"   : "#2DD4BF",
+        "mainSeriesProperties.candleStyle.wickDownColor" : "#FB7185"
       }}
     }});
     </script>
@@ -1952,41 +1952,41 @@ body{{background:#0A0805}}
       <div class="sb-value" style="color:{_sig_color}">
         {'🟢' if last_sig=='BUY' else '🔴' if last_sig=='SELL' else '⚪'} {last_sig}
       </div>
-      <div class="sb-sub" style="color:#A89F8C">{next_str} · {last_conf:.1f}% confidence</div>
+      <div class="sb-sub" style="color:#94A3B8">{next_str} · {last_conf:.1f}% confidence</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">🎯 Take Profit</div>
-      <div class="sb-value" style="color:#34D399">{_tp_disp}</div>
-      <div class="sb-sub" style="color:#34D399">{_tp_pct_disp}</div>
+      <div class="sb-value" style="color:#2DD4BF">{_tp_disp}</div>
+      <div class="sb-sub" style="color:#2DD4BF">{_tp_pct_disp}</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">🛑 Stop Loss</div>
-      <div class="sb-value" style="color:#FF4D6D">{_sl_disp}</div>
-      <div class="sb-sub" style="color:#FF4D6D">{_sl_pct_disp}</div>
+      <div class="sb-value" style="color:#FB7185">{_sl_disp}</div>
+      <div class="sb-sub" style="color:#FB7185">{_sl_pct_disp}</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">Risk / Reward</div>
-      <div class="sb-value" style="color:#FF8C24">1 : {rr:.2f}</div>
-      <div class="sb-sub" style="color:#A89F8C">ATR: ${last_atr:.4f} ({atr_pct*100:.2f}%)</div>
+      <div class="sb-value" style="color:#F59E0B">1 : {rr:.2f}</div>
+      <div class="sb-sub" style="color:#94A3B8">ATR: ${last_atr:.4f} ({atr_pct*100:.2f}%)</div>
     </div>
     <div class="divider"></div>
     <div class="sb-item">
       <div class="sb-label">Model Accuracy</div>
-      <div class="sb-value" style="color:#FF8C24">{ens_filt*100:.1f}%</div>
-      <div class="sb-sub" style="color:#A89F8C">when confidence ≥60%</div>
+      <div class="sb-value" style="color:#F59E0B">{ens_filt*100:.1f}%</div>
+      <div class="sb-sub" style="color:#94A3B8">when confidence ≥60%</div>
     </div>
   </div>
 
   <!-- Recent signals row -->
   <div class="rec-bar">
     ⚡ Recent BUY signals:&nbsp;
-    <span style="color:#34D399">{_buy_str}</span>
+    <span style="color:#2DD4BF">{_buy_str}</span>
     &nbsp;&nbsp;|&nbsp;&nbsp;
     Recent SELL signals:&nbsp;
-    <span style="color:#FF4D6D">{_sell_str}</span>
+    <span style="color:#FB7185">{_sell_str}</span>
   </div>
 </div>
 """
@@ -1997,12 +1997,12 @@ body{{background:#0A0805}}
         st.components.v1.html(_tv_live_html, height=670, scrolling=False)
         st.markdown(
             f'<div style="text-align:center;margin-top:4px">'
-            f'<a href="{_inv_url}" target="_blank" style="background:#241F14;color:#E8E2D5;'
-            f'border:1px solid #332C1A;border-radius:5px;padding:6px 16px;'
+            f'<a href="{_inv_url}" target="_blank" style="background:#1A1E2B;color:#E2E8F0;'
+            f'border:1px solid #1E2333;border-radius:5px;padding:6px 16px;'
             f'text-decoration:none;font-size:0.82rem;margin-right:8px">'
             f'↗ Live Chart on Investing.com</a>'
-            f'<a href="https://www.dfm.ae" target="_blank" style="background:#241F14;color:#E8E2D5;'
-            f'border:1px solid #332C1A;border-radius:5px;padding:6px 16px;'
+            f'<a href="https://www.dfm.ae" target="_blank" style="background:#1A1E2B;color:#E2E8F0;'
+            f'border:1px solid #1E2333;border-radius:5px;padding:6px 16px;'
             f'text-decoration:none;font-size:0.82rem">📊 DFM Official</a>'
             f'</div>',
             unsafe_allow_html=True
@@ -2062,13 +2062,13 @@ body{{background:#0A0805}}
         if _hist_rows:
             _hist_df = pd.DataFrame(_hist_rows)
             def _csig(v):
-                if 'BUY'  in str(v): return 'color:#34D399;font-weight:bold'
-                if 'SELL' in str(v): return 'color:#FF4D6D;font-weight:bold'
-                return 'color:#8C8168'
+                if 'BUY'  in str(v): return 'color:#2DD4BF;font-weight:bold'
+                if 'SELL' in str(v): return 'color:#FB7185;font-weight:bold'
+                return 'color:#64748B'
             def _cres(v):
-                if 'HIT TP' in str(v): return 'color:#34D399;font-weight:700'
-                if 'HIT SL' in str(v): return 'color:#FF4D6D;font-weight:700'
-                return 'color:#A89F8C'
+                if 'HIT TP' in str(v): return 'color:#2DD4BF;font-weight:700'
+                if 'HIT SL' in str(v): return 'color:#FB7185;font-weight:700'
+                return 'color:#94A3B8'
             try:
                 styled = _hist_df.style.map(_csig,subset=['Signal']).map(_cres,subset=['Result'])
             except Exception:
@@ -2127,17 +2127,17 @@ with tab1:
 
     # ── 5-panel professional chart ─────────────────────────────────
     fig = plt.figure(figsize=(16, 16))
-    fig.patch.set_facecolor('#0A0805')
+    fig.patch.set_facecolor('#070812')
     gs  = gridspec.GridSpec(5, 1, figure=fig,
                             height_ratios=[5, 1.1, 1.0, 0.9, 0.9], hspace=0.03)
 
     # ── Panel 1: Candlestick ───────────────────────────────────────
-    ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#161310')
+    ax1 = fig.add_subplot(gs[0]); ax1.set_facecolor('#10121C')
 
     # Regime shading
     for i in range(len(D)-1):
         ax1.axvspan(D[i], D[i+1], alpha=1,
-            color='#12241A' if reg_[i]==1 else '#2E121A', linewidth=0, zorder=0)
+            color='#0F2420' if reg_[i]==1 else '#241521', linewidth=0, zorder=0)
 
     # Bollinger Bands
     if 'BB_U' in te_show.columns and 'BB_L' in te_show.columns:
@@ -2163,26 +2163,26 @@ with tab1:
     # BUY markers ▲ + label
     if b_show.sum() > 0:
         ax1.scatter(D[b_show], low_[b_show]*0.948, marker='^', s=130,
-            color=C_UP, edgecolors='#196127', lw=1.0, zorder=7,
+            color=C_UP, edgecolors='#0F766E', lw=1.0, zorder=7,
             label=f'🟢 BUY ({int(b_show.sum())})')
         for _d, _p, _l in zip(D[b_show], close_[b_show], low_[b_show]):
             ax1.annotate(
                 f'B ${_p:.1f}\nTP ${_p+2*last_atr:.1f}',
                 (_d, _l*0.985), fontsize=6.2, color=C_UP, ha='center', va='top',
-                bbox=dict(boxstyle='round,pad=0.15', fc='#0A0805',
-                          ec='#196127', alpha=0.88, lw=0.6))
+                bbox=dict(boxstyle='round,pad=0.15', fc='#070812',
+                          ec='#0F766E', alpha=0.88, lw=0.6))
 
     # SELL markers ▼ + label
     if s_show.sum() > 0:
         ax1.scatter(D[s_show], high_[s_show]*1.052, marker='v', s=130,
-            color=C_DOWN, edgecolors='#8B0000', lw=1.0, zorder=7,
+            color=C_DOWN, edgecolors='#9F1239', lw=1.0, zorder=7,
             label=f'🔴 SELL ({int(s_show.sum())})')
         for _d, _p, _h in zip(D[s_show], close_[s_show], high_[s_show]):
             ax1.annotate(
                 f'S ${_p:.1f}\nTP ${_p-2*last_atr:.1f}',
                 (_d, _h*1.015), fontsize=6.2, color=C_DOWN, ha='center', va='bottom',
-                bbox=dict(boxstyle='round,pad=0.15', fc='#0A0805',
-                          ec='#8B0000', alpha=0.88, lw=0.6))
+                bbox=dict(boxstyle='round,pad=0.15', fc='#070812',
+                          ec='#9F1239', alpha=0.88, lw=0.6))
 
     # TP / SL horizontal lines for current open signal
     if last_sig == "BUY" and tp_price and sl_price:
@@ -2213,11 +2213,11 @@ with tab1:
         f'  {next_str_short}\n  {last_sig} {last_conf:.0f}%\n  {_tp_lbl}\n  {_sl_lbl}',
         (_next_dt, _tgt), fontsize=8.5, color=_arrc, fontweight='bold',
         xytext=(12, 0), textcoords='offset points',
-        bbox=dict(boxstyle='round,pad=0.45', fc='#161310', ec=_arrc, alpha=0.96, lw=1.2))
+        bbox=dict(boxstyle='round,pad=0.45', fc='#10121C', ec=_arrc, alpha=0.96, lw=1.2))
 
     # Legend
-    _bull = mpatches.Patch(color='#12241A', label='Bull regime')
-    _bear = mpatches.Patch(color='#2E121A', label='Bear regime')
+    _bull = mpatches.Patch(color='#0F2420', label='Bull regime')
+    _bear = mpatches.Patch(color='#241521', label='Bear regime')
     _bb   = mpatches.Patch(color=C_BLUE, alpha=0.25, label='Bollinger Bands')
     _h, _l2 = ax1.get_legend_handles_labels()
     ax1.legend(_h+[_bull,_bear,_bb], _l2+['Bull','Bear','BB'],
@@ -2225,14 +2225,14 @@ with tab1:
     ax1.set_ylabel('Price', fontsize=10, color=C_WHITE)
     ax1.xaxis.set_ticklabels([])
     ax1.spines[['top','right']].set_visible(False)
-    ax1.grid(axis='y', alpha=0.18, color='#241F14')
+    ax1.grid(axis='y', alpha=0.18, color='#1A1E2B')
     ax1.set_title(
         f'{name} ({ticker})  ·  Candlestick + Signals  ·  {n_show} days  ·  '
         f'Acc {ens_acc*100:.1f}%  ·  {int(b_show.sum())} BUY  {int(s_show.sum())} SELL',
         color=C_WHITE, fontsize=11, pad=10, fontweight='bold')
 
     # ── Panel 2: Volume ─────────────────────────────────────────
-    ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#161310')
+    ax_v = fig.add_subplot(gs[1], sharex=ax1); ax_v.set_facecolor('#10121C')
     _prev = np.concatenate([[close_[0]], close_[:-1]])
     _vc   = np.where(close_ >= _prev, C_UP, C_DOWN)
     ax_v.bar(D, vol_, color=_vc, width=0.8, alpha=0.75, zorder=3)
@@ -2245,7 +2245,7 @@ with tab1:
     ax_v.grid(axis='y', alpha=0.15)
 
     # ── Panel 3: Model probability ──────────────────────────────
-    ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#161310')
+    ax2 = fig.add_subplot(gs[2], sharex=ax1); ax2.set_facecolor('#10121C')
     _bc  = np.where(pr_show>=HIGH, C_UP, np.where(pr_show<=LOW, C_DOWN, C_GREY))
     ax2.bar(D, pr_show, color=_bc, width=1.0, alpha=0.85, zorder=3)
     ax2.fill_between(D, HIGH, pr_show, where=(pr_show>=HIGH), alpha=0.15, color=C_UP)
@@ -2260,7 +2260,7 @@ with tab1:
     ax2.grid(axis='y', alpha=0.15)
 
     # ── Panel 4: RSI ────────────────────────────────────────────
-    ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#161310')
+    ax3 = fig.add_subplot(gs[3], sharex=ax1); ax3.set_facecolor('#10121C')
     if 'RSI' in te_show.columns:
         _rsi = te_show['RSI'].values
         ax3.plot(D, _rsi, color='#D29922', lw=1.1, zorder=4)
@@ -2278,7 +2278,7 @@ with tab1:
     ax3.grid(axis='y', alpha=0.15)
 
     # ── Panel 5: MACD ───────────────────────────────────────────
-    ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#161310')
+    ax4 = fig.add_subplot(gs[4], sharex=ax1); ax4.set_facecolor('#10121C')
     if 'MACD' in te_show.columns and 'MACD_sig' in te_show.columns:
         _mc = te_show['MACD'].values; _ms = te_show['MACD_sig'].values; _mh = _mc-_ms
         ax4.bar(D, _mh, color=np.where(_mh>=0,C_UP,C_DOWN), width=1.0, alpha=0.65, zorder=3)
@@ -2326,10 +2326,10 @@ with tab2:
 
     fig,axes=plt.subplots(3,1,figsize=(14,10),
         gridspec_kw={'height_ratios':[4,1.8,1.5],'hspace':0.04})
-    fig.patch.set_facecolor('#0A0805')
+    fig.patch.set_facecolor('#070812')
     fig.suptitle(f'Predicted vs Actual — {name} Test Set',color=C_WHITE,fontsize=12,y=1.01)
 
-    ax=axes[0]; ax.set_facecolor('#161310')
+    ax=axes[0]; ax.set_facecolor('#10121C')
     ax.plot(D2,C2,color=C_BLUE,lw=1.5,label='Actual Close',zorder=4)
     # Ensure PP and D2 same length before plotting
     _plen = min(len(D2), len(PP))
@@ -2342,12 +2342,12 @@ with tab2:
     ax.fill_between(D2p,C2[:_plen],PPp,where=(PPp<C2[:_plen]),alpha=0.12,color=C_DOWN)
     ax.text(0.99,0.97,f'RMSE=${rmse:.4f}  MAE=${mae:.4f}  MAPE={mape:.2f}%',
         transform=ax.transAxes,ha='right',va='top',fontsize=9,color=C_GOLD,
-        bbox=dict(fc='#161310',ec='#332C1A',boxstyle='round,pad=0.4'))
+        bbox=dict(fc='#10121C',ec='#1E2333',boxstyle='round,pad=0.4'))
     ax.set_ylabel('Price'); ax.legend(loc='upper left')
     ax.xaxis.set_ticklabels([])
     ax.spines[['top','right']].set_visible(False); ax.grid(axis='y',alpha=0.2)
 
-    ax2=axes[1]; ax2.set_facecolor('#161310')
+    ax2=axes[1]; ax2.set_facecolor('#10121C')
     err=PPp-C2[:_plen]
     ax2.fill_between(D2p,err,0,where=(err>=0),color=C_UP,alpha=0.55,label='Too high')
     ax2.fill_between(D2p,err,0,where=(err<0),color=C_DOWN,alpha=0.55,label='Too low')
@@ -2357,7 +2357,7 @@ with tab2:
     ax2.xaxis.set_ticklabels([])
     ax2.spines[['top','right']].set_visible(False); ax2.grid(axis='y',alpha=0.2)
 
-    ax3=axes[2]; ax3.set_facecolor('#161310')
+    ax3=axes[2]; ax3.set_facecolor('#10121C')
     try:
         correct=(EP==YT)
         ax3.bar(D2,np.where(correct,1,-1),color=np.where(correct,C_UP,C_DOWN),width=1.2,alpha=0.8)
@@ -2366,7 +2366,7 @@ with tab2:
     ax3.set_yticks([-1,0,1]); ax3.set_yticklabels(['Wrong','','Correct'],fontsize=8)
     ax3.text(0.99,0.95,f'Direction Acc = {dacc*100:.1f}%',
         transform=ax3.transAxes,ha='right',va='top',fontsize=9,color=C_UP,
-        bbox=dict(fc='#161310',ec='#332C1A',boxstyle='round,pad=0.4'))
+        bbox=dict(fc='#10121C',ec='#1E2333',boxstyle='round,pad=0.4'))
     ax3.set_xlabel('Date')
     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
     plt.setp(ax3.xaxis.get_majorticklabels(),rotation=30,ha='right')
@@ -2386,12 +2386,12 @@ with tab3:
         bc   =[C_DOWN if a<60 else C_GOLD if a<65 else C_UP for a in accs]
         x    =np.arange(len(names))
 
-        fig=plt.figure(figsize=(14,10)); fig.patch.set_facecolor('#0A0805')
+        fig=plt.figure(figsize=(14,10)); fig.patch.set_facecolor('#070812')
         gs2=gridspec.GridSpec(2,3,figure=fig,hspace=0.48,wspace=0.38)
         fig.suptitle(f'Model Performance — {name}',color=C_WHITE,fontsize=13)
 
-        ax1=fig.add_subplot(gs2[0,0]); ax1.set_facecolor('#161310')
-        bars=ax1.bar(x,accs,color=bc,alpha=0.88,edgecolor='#0A0805',width=0.65)
+        ax1=fig.add_subplot(gs2[0,0]); ax1.set_facecolor('#10121C')
+        bars=ax1.bar(x,accs,color=bc,alpha=0.88,edgecolor='#070812',width=0.65)
         ax1.axhline(50,color=C_DIM,ls=':',lw=1.2,label='Random')
         ax1.axhline(65,color=C_GOLD,ls='--',lw=1.2,label='65%')
         ax1.axhline(70,color=C_UP,ls='--',lw=1.2,label='70%')
@@ -2403,7 +2403,7 @@ with tab3:
                 f'{v:.1f}%',ha='center',fontweight='bold',fontsize=7.5,color=C_WHITE)
         ax1.legend(fontsize=7); ax1.spines[['top','right']].set_visible(False)
 
-        ax2=fig.add_subplot(gs2[0,1]); ax2.set_facecolor('#161310')
+        ax2=fig.add_subplot(gs2[0,1]); ax2.set_facecolor('#10121C')
         ax2.plot([0,1],[0,1],'--',color=C_DIM,lw=1,label='Random')
         try:
             for k,dm in model_data.items():
@@ -2419,8 +2419,8 @@ with tab3:
         ax2.legend(loc='lower right',fontsize=6.5); ax2.set_xlim(0,1); ax2.set_ylim(0,1)
         ax2.spines[['top','right']].set_visible(False)
 
-        ax3=fig.add_subplot(gs2[0,2]); ax3.set_facecolor('#161310')
-        bars3=ax3.bar(x,f1s,color=bc,alpha=0.88,edgecolor='#0A0805',width=0.65)
+        ax3=fig.add_subplot(gs2[0,2]); ax3.set_facecolor('#10121C')
+        bars3=ax3.bar(x,f1s,color=bc,alpha=0.88,edgecolor='#070812',width=0.65)
         ax3.set_xticks(x); ax3.set_xticklabels(names,fontsize=7,rotation=15)
         ax3.set_ylim(0,1); ax3.set_ylabel('F1 Score')
         ax3.set_title('F1 Score',color=C_WHITE)
@@ -2430,7 +2430,7 @@ with tab3:
         ax3.spines[['top','right']].set_visible(False)
 
         for col_i,(nm,dm) in enumerate(list(model_data.items())[:3]):
-            ax_cm=fig.add_subplot(gs2[1,col_i]); ax_cm.set_facecolor('#161310')
+            ax_cm=fig.add_subplot(gs2[1,col_i]); ax_cm.set_facecolor('#10121C')
             try:
                 cm=confusion_matrix(y_te,dm['pred'])
                 sns.heatmap(cm,annot=True,fmt='d',cmap='Blues',ax=ax_cm,
@@ -2448,7 +2448,7 @@ with tab3:
             correct_arr=(ens_pred==y_te).astype(int)
             roll_acc=pd.Series(correct_arr).rolling(30,min_periods=5).mean()*100
             fig2,ax=plt.subplots(figsize=(14,4))
-            fig2.patch.set_facecolor('#0A0805'); ax.set_facecolor('#161310')
+            fig2.patch.set_facecolor('#070812'); ax.set_facecolor('#10121C')
             ax.plot(te_df.index,roll_acc,color=C_BLUE,lw=1.5)
             ax.fill_between(te_df.index,65,roll_acc,where=(roll_acc>=65),alpha=0.18,color=C_UP)
             ax.axhline(ens_acc*100,color=C_GOLD,ls='--',lw=1.5,label=f'Overall {ens_acc*100:.1f}%')
@@ -2527,15 +2527,15 @@ with tab4:
             if _sh_rows:
                 _sh_df = pd.DataFrame(_sh_rows)
                 def _sh_csig(v):
-                    if 'BUY'  in str(v): return 'color:#34D399;font-weight:700'
-                    if 'SELL' in str(v): return 'color:#FF4D6D;font-weight:700'
-                    return 'color:#8C8168'
-                def _sh_ctp(v):  return 'color:#34D399;font-weight:600' if '$' in str(v) else ''
-                def _sh_csl(v):  return 'color:#FF4D6D;font-weight:600' if '$' in str(v) else ''
+                    if 'BUY'  in str(v): return 'color:#2DD4BF;font-weight:700'
+                    if 'SELL' in str(v): return 'color:#FB7185;font-weight:700'
+                    return 'color:#64748B'
+                def _sh_ctp(v):  return 'color:#2DD4BF;font-weight:600' if '$' in str(v) else ''
+                def _sh_csl(v):  return 'color:#FB7185;font-weight:600' if '$' in str(v) else ''
                 def _sh_cres(v):
-                    if 'HIT TP' in str(v): return 'color:#34D399;font-weight:700'
-                    if 'HIT SL' in str(v): return 'color:#FF4D6D;font-weight:700'
-                    return 'color:#A89F8C'
+                    if 'HIT TP' in str(v): return 'color:#2DD4BF;font-weight:700'
+                    if 'HIT SL' in str(v): return 'color:#FB7185;font-weight:700'
+                    return 'color:#94A3B8'
                 try:
                     _sh_styled = (_sh_df.style
                                   .map(_sh_csig, subset=['Signal'])
@@ -2594,7 +2594,7 @@ with tab5:
             _neu = len(_cnews) - _pos - _neg
             _ov  = ("BULLISH" if _sscore > 0.05 else "BEARISH" if _sscore < -0.05 else "NEUTRAL")
             _ov_e= ("GREEN"   if _sscore > 0.05 else "RED"     if _sscore < -0.05 else "GREY")
-            _ov_c= ("#34D399" if _sscore > 0.05 else "#FF4D6D" if _sscore < -0.05 else "#8C8168")
+            _ov_c= ("#2DD4BF" if _sscore > 0.05 else "#FB7185" if _sscore < -0.05 else "#64748B")
 
             _m1,_m2,_m3,_m4 = st.columns(4)
             _m1.metric("Articles",  len(_cnews))
@@ -2604,14 +2604,14 @@ with tab5:
 
             _gp = int(_pos / max(len(_cnews),1) * 100)
             st.markdown(
-                f'<div style="background:#161310;border-radius:8px;padding:12px 20px;'
-                f'border:1px solid #332C1A;margin:10px 0">'
+                f'<div style="background:#10121C;border-radius:8px;padding:12px 20px;'
+                f'border:1px solid #1E2333;margin:10px 0">'
                 f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
-                f'<span style="color:#34D399">Positive {_pos}</span>'
-                f'<span style="color:#A89F8C">Neutral {_neu}</span>'
-                f'<span style="color:#FF4D6D">Negative {_neg}</span></div>'
-                f'<div style="background:#241F14;border-radius:4px;height:8px;overflow:hidden">'
-                f'<div style="background:linear-gradient(90deg,#34D399,#FFC542);'
+                f'<span style="color:#2DD4BF">Positive {_pos}</span>'
+                f'<span style="color:#94A3B8">Neutral {_neu}</span>'
+                f'<span style="color:#FB7185">Negative {_neg}</span></div>'
+                f'<div style="background:#1A1E2B;border-radius:4px;height:8px;overflow:hidden">'
+                f'<div style="background:linear-gradient(90deg,#2DD4BF,#F59E0B);'
                 f'width:{_gp}%;height:100%;border-radius:4px"></div></div>'
                 f'<div style="text-align:center;color:{_ov_c};font-size:0.73rem;margin-top:4px">'
                 f'Market Sentiment: {_ov} | Score: {_sscore:+.3f}</div></div>',
@@ -2622,20 +2622,20 @@ with tab5:
             for _n in _cnews:
                 _s  = _n.get("sentiment","Neutral")
                 _sc = _n.get("score",0)
-                _bc = "#34D399" if "Positive" in _s else "#FF4D6D" if "Negative" in _s else "#332C1A"
+                _bc = "#2DD4BF" if "Positive" in _s else "#FB7185" if "Negative" in _s else "#1E2333"
                 st.markdown(
-                    f'<div style="background:#161310;border:1px solid {_bc};border-left:4px solid {_bc};'
+                    f'<div style="background:#10121C;border:1px solid {_bc};border-left:4px solid {_bc};'
                     f'border-radius:8px;padding:11px 15px;margin-bottom:7px">'
                     f'<div style="display:flex;justify-content:space-between;gap:10px">'
                     f'<div style="flex:1">'
                     f'<a href="{_n.get("url","#")}" target="_blank" '
                     f'style="color:#FFFFFF;font-weight:600;font-size:0.87rem;'
                     f'text-decoration:none;line-height:1.4">{_n.get("title","")}</a>'
-                    f'<div style="color:#A89F8C;font-size:0.72rem;margin-top:3px">'
+                    f'<div style="color:#94A3B8;font-size:0.72rem;margin-top:3px">'
                     f'{_n.get("source","")} &middot; {_n.get("published","")}</div></div>'
                     f'<div style="text-align:right;min-width:85px">'
                     f'<div style="font-size:0.79rem;font-weight:600;color:{_bc}">{_s}</div>'
-                    f'<div style="color:#8C8168;font-size:0.69rem">score {_sc:+.2f}</div>'
+                    f'<div style="color:#64748B;font-size:0.69rem">score {_sc:+.2f}</div>'
                     f'</div></div></div>',
                     unsafe_allow_html=True
                 )
@@ -2663,7 +2663,7 @@ with tab5:
             )
             _tv_cal_html = """<!DOCTYPE html><html><head>
 <meta charset="utf-8">
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0A0805;}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#070812;}</style>
 </head><body>
 <div class="tradingview-widget-container" style="width:100%;height:700px">
   <div class="tradingview-widget-container__widget" style="height:700px"></div>
@@ -2677,7 +2677,7 @@ with tab5:
     "locale": "en",
     "importanceFilter": "-1,0,1",
     "countryFilter": "us,eu,gb,jp,ca,au,nz,ch,ae,sa",
-    "backgroundColor": "#0A0805"
+    "backgroundColor": "#070812"
   }
   </script>
 </div>
@@ -2713,38 +2713,38 @@ with tab5:
                 if not _fev:
                     st.info("No events match your filters.")
                 else:
-                    _ic_map = {"High":"#FF4D6D","Medium":"#FF8C24","Low":"#8C8168","Holiday":"#332C1A"}
+                    _ic_map = {"High":"#FB7185","Medium":"#F59E0B","Low":"#64748B","Holiday":"#1E2333"}
                     for _e in _fev:
-                        _ic  = _ic_map.get(_e["impact_raw"],"#332C1A")
+                        _ic  = _ic_map.get(_e["impact_raw"],"#1E2333")
                         _act = _e.get("actual","—") or "—"
                         _ac  = "#FFFFFF"
                         if _act != "—":
                             try:
                                 _fv2 = float(str(_e.get("forecast","0")).replace("%","").replace("K","").replace("M","") or "0")
                                 _av2 = float(_act.replace("%","").replace("K","").replace("M",""))
-                                _ac  = "#34D399" if _av2 >= _fv2 else "#FF4D6D"
+                                _ac  = "#2DD4BF" if _av2 >= _fv2 else "#FB7185"
                             except Exception:
                                 pass
                         st.markdown(
-                            f'<div style="background:#161310;border:1px solid #241F14;'
+                            f'<div style="background:#10121C;border:1px solid #1A1E2B;'
                             f'border-left:4px solid {_ic};border-radius:6px;'
                             f'padding:9px 15px;margin-bottom:5px;display:flex;'
                             f'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
                             f'<div style="flex:2;min-width:180px">'
                             f'<span style="color:#FFFFFF;font-weight:600;font-size:0.84rem">{_e["event"]}</span>'
-                            f'<span style="color:#A89F8C;font-size:0.72rem;margin-left:8px">'
+                            f'<span style="color:#94A3B8;font-size:0.72rem;margin-left:8px">'
                             f'{_e["currency"]} &middot; {_e["date"]} {_e["time"]}</span></div>'
                             f'<div style="display:flex;gap:14px">'
                             f'<div style="text-align:center;min-width:50px">'
                             f'<div style="color:{_ic};font-size:0.72rem;font-weight:600">{_e["impact_raw"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#8C8168;font-size:0.65rem">Forecast</div>'
-                            f'<div style="color:#A89F8C;font-size:0.80rem">{_e["forecast"]}</div></div>'
+                            f'<div style="color:#64748B;font-size:0.65rem">Forecast</div>'
+                            f'<div style="color:#94A3B8;font-size:0.80rem">{_e["forecast"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#8C8168;font-size:0.65rem">Previous</div>'
-                            f'<div style="color:#A89F8C;font-size:0.80rem">{_e["previous"]}</div></div>'
+                            f'<div style="color:#64748B;font-size:0.65rem">Previous</div>'
+                            f'<div style="color:#94A3B8;font-size:0.80rem">{_e["previous"]}</div></div>'
                             f'<div style="text-align:center;min-width:55px">'
-                            f'<div style="color:#8C8168;font-size:0.65rem">Actual</div>'
+                            f'<div style="color:#64748B;font-size:0.65rem">Actual</div>'
                             f'<div style="color:{_ac};font-size:0.80rem;font-weight:600">{_act}</div>'
                             f'</div></div></div>',
                             unsafe_allow_html=True
@@ -2860,18 +2860,18 @@ with tab7:
         _sell_pct = int(_ns/_tot*100)
         _hold_pct = 100 - _buy_pct - _sell_pct
         _bias     = "BULLISH" if _nb > _ns else "BEARISH" if _ns > _nb else "MIXED"
-        _bias_c   = "#34D399" if _nb > _ns else "#FF4D6D" if _ns > _nb else "#A89F8C"
+        _bias_c   = "#2DD4BF" if _nb > _ns else "#FB7185" if _ns > _nb else "#94A3B8"
         st.markdown(
-            f'<div style="background:#161310;border:1px solid #332C1A;border-radius:8px;'
+            f'<div style="background:#10121C;border:1px solid #1E2333;border-radius:8px;'
             f'padding:12px 20px;margin:10px 0">'
             f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.78rem">'
-            f'<span style="color:#34D399">BUY {_buy_pct}%</span>'
-            f'<span style="color:#A89F8C">HOLD {_hold_pct}%</span>'
-            f'<span style="color:#FF4D6D">SELL {_sell_pct}%</span></div>'
-            f'<div style="height:10px;background:#241F14;border-radius:5px;overflow:hidden;display:flex">'
-            f'<div style="width:{_buy_pct}%;background:#34D399"></div>'
-            f'<div style="width:{_hold_pct}%;background:#332C1A"></div>'
-            f'<div style="width:{_sell_pct}%;background:#FF4D6D"></div></div>'
+            f'<span style="color:#2DD4BF">BUY {_buy_pct}%</span>'
+            f'<span style="color:#94A3B8">HOLD {_hold_pct}%</span>'
+            f'<span style="color:#FB7185">SELL {_sell_pct}%</span></div>'
+            f'<div style="height:10px;background:#1A1E2B;border-radius:5px;overflow:hidden;display:flex">'
+            f'<div style="width:{_buy_pct}%;background:#2DD4BF"></div>'
+            f'<div style="width:{_hold_pct}%;background:#1E2333"></div>'
+            f'<div style="width:{_sell_pct}%;background:#FB7185"></div></div>'
             f'<div style="text-align:center;color:{_bias_c};font-weight:bold;margin-top:6px;font-size:0.85rem">'
             f'Market is {_bias}</div></div>',
             unsafe_allow_html=True
@@ -2888,11 +2888,11 @@ with tab7:
                 with _gcols[_ci]:
                     if _r.get("error"):
                         st.markdown(
-                            f'<div style="background:#161310;border:1px solid #332C1A;'
+                            f'<div style="background:#10121C;border:1px solid #1E2333;'
                             f'border-radius:10px;padding:14px;text-align:center">'
-                            f'<div style="color:#A89F8C;font-size:0.85rem;font-weight:600">'
+                            f'<div style="color:#94A3B8;font-size:0.85rem;font-weight:600">'
                             f'{_r["ticker"]}</div>'
-                            f'<div style="color:#FF4D6D;font-size:0.75rem;margin-top:6px">'
+                            f'<div style="color:#FB7185;font-size:0.75rem;margin-top:6px">'
                             f'Error: {_r["error"]}</div></div>',
                             unsafe_allow_html=True
                         )
@@ -2906,7 +2906,7 @@ with tab7:
                     _racc  = _r.get("acc",0)
                     _rprob = _r.get("prob",0.5)
 
-                    _sc  = "#34D399" if _rsig=="BUY" else "#FF4D6D" if _rsig=="SELL" else "#8C8168"
+                    _sc  = "#2DD4BF" if _rsig=="BUY" else "#FB7185" if _rsig=="SELL" else "#64748B"
                     _bc  = "buy-card" if _rsig=="BUY" else "sell-card" if _rsig=="SELL" else "hold-card"
                     _em  = "🟢" if _rsig=="BUY" else "🔴" if _rsig=="SELL" else "⚪"
                     _tps = f"${_rtp:,.4f}" if _rtp else "—"
@@ -2918,25 +2918,25 @@ with tab7:
                         f'<div style="display:flex;justify-content:space-between;align-items:center">'
                         f'<div>'
                         f'<div style="color:#FFFFFF;font-weight:700;font-size:0.95rem">{_r.get("ticker","")}</div>'
-                        f'<div style="color:#A89F8C;font-size:0.72rem">{_r.get("name","")}</div>'
+                        f'<div style="color:#94A3B8;font-size:0.72rem">{_r.get("name","")}</div>'
                         f'</div>'
                         f'<div style="color:{_sc};font-size:1.3rem;font-weight:700">{_em} {_rsig}</div>'
                         f'</div>'
                         f'<div style="color:#FFFFFF;font-size:1.1rem;font-weight:600;margin:8px 0">'
                         f'${_rprice:,.4f}</div>'
                         f'<table style="width:100%;font-size:0.78rem;border-collapse:collapse">'
-                        f'<tr><td style="color:#A89F8C">Confidence</td>'
-                        f'<td style="color:#FF8C24;text-align:right;font-weight:600">{_rconf:.1f}%</td></tr>'
-                        f'<tr><td style="color:#A89F8C">P(UP)</td>'
-                        f'<td style="color:#FFC542;text-align:right">{_rprob*100:.1f}%</td></tr>'
-                        f'<tr><td style="color:#A89F8C">Take Profit</td>'
-                        f'<td style="color:#34D399;text-align:right;font-weight:600">{_tps}</td></tr>'
-                        f'<tr><td style="color:#A89F8C">Stop Loss</td>'
-                        f'<td style="color:#FF4D6D;text-align:right;font-weight:600">{_sls}</td></tr>'
-                        f'<tr><td style="color:#A89F8C">R/R</td>'
+                        f'<tr><td style="color:#94A3B8">Confidence</td>'
+                        f'<td style="color:#F59E0B;text-align:right;font-weight:600">{_rconf:.1f}%</td></tr>'
+                        f'<tr><td style="color:#94A3B8">P(UP)</td>'
+                        f'<td style="color:#2DD4BF;text-align:right">{_rprob*100:.1f}%</td></tr>'
+                        f'<tr><td style="color:#94A3B8">Take Profit</td>'
+                        f'<td style="color:#2DD4BF;text-align:right;font-weight:600">{_tps}</td></tr>'
+                        f'<tr><td style="color:#94A3B8">Stop Loss</td>'
+                        f'<td style="color:#FB7185;text-align:right;font-weight:600">{_sls}</td></tr>'
+                        f'<tr><td style="color:#94A3B8">R/R</td>'
                         f'<td style="color:#FFFFFF;text-align:right">1:{_rr:.2f}</td></tr>'
-                        f'<tr><td style="color:#A89F8C">Accuracy</td>'
-                        f'<td style="color:#FF8C24;text-align:right">{_racc*100:.1f}%</td></tr>'
+                        f'<tr><td style="color:#94A3B8">Accuracy</td>'
+                        f'<td style="color:#F59E0B;text-align:right">{_racc*100:.1f}%</td></tr>'
                         f'</table></div>',
                         unsafe_allow_html=True
                     )
@@ -3007,21 +3007,21 @@ with tab8:
         if len(_equity) > 2:
             import matplotlib.pyplot as _plt2
             _fig2, _ax2 = _plt2.subplots(figsize=(14,4))
-            _fig2.patch.set_facecolor('#0A0805'); _ax2.set_facecolor('#161310')
+            _fig2.patch.set_facecolor('#070812'); _ax2.set_facecolor('#10121C')
             _ea = __import__("numpy").array(_equity)
-            _ax2.plot(_ea, color='#34D399' if _total_return>=0 else '#FF4D6D', lw=1.8)
+            _ax2.plot(_ea, color='#2DD4BF' if _total_return>=0 else '#FB7185', lw=1.8)
             _ax2.fill_between(range(len(_ea)), _start_cap, _ea,
-                where=(_ea>=_start_cap), alpha=0.15, color='#34D399')
+                where=(_ea>=_start_cap), alpha=0.15, color='#2DD4BF')
             _ax2.fill_between(range(len(_ea)), _start_cap, _ea,
-                where=(_ea<_start_cap),  alpha=0.15, color='#FF4D6D')
-            _ax2.axhline(_start_cap, color='#8C8168', ls='--', lw=1.0, alpha=0.6)
+                where=(_ea<_start_cap),  alpha=0.15, color='#FB7185')
+            _ax2.axhline(_start_cap, color='#64748B', ls='--', lw=1.0, alpha=0.6)
             _ax2.set_title(f"Equity Curve — {name} | Return: {_total_return:+.1f}% | Win Rate: {_win_rate:.1f}%",
                            color='#FFFFFF', fontsize=11, fontweight='bold')
-            _ax2.set_ylabel("Capital ($)", color='#A89F8C')
-            _ax2.set_xlabel("Trade #",    color='#A89F8C')
-            _ax2.tick_params(colors='#A89F8C')
+            _ax2.set_ylabel("Capital ($)", color='#94A3B8')
+            _ax2.set_xlabel("Trade #",    color='#94A3B8')
+            _ax2.tick_params(colors='#94A3B8')
             _ax2.spines[['top','right']].set_visible(False)
-            _ax2.grid(axis='y', alpha=0.2, color='#241F14')
+            _ax2.grid(axis='y', alpha=0.2, color='#1A1E2B')
             _plt2.tight_layout()
             st.pyplot(_fig2, use_container_width=True)
             _plt2.close()
@@ -3031,10 +3031,10 @@ with tab8:
             st.markdown("**Individual Trade Log**")
             import pandas as _pd3
             _tdf = _pd3.DataFrame(_trades_log)
-            def _cr(v): return ('color:#34D399;font-weight:600' if '✅' in str(v)
-                                else 'color:#FF4D6D;font-weight:600' if '❌' in str(v) else '')
+            def _cr(v): return ('color:#2DD4BF;font-weight:600' if '✅' in str(v)
+                                else 'color:#FB7185;font-weight:600' if '❌' in str(v) else '')
             def _cp(v):
-                try: return 'color:#34D399' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#FF4D6D'
+                try: return 'color:#2DD4BF' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#FB7185'
                 except: return ''
             try: _st = _tdf.style.map(_cr,subset=['Result']).map(_cp,subset=['P&L $'])
             except: _st = _tdf
@@ -3059,7 +3059,7 @@ with tab8:
             "P&L": f"{'+'if (t.get('pnl',0) or 0)>=0 else ''}{(t.get('pnl',0) or 0):,.4f}",
         } for t in reversed(_ctl)])
         def _ctc(v):
-            try: return 'color:#34D399' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#FF4D6D'
+            try: return 'color:#2DD4BF' if float(str(v).replace('+','').replace(',',''))>=0 else 'color:#FB7185'
             except: return ''
         try: _cts = _ctdf.style.map(_ctc, subset=['P&L'])
         except: _cts = _ctdf
@@ -3071,12 +3071,12 @@ with tab8:
 # FOOTER
 # ═══════════════════════════════════════════════════════════════════
 st.markdown(
-    '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #241F14;'
+    '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #1A1E2B;'
     'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-    '<div style="display:flex;align-items:center;gap:7px;color:#6E6754;font-size:0.75rem">'
-    '<span style="width:6px;height:6px;border-radius:50%;background:#FFC542;display:inline-block"></span>'
+    '<div style="display:flex;align-items:center;gap:7px;color:#475569;font-size:0.75rem">'
+    '<span style="width:6px;height:6px;border-radius:50%;background:#2DD4BF;display:inline-block"></span>'
     'Prediction Dashboard &middot; research tool, not financial advice</div>'
-    '<div style="color:#6E6754;font-size:0.72rem">Data refreshes every 6h</div>'
+    '<div style="color:#475569;font-size:0.72rem">Data refreshes every 6h</div>'
     '</div>', unsafe_allow_html=True
 )
 
