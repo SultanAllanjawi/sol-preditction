@@ -96,11 +96,11 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
   background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);
   border:1px solid #332C1A;border-radius:14px;padding:16px 20px;
   box-shadow:0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
-  transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
 }
 [data-testid="metric-container"]:hover{
-  border-color:#FFC542; transform:translateY(-2px);
-  box-shadow:0 12px 28px rgba(255,197,66,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
+  border-color:#FFC542; transform:perspective(600px) translateY(-4px) rotateX(4deg) rotateY(-3deg) scale(1.015);
+  box-shadow:0 16px 32px rgba(255,197,66,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 [data-testid="stMetricValue"]{color:#FFFFFF;font-size:1.7rem!important;font-weight:800}
 [data-testid="stMetricLabel"]{color:#A89F8C;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
@@ -117,9 +117,28 @@ header[data-testid="stHeader"]{background:#0A0805;z-index:999}
   border:1px solid #332C1A;border-radius:16px;padding:18px 22px;margin:6px 0;
   box-shadow:0 10px 30px rgba(0,0,0,0.4);
   animation:fadeInUp .5s ease both;
+  transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease;
+}
+.signal-card:hover{
+  transform:perspective(700px) translateY(-4px) rotateX(3deg) rotateY(-2deg) scale(1.01);
+  border-color:#FFC542; box-shadow:0 16px 32px rgba(255,197,66,0.18);
 }
 .buy-card{border-left:5px solid #34D399}.sell-card{border-left:5px solid #FF4D6D}.hold-card{border-left:5px solid #8C8168}
 hr{border-color:#241F14}
+
+/* generic tilt-card — apply class="tilt-card" to any custom HTML card div */
+.tilt-card{transition:transform .25s cubic-bezier(.2,.8,.3,1), border-color .2s ease, box-shadow .25s ease}
+.tilt-card:hover{
+  transform:perspective(600px) translateY(-4px) rotateX(4deg) rotateY(-3deg) scale(1.015)!important;
+  border-color:#FFC542!important; box-shadow:0 16px 32px rgba(255,197,66,0.22)!important;
+}
+
+/* smooth tab panel transitions (client-side, no rerun) */
+[data-baseweb="tab-panel"]{animation:fadeInUp .35s ease both}
+
+/* smooth expander open/close */
+[data-testid="stExpander"] details{transition:background .2s ease}
+[data-testid="stExpander"] summary svg{transition:transform .25s ease}
 
 /* sidebar */
 [data-testid="stSidebar"]{background:#0B0813;border-right:1px solid #241F14}
@@ -604,20 +623,20 @@ def render_portfolio_page():
     _roi_c = "#34D399" if roi>=0 else "#FF4D6D"
     st.markdown(
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">'
-        f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
         f'border-radius:12px;padding:14px 16px">'
         f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total Trades</div>'
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.35rem;font-weight:800;margin-top:3px">{len(trades)}</div></div>'
-        f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
         f'border-radius:12px;padding:14px 16px">'
         f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Open Positions</div>'
         f'<div class="stat-pop" style="color:#FFC542;font-size:1.35rem;font-weight:800;margin-top:3px">{open_count}</div></div>'
-        f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
         f'border-radius:12px;padding:14px 16px">'
         f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">Total P&amp;L</div>'
         f'<div class="stat-pop" style="color:{_pnl_c};font-size:1.35rem;font-weight:800;margin-top:3px">'
         f'{"+" if total_pnl>=0 else ""}{total_pnl:,.2f}</div></div>'
-        f'<div style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12,#161310);border:1px solid #332C1A;'
         f'border-radius:12px;padding:14px 16px">'
         f'<div style="color:#A89F8C;font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em">ROI</div>'
         f'<div class="stat-pop" style="color:{_roi_c};font-size:1.35rem;font-weight:800;margin-top:3px">{roi:+.2f}%</div></div>'
@@ -1076,7 +1095,7 @@ col_left, col_right = st.columns([2.1, 1])
 
 with col_left:
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
         f'border:1px solid #332C1A;border-radius:16px;padding:20px 22px;height:100%;'
         f'box-shadow:0 10px 30px rgba(0,0,0,0.4)">'
         f'<div style="color:#FFC542;font-weight:700;font-size:0.9rem;margin-bottom:16px;'
@@ -1096,7 +1115,7 @@ with col_left:
 
 with col_right:
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
+        f'<div class="tilt-card" style="background:linear-gradient(160deg,#1F1B12 0%,#161310 100%);'
         f'border:1px solid #332C1A;border-radius:16px;padding:16px 20px;'
         f'box-shadow:0 10px 30px rgba(0,0,0,0.4);margin-bottom:12px">'
         f'<div style="color:#A89F8C;font-size:0.72rem;text-transform:uppercase;font-weight:600">'
@@ -1104,7 +1123,7 @@ with col_right:
         f'<div class="stat-pop" style="color:#FFFFFF;font-size:1.75rem;font-weight:800;margin-top:2px">${display_price:,.4f}</div>'
         f'<div style="color:{_chg_color};font-weight:700;font-size:0.88rem">{day_chg:+.2f}%</div>'
         f'</div>'
-        f'<div style="background:linear-gradient(135deg,#FFC542,#FF8C24);border-radius:16px;'
+        f'<div class="tilt-card" style="background:linear-gradient(135deg,#FFC542,#FF8C24);border-radius:16px;'
         f'padding:16px 20px;box-shadow:0 10px 26px rgba(255,140,36,0.35);animation:glowPulse 2.4s ease-in-out infinite">'
         f'<div style="color:#241C08;font-size:0.72rem;text-transform:uppercase;font-weight:700">Active Signals</div>'
         f'<div class="stat-pop" style="color:#241C08;font-size:1.6rem;font-weight:900;animation-delay:.2s">{results["n_signals"]}</div>'
