@@ -114,9 +114,13 @@ class DataManager:
                 pass
 
         cached = self._load_cached()
+        # A cache that's suspiciously short (e.g. saved during a transient API
+        # failure that fell through to a weak fallback) should never be trusted
+        # just because it's < 5 minutes old — treat it as stale too.
+        _cache_too_small = cached is not None and len(cached) < 200
 
         # 2. Fetch fresh
-        if self._is_stale() or cached is None:
+        if self._is_stale() or cached is None or _cache_too_small:
             if is_crypto(self.ticker) and prefer_hourly:
                 fresh = self._fetch_hourly_binance()      # 41 days of 1h
                 if fresh is not None and len(fresh) >= 100:
