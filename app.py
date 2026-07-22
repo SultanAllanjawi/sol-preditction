@@ -65,10 +65,31 @@ code, .stCode, [data-testid="stMetricDelta"] svg { font-family: 'JetBrains Mono'
 .outlook-row{animation:fadeInUp .4s ease both}
 .block-container{padding-top:2.6rem}
 .block-container > div{animation:fadeInUp .45s ease both}
+/* orchestrated stagger: each top-level section fades in slightly after the previous */
+.block-container > div:nth-child(1){animation-delay:0s}
+.block-container > div:nth-child(2){animation-delay:.04s}
+.block-container > div:nth-child(3){animation-delay:.08s}
+.block-container > div:nth-child(4){animation-delay:.12s}
+.block-container > div:nth-child(5){animation-delay:.16s}
+.block-container > div:nth-child(6){animation-delay:.20s}
+.block-container > div:nth-child(7){animation-delay:.24s}
+.block-container > div:nth-child(n+8){animation-delay:.28s}
+/* charts/images fade in like everything else instead of popping in instantly */
+[data-testid="stImage"] img{animation:fadeInUp .5s ease both}
+/* shimmer on the loading spinner text */
+[data-testid="stSpinner"] p{
+  background:linear-gradient(90deg,#A89F8C 0%,#FFC542 50%,#A89F8C 100%);
+  background-size:200% auto;-webkit-background-clip:text;background-clip:text;
+  color:transparent;animation:gradientShift 1.8s linear infinite;
+}
 
 /* header toolbar */
 header[data-testid="stHeader"]{background:#0A0805;z-index:999}
 #MainMenu, footer{visibility:hidden}
+/* hide Streamlit's auto heading-anchor icon (stray floating link/+ glyph on hover) */
+[data-testid="stHeaderActionElements"], .stMarkdown a.anchor-link, [data-testid="stHeadingWithActionElements"] svg{
+  display:none!important;
+}
 
 /* metric tiles */
 [data-testid="metric-container"]{
