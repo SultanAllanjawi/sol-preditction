@@ -887,3 +887,5 @@ def get_combined_news(ticker: str) -> dict:
     return {
         "crypto_news"    : crypto_news,
         "forex_calendar" : forex_cal,
+        "sentiment_score": avg_score,
+    }
