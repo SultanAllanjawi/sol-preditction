@@ -298,7 +298,7 @@ from feature_engine import build_features
 def get_live_price_cached(ticker):
     return DataManager.get_live_price(ticker)
 
-@st.cache_data(ttl=20, show_spinner=False)
+@st.cache_data(ttl=2, show_spinner=False)
 def get_order_book_cached(ticker):
     return DataManager.get_order_book(ticker, limit=10)
 
@@ -1348,7 +1348,7 @@ if is_crypto(ticker):
             f'</div>', unsafe_allow_html=True
         )
 
-        @st.fragment(run_every=8)
+        @st.fragment(run_every=2)
         def _order_book_fragment(_ticker):
             _ob_f = get_order_book_cached(_ticker)
             st.markdown(
@@ -1356,7 +1356,7 @@ if is_crypto(ticker):
                 'letter-spacing:.04em;margin-bottom:8px;display:flex;align-items:center;gap:8px">'
                 '📖 Order Book — Top 8 <span class="live-dot" style="margin:0"></span>'
                 '<span style="color:#475569;font-weight:400;text-transform:none;font-size:0.68rem">'
-                'updates every 8s</span></div>',
+                'updates every 2s</span></div>',
                 unsafe_allow_html=True
             )
             if not _ob_f or not _ob_f.get("bids") or not _ob_f.get("asks"):
