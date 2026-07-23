@@ -178,25 +178,31 @@ class ModelEngine:
                     _mask = ~np.isfinite(_arr[:, _col])
                     if _mask.any():
                         _arr[_mask, _col] = np.nanmedian(_arr[:, _col]) if np.isfinite(_arr[:, _col]).any() else 0.0
-            # Old proven config: lr=5e-4, epochs=80, batch=64, 3 seeds
-            # This matches the config that gave 60%+ consistently
-            _best_rp=None; _best_ra=0.0
-            for _seed in [42, 7, 13]:
+            # 3 seeds, picked by VALIDATION accuracy — not test accuracy. Picking by test
+            # score (the old "best of 3 seeds" behavior, before someone reduced this to a
+            # single seed) is cherry-picking: it silently inflates the number you're about
+            # to report, because you're choosing the model based on the exact data you
+            # then use to grade it. Picking by validation instead is standard, honest model
+            # selection — it still averages out an unlucky bad initialization, it just
+            # never looks at the test set until after the seed is locked in.
+            _best_rp=None; _best_va=-1.0
+            for _seed in (42, 7, 13):
                 np.random.seed(_seed)
-                _rnn=VanillaRNN(nf,64,5e-4)
+                _rnn=VanillaRNN(nf,96,5e-4)
                 _rnn.fit(_Xtr2,self.ytr2,_Xval,self.yval,
-                         self.CW,epochs=80,batch=64,patience=12,verbose=False)
-                _rp_try=np.clip(_rnn.predict_proba(_Xte_s),0.01,0.99)
-                _ra_try=accuracy_score(y_te,(_rp_try>0.5).astype(int))
-                if _ra_try>_best_ra:
-                    _best_ra=_ra_try; _best_rp=_rp_try
+                         self.CW,epochs=60,batch=64,patience=12,verbose=False)
+                _va = accuracy_score(self.yval,(_rnn.predict_proba(_Xval)>0.5).astype(int))
+                if _va > _best_va:
+                    _best_va = _va
+                    _best_rp = np.clip(_rnn.predict_proba(_Xte_s),0.01,0.99)
             np.random.seed(None)
-            rp=_best_rp; ra=_best_ra
+            rp=_best_rp
+            ra=accuracy_score(y_te,(rp>0.5).astype(int))
             rf=f1_score(y_te,(rp>0.5).astype(int),zero_division=0)
             ru=roc_auc_score(y_te,rp) if len(np.unique(y_te))>1 else 0.5
             model_data["Vanilla RNN"]={"proba":rp,"pred":(rp>0.5).astype(int),"acc":ra,"f1":rf,"auc":ru}
             all_p["Vanilla RNN"]=rp; all_a["Vanilla RNN"]=ra
-            print(f"  RNN: {ra*100:.2f}% (best of 3 seeds)")
+            print(f"  RNN: {ra*100:.2f}%")
         except Exception as e:
             print(f"  RNN failed: {e}")
             all_p["Vanilla RNN"]=np.full(len(y_te),0.5); all_a["Vanilla RNN"]=0.5
@@ -204,7 +210,7 @@ class ModelEngine:
         # ── 2. Random Forest ──────────────────────────────────────
         if verbose: print("Training RF...")
         try:
-            rf_m=RandomForestClassifier(n_estimators=150,max_depth=6,min_samples_leaf=3,
+            rf_m=RandomForestClassifier(n_estimators=250,max_depth=7,min_samples_leaf=3,
                 class_weight="balanced",max_features="sqrt",random_state=42,n_jobs=-1)
             rf_m.fit(self.X_tr_r,self.y_tr_r)  # recent data only — avoids outdated patterns
             rfp=rf_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
@@ -221,8 +227,8 @@ class ModelEngine:
         # ── 3. Gradient Boosting ──────────────────────────────────
         if verbose: print("Training GB...")
         try:
-            gb=GradientBoostingClassifier(n_estimators=100,max_depth=3,
-                learning_rate=0.06,subsample=0.80,max_features="sqrt",random_state=42)
+            gb=GradientBoostingClassifier(n_estimators=150,max_depth=3,
+                learning_rate=0.05,subsample=0.80,max_features="sqrt",random_state=42)
             gb.fit(self.X_tr_r,self.y_tr_r)  # recent 2000 rows
             gbp=gb.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             ga=accuracy_score(y_te,(gbp>0.5).astype(int))
@@ -241,15 +247,24 @@ class ModelEngine:
             import xgboost as xgb
             scale_pw = self.CW[1]/self.CW[0]
             xgb_m = xgb.XGBClassifier(
-                n_estimators=100, max_depth=4, learning_rate=0.08,
+                n_estimators=300, max_depth=4, learning_rate=0.05,
                 subsample=0.8, colsample_bytree=0.8,
                 scale_pos_weight=scale_pw,
                 eval_metric="logloss", verbosity=0,
                 random_state=42, n_jobs=-1,
                 tree_method="hist",
+                early_stopping_rounds=20,  # stop once held-out logloss stops improving — regularizes instead of just fitting more trees
             )
-            xgb_m.fit(self.X_tr, self.y_tr,
-                      eval_set=[(self.X_te, self.y_te)],
+            # Early stopping must watch a validation slice, never the test set — otherwise
+            # the tree count itself gets picked based on the exact data we grade against,
+            # which is the same leak as picking an RNN seed by test accuracy. Carve the
+            # last 15% of the TRAINING period (still strictly before the test period) off
+            # as that validation slice.
+            _val_n = max(50, int(len(self.X_tr) * 0.15))
+            _xtr_fit, _ytr_fit = self.X_tr[:-_val_n], self.y_tr[:-_val_n]
+            _xtr_val, _ytr_val = self.X_tr[-_val_n:], self.y_tr[-_val_n:]
+            xgb_m.fit(_xtr_fit, _ytr_fit,
+                      eval_set=[(_xtr_val, _ytr_val)],
                       verbose=False)
             xp = xgb_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             xa = accuracy_score(y_te,(xp>0.5).astype(int))
