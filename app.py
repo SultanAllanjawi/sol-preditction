@@ -140,10 +140,56 @@ hr{border-color:#1A1E2B}
 [data-testid="stExpander"] details{transition:background .2s ease}
 [data-testid="stExpander"] summary svg{transition:transform .25s ease}
 
-/* sidebar */
-[data-testid="stSidebar"]{background:#08090F;border-right:1px solid #1A1E2B}
+/* sidebar — Glass Terminal: frosted panels over an ambient dark gradient */
+[data-testid="stSidebar"]{
+  background:
+    radial-gradient(220px 220px at 90% -4%, rgba(139,124,246,0.16), transparent 70%),
+    radial-gradient(240px 200px at -10% 65%, rgba(45,212,191,0.10), transparent 70%),
+    linear-gradient(160deg, #10142A 0%, #08090F 55%);
+  border-right:1px solid rgba(255,255,255,0.08);
+}
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem}
 [data-testid="stSidebar"] .block-container{animation:fadeInUp .45s ease both}
+
+/* glass panels: expanders, alerts, selects, buttons — sidebar only */
+[data-testid="stSidebar"] [data-testid="stExpander"]{
+  background:rgba(255,255,255,0.035)!important;
+  border:1px solid rgba(255,255,255,0.09)!important;
+  backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+  border-radius:14px;
+}
+[data-testid="stSidebar"] .stAlert,
+[data-testid="stSidebar"] [data-testid^="stAlertContent"]{
+  background:rgba(255,255,255,0.035)!important;
+  border:1px solid rgba(255,255,255,0.09)!important;
+  backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+}
+[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"]>div,
+[data-testid="stSidebar"] .stTextInput input,
+[data-testid="stSidebar"] .stButton>button,
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]{
+  background:rgba(255,255,255,0.035)!important;
+  border:1px solid rgba(255,255,255,0.09)!important;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+
+/* category selector — horizontal glass pills, glow ring on the active one */
+[data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"]{
+  display:flex!important;flex-wrap:wrap!important;gap:7px!important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label{
+  background:rgba(255,255,255,0.035);
+  border:1px solid rgba(255,255,255,0.09);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-radius:999px;padding:7px 13px;margin:0;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] [data-baseweb="radio"] > div:first-child{display:none}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover{border-color:rgba(45,212,191,0.5)}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked){
+  border-color:#2DD4BF;background:rgba(45,212,191,0.14);
+  box-shadow:0 0 0 3px rgba(45,212,191,0.14), 0 0 18px rgba(45,212,191,0.3);
+}
 
 /* alerts / info boxes — override Streamlit's default blue */
 .stAlert, [data-testid="stNotification"], [data-testid^="stAlertContent"]{
@@ -512,20 +558,21 @@ with st.sidebar:
         BASE_ASSETS = _CRYPTO + _US + _INDICES + _UAE
     
         _cat = st.radio("Category",
-            ["🔵 Crypto","🟢 US Stocks","📊 Commodities & Indices","🇦🇪 UAE / DFM","📁 Uploaded","✏️ Custom"],
-            horizontal=False, key="asset_category")
-    
-        if   _cat == "🔵 Crypto":                _asset_list = _CRYPTO
-        elif _cat == "🟢 US Stocks":             _asset_list = _US
-        elif _cat == "📊 Commodities & Indices": _asset_list = _INDICES
-        elif _cat == "🇦🇪 UAE / DFM":            _asset_list = _UAE
-        elif _cat == "📁 Uploaded":              _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
-        else:                                     _asset_list = []
-    
+            ["🔵 Crypto","🟢 Stocks","📊 Comm.","🇦🇪 UAE","📁 Files","✏️ Custom"],
+            horizontal=True, key="asset_category",
+            help="📊 Comm. = Commodities & Indices  ·  🇦🇪 UAE = UAE/DFM stocks  ·  📁 Files = Uploaded CSVs")
+
+        if   _cat == "🔵 Crypto":  _asset_list = _CRYPTO
+        elif _cat == "🟢 Stocks":  _asset_list = _US
+        elif _cat == "📊 Comm.":   _asset_list = _INDICES
+        elif _cat == "🇦🇪 UAE":    _asset_list = _UAE
+        elif _cat == "📁 Files":   _asset_list = list(st.session_state.uploaded_assets.keys()) or ["(none)"]
+        else:                      _asset_list = []
+
         if _cat == "✏️ Custom":
             all_assets = ["✏️ Custom ticker..."]
         else:
-            all_assets = _asset_list + (["✏️ Custom ticker..."] if _cat != "📁 Uploaded" else [])
+            all_assets = _asset_list + (["✏️ Custom ticker..."] if _cat != "📁 Files" else [])
     
         # Display names for UAE stocks
         _disp = {t: (f"{_UAE_NAMES[t]} ({t})" if t in _UAE_NAMES else t) for t in all_assets}
@@ -544,7 +591,7 @@ with st.sidebar:
                 "Enter ticker symbol",
                 placeholder="e.g. SOL-USD, EMAAR.DFM, AAPL",
             ).upper().strip() or "SOL-USD"
-        elif _cat == "📁 Uploaded" and not st.session_state.uploaded_assets:
+        elif _cat == "📁 Files" and not st.session_state.uploaded_assets:
             st.caption("No uploads yet — use the uploader above")
             ticker = st.session_state.selected_ticker
         else:
