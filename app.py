@@ -922,6 +922,21 @@ if st.session_state.get("app_page","Dashboard") == "Portfolio":
 # ═══════════════════════════════════════════════════════════════════
 # LOAD DATA + TRAIN
 # ═══════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=1800, show_spinner=False)  # 30-min cache
+def get_cached_sentiment(ticker: str) -> float:
+    """Cached so this stays stable between reruns — feeding a freshly-fetched,
+    ever-drifting sentiment float straight into load_and_train()'s cache key
+    was busting the 6-hour training cache on almost every rerun (any sidebar
+    interaction, not just switching ticker), forcing a full model retrain
+    each time even when revisiting an already-loaded ticker."""
+    try:
+        _news = DataManager.get_news_sentiment(ticker, limit=10)
+        if _news:
+            return round(sum(n.get("score", 0) for n in _news) / len(_news), 3)
+    except Exception:
+        pass
+    return 0.0
+
 @st.cache_data(ttl=21600, show_spinner=False)  # 6-hour cache
 def load_and_train(ticker, _uploaded_bytes=None, _force=False,
                    signal_mode="Daily", sentiment_score=0.0):
@@ -955,15 +970,8 @@ _uploaded_bytes = st.session_state.uploaded_assets.get(ticker, None)
 
 with st.spinner(f"⏳ Loading **{ticker}** · First load ~8s · Cached for 30 min after..."):
     try:
-        # Fetch sentiment for crypto assets
-        _sentiment = 0.0
-        if is_crypto(ticker):
-            try:
-                _news = DataManager.get_news_sentiment(ticker, limit=10)
-                if _news:
-                    _sentiment = sum(n.get("score",0) for n in _news) / len(_news)
-            except Exception:
-                pass
+        # Fetch sentiment for crypto assets (cached — see get_cached_sentiment)
+        _sentiment = get_cached_sentiment(ticker) if is_crypto(ticker) else 0.0
 
         df_raw, df_feat, results = load_and_train(
             ticker, _uploaded_bytes, force_refresh,
