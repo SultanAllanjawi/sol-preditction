@@ -5,13 +5,30 @@ real 4-model ensemble (RNN + Random Forest + Gradient Boosting + XGBoost) traine
 market data, served through a FastAPI backend to a Next.js dashboard.
 
 This replaces the original Streamlit app (kept for reference in [`legacy-streamlit/`](legacy-streamlit))
-with a two-service architecture built for a Vercel + Railway deploy:
+with a two-service architecture built for a Vercel + Render deploy:
 
 ```
 /backend   FastAPI service — data fetch, feature engineering, the model ensemble, backtesting,
-           portfolio/signal persistence. Deploys to Railway (or any host that runs a Dockerfile).
+           portfolio/signal persistence. Deploys to Render's free web-service tier (or any host
+           that runs a Dockerfile).
 /web       Next.js 14 dashboard — deploys to Vercel. Talks to /backend over HTTPS/JSON.
 ```
+
+**Live**: frontend at https://web-seven-brown-10.vercel.app. The backend currently runs
+**locally** (see below) rather than on Render — Render's free-tier CPU is throttled to a
+fraction of a core, which made a cold ticker take minutes to train instead of seconds.
+Running it on real hardware fixed that, at the cost of the backend only being reachable
+while it's actually running.
+
+**Backend is running on this machine, exposed via a Cloudflare quick tunnel** (no account
+needed): `cloudflared tunnel --url http://127.0.0.1:8010`. Two things to know:
+- The tunnel URL is random and changes every time `cloudflared` restarts — if it drops,
+  regenerate it and update Vercel's `NEXT_PUBLIC_API_URL` (`vercel env rm/add` + `vercel deploy --prod`).
+- The live site only works while both the local backend (`uvicorn`) and the tunnel are running.
+
+`render.yaml` is still in the repo if you want to move the backend back to Render (or a paid
+instance type on it) later — nothing about the app changes, only where it's hosted. See
+[Deploying](#deploying).
 
 Every number on the dashboard is real: live prices from Binance/CoinGecko/Yahoo, models trained
 on that live data, and a backtest that walks actual subsequent price action rather than
@@ -47,16 +64,28 @@ list warm so those tickers are instant.
 
 ## Deploying
 
-**Backend → Railway**
-1. New Railway project → Deploy from GitHub → set the root directory to `backend/`.
-2. Railway auto-detects the `Dockerfile`. Add a persistent volume mounted at `/app/data` so
-   cached OHLCV data and portfolio/signal history survive redeploys.
-3. Set env var `CORS_ORIGINS` to your Vercel domain (comma-separated if you have a preview + prod URL).
-4. Note the deployed URL (e.g. `https://your-app.up.railway.app`).
+**Backend → Render**
+
+Deployed from [`render.yaml`](render.yaml) at the repo root, which points Render at `backend/`
+with the Docker runtime and a free-tier plan. Since the repo is public, Render can build
+straight from the GitHub URL without installing its GitHub App.
+
+1. Render dashboard → New → Blueprint → paste this repo's URL → Apply. (Or, if you'd rather
+   not use the Blueprint, New → Web Service → Public Git Repository, set root directory to
+   `backend/`, runtime Docker, plan Free.)
+2. Set env vars `CORS_ORIGINS` (your Vercel domain(s), comma-separated) and `TRAIN_TTL_MINUTES`
+   (default `180`).
+3. Note the deployed URL (e.g. `https://your-app.onrender.com`).
+
+Free tier has no persistent disk (`backend/data/` resets on restart) and spins down after
+~15 min idle (30-60s cold start on the next request). To remove that tradeoff, switch the
+service to a paid instance type with a disk attached at `/app/data`, or move to a host like
+Railway/Fly.io that includes a persistent volume — the Dockerfile doesn't change either way.
 
 **Frontend → Vercel**
 1. New Vercel project → import this repo → set **Root Directory** to `web/`.
-2. Set env var `NEXT_PUBLIC_API_URL` to the Railway backend URL from above.
+2. Set env var `NEXT_PUBLIC_API_URL` to the Render backend URL from above (safe to expose —
+   it's a public API endpoint, which is why it's a `NEXT_PUBLIC_` var).
 3. Deploy. Vercel auto-detects Next.js — no other config needed.
 
 ## What's real vs. what to know
