@@ -160,7 +160,11 @@ class DataManager:
                     self._save_hourly(fresh)
                     self._save_meta()
                     return self._clean(fresh)
-                return None
+                # Hourly fetch failed or came back too short (e.g. Binance geo-blocks this
+                # host with HTTP 451 — happens on some cloud regions). Previously this
+                # returned None here, skipping the daily chain's CryptoCompare/Yahoo/CoinGecko
+                # fallbacks entirely and making crypto tickers unusable on any host where
+                # Binance's hourly endpoint is unreachable. Fall through instead.
 
             fresh = self._fetch_daily()
             if fresh is not None and len(fresh) >= 80:
