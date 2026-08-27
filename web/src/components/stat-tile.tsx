@@ -15,10 +15,11 @@ export function StatTile({
 }) {
   return (
     <div className={cn("surface-panel rounded-xl px-4 py-3.5", className)}>
-      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">{label}</div>
       <div
         className={cn(
-          "mt-1 font-mono text-xl font-bold tabular-nums",
+          "stat-pop mt-1 font-mono text-xl font-extrabold tabular-nums",
+          tone === "default" && "text-white",
           tone === "buy" && "text-signal-buy",
           tone === "sell" && "text-signal-sell"
         )}

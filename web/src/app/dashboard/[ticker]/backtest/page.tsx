@@ -52,12 +52,11 @@ export default function BacktestPage({ params }: { params: Promise<{ ticker: str
           />
         </div>
         <div className="text-xs text-muted-foreground">
-          Walks each historical signal forward through real subsequent price action (2×ATR take-profit, 1.5×ATR
-          stop-loss) — not a simulated coin flip.
+          ⚠️ Backtest uses the model&apos;s historical accuracy to simulate win/loss. Not financial advice.
         </div>
       </div>
 
-      {backtest.isLoading && <LoadingPanel label="Running walk-forward backtest…" />}
+      {backtest.isLoading && <LoadingPanel label="Running backtest…" />}
       {backtest.isError && <ErrorPanel message={(backtest.error as Error).message} />}
 
       {backtest.data && backtest.data.total_trades === 0 && (
@@ -79,8 +78,10 @@ export default function BacktestPage({ params }: { params: Promise<{ ticker: str
             <StatTile label="Avg P&L / Trade" value={`$${(backtest.data.trades.reduce((s, t) => s + t.pnl, 0) / backtest.data.total_trades).toFixed(2)}`} />
           </div>
 
-          <div className="surface-panel rounded-xl p-4">
-            <div className="mb-3 text-sm font-semibold">Equity Curve</div>
+          <div className="surface-panel rounded-2xl p-4">
+            <div className="mb-3 text-[0.82rem] font-bold uppercase tracking-[0.04em] text-signal-buy">
+              Portfolio Performance
+            </div>
             <LineChart
               categories={backtest.data.equity_curve.map((_, i) => i)}
               series={[{ label: "Capital", color: backtest.data.total_return_pct >= 0 ? "#5EEAD4" : "#FB7185", values: backtest.data.equity_curve }]}
@@ -88,7 +89,8 @@ export default function BacktestPage({ params }: { params: Promise<{ ticker: str
             />
           </div>
 
-          <div className="surface-panel rounded-xl p-2">
+          <div className="surface-panel rounded-2xl p-2">
+            <div className="px-2 pt-2 text-sm font-semibold">Individual Trade Log</div>
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -96,8 +98,8 @@ export default function BacktestPage({ params }: { params: Promise<{ ticker: str
                   <TableHead>Signal</TableHead>
                   <TableHead className="text-right">Entry</TableHead>
                   <TableHead className="text-right">Exit</TableHead>
-                  <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">P&amp;L</TableHead>
+                  <TableHead>Result</TableHead>
+                  <TableHead className="text-right">P&amp;L $</TableHead>
                   <TableHead className="text-right">Capital</TableHead>
                 </TableRow>
               </TableHeader>
@@ -113,15 +115,8 @@ export default function BacktestPage({ params }: { params: Promise<{ ticker: str
                     <TableCell className="text-right font-mono tabular-nums">${t.entry.toFixed(4)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">${t.exit.toFixed(4)}</TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          t.outcome === "TP" && "text-signal-buy",
-                          t.outcome === "SL" && "text-signal-sell",
-                          t.outcome === "TIMEOUT" && "text-muted-foreground"
-                        )}
-                      >
-                        {t.outcome}
+                      <span className={cn("text-xs font-medium", t.pnl >= 0 ? "text-signal-buy" : "text-signal-sell")}>
+                        {t.pnl >= 0 ? "✅ Win" : "❌ Loss"}
                       </span>
                     </TableCell>
                     <TableCell className={cn("text-right font-mono tabular-nums", t.pnl >= 0 ? "text-signal-buy" : "text-signal-sell")}>

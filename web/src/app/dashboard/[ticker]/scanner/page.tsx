@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useScanner } from "@/hooks/use-scanner";
 import { SignalBadge } from "@/components/signal-badge";
+import { StatTile } from "@/components/stat-tile";
 import { LoadingPanel, ErrorPanel, EmptyPanel } from "@/components/state-views";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-const CATEGORY_LABEL = { crypto: "Crypto", us_stock: "US Equity", dfm: "DFM" } as const;
+const BORDER_BY_SIGNAL = {
+  BUY: "border-l-signal-buy",
+  SELL: "border-l-signal-sell",
+  HOLD: "border-l-signal-hold",
+} as const;
 
 export default function ScannerPage() {
   const scanner = useScanner();
@@ -24,43 +28,52 @@ export default function ScannerPage() {
       />
     );
 
+  const buy = rows.filter((r) => r.signal === "BUY").length;
+  const sell = rows.filter((r) => r.signal === "SELL").length;
+  const hold = rows.filter((r) => r.signal === "HOLD").length;
+
   return (
-    <div className="surface-panel rounded-xl p-2">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>Ticker</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Signal</TableHead>
-            <TableHead className="text-right">Confidence</TableHead>
-            <TableHead className="text-right">Ensemble Accuracy</TableHead>
-            <TableHead className="text-right">Last Trained</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.ticker}>
-              <TableCell>
-                <Link href={`/dashboard/${r.ticker}/overview`} className="font-medium hover:underline">
-                  {r.ticker}
-                </Link>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatTile label="Assets Scanned" value={rows.length} />
+        <StatTile label="Buy" value={buy} tone="buy" />
+        <StatTile label="Sell" value={sell} tone="sell" />
+        <StatTile label="Hold" value={hold} />
+      </div>
+
+      <div className="surface-panel h-2 overflow-hidden rounded-full">
+        <div className="flex h-full w-full">
+          <div className="bg-signal-buy" style={{ width: `${(buy / rows.length) * 100}%` }} />
+          <div className="bg-signal-hold" style={{ width: `${(hold / rows.length) * 100}%` }} />
+          <div className="bg-signal-sell" style={{ width: `${(sell / rows.length) * 100}%` }} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((r) => (
+          <Link
+            key={r.ticker}
+            href={`/dashboard/${r.ticker}/overview`}
+            className={cn("surface-panel flex flex-col gap-2 rounded-2xl border-l-4 p-4", BORDER_BY_SIGNAL[r.signal])}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="font-bold">{r.ticker}</div>
                 <div className="text-xs text-muted-foreground">{r.name}</div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{CATEGORY_LABEL[r.category]}</Badge>
-              </TableCell>
-              <TableCell>
-                <SignalBadge signal={r.signal} size="sm" />
-              </TableCell>
-              <TableCell className="text-right font-mono tabular-nums">{r.confidence.toFixed(1)}%</TableCell>
-              <TableCell className="text-right font-mono tabular-nums">{r.ensemble_accuracy.toFixed(1)}%</TableCell>
-              <TableCell className="text-right text-xs text-muted-foreground">
-                {r.trained_at ? new Date(r.trained_at).toLocaleTimeString() : "—"}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </div>
+              <SignalBadge signal={r.signal} size="md" />
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <span className="text-muted-foreground">Confidence</span>
+              <span className="text-right font-mono tabular-nums">{r.confidence.toFixed(1)}%</span>
+              <span className="text-muted-foreground">Accuracy</span>
+              <span className="text-right font-mono tabular-nums">{r.ensemble_accuracy.toFixed(1)}%</span>
+              <span className="text-muted-foreground">Category</span>
+              <span className="text-right capitalize">{r.category.replace("_", " ")}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

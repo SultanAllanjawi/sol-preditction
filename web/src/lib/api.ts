@@ -96,7 +96,7 @@ export interface BacktestTrade {
   signal: "BUY" | "SELL";
   entry: number;
   exit: number;
-  outcome: "TP" | "SL" | "TIMEOUT";
+  outcome: "TP" | "SL";
   pnl: number;
   capital: number;
 }

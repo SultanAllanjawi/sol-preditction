@@ -36,9 +36,9 @@ export default function PerformancePage({ params }: { params: Promise<{ ticker: 
         <StatTile label="ROC AUC" value={p.ensemble.auc.toFixed(3)} />
       </div>
 
-      <div className="surface-panel rounded-xl p-4">
+      <div className="surface-panel rounded-2xl p-4">
         <div className="mb-4 flex items-center justify-between">
-          <div className="text-sm font-semibold">Per-Model Accuracy</div>
+          <div className="text-[0.82rem] font-bold uppercase tracking-[0.04em] text-signal-buy">Per-Model Accuracy</div>
           <div className="text-xs text-muted-foreground">
             Ensemble excludes models scoring below 55% accuracy
           </div>

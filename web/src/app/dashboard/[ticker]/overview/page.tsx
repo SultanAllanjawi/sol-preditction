@@ -1,90 +1,109 @@
 "use client";
 
 import { use } from "react";
-import { motion } from "framer-motion";
-import { usePredict, useOhlcv } from "@/hooks/use-predict";
+import { usePredict } from "@/hooks/use-predict";
+import { useLivePrice, useActiveSignal } from "@/hooks/use-market";
+import { tradingViewSymbol } from "@/lib/tradingview";
 import { SignalBadge } from "@/components/signal-badge";
-import { StatTile } from "@/components/stat-tile";
-import { AnimatedNumber } from "@/components/animated-number";
-import { PriceChart } from "@/components/price-chart";
 import { LoadingPanel, ErrorPanel } from "@/components/state-views";
-import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export default function OverviewPage({ params }: { params: Promise<{ ticker: string }> }) {
+function Divider() {
+  return <div className="hidden h-10 w-px bg-border sm:block" />;
+}
+
+function SignalItem({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 flex-col items-center gap-1 px-2 py-3 text-center">
+      <div className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">{label}</div>
+      <div className="font-mono text-sm font-bold">{children}</div>
+    </div>
+  );
+}
+
+export default function LiveChartPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker: raw } = use(params);
   const ticker = decodeURIComponent(raw);
 
   const predict = usePredict(ticker);
-  const ohlcv = useOhlcv(ticker, 400);
-
-  if (predict.isLoading) return <LoadingPanel label={`Training the ensemble on ${ticker}…`} rows={6} />;
-  if (predict.isError) return <ErrorPanel message={(predict.error as Error).message} />;
-  const p = predict.data!;
-
-  const toneTone = p.last_signal === "BUY" ? "buy" : p.last_signal === "SELL" ? "sell" : "default";
+  const live = useLivePrice(ticker);
+  const active = useActiveSignal(ticker);
+  const symbol = tradingViewSymbol(ticker);
 
   return (
-    <div className="flex flex-col gap-5">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="grid grid-cols-1 gap-4 md:grid-cols-[1.3fr_1fr_1fr_1fr]"
-      >
-        <Card
-          className={
-            "surface-panel flex flex-col justify-between gap-2 rounded-xl border-0 p-5 " +
-            (p.last_signal === "BUY" ? "glow-buy" : p.last_signal === "SELL" ? "glow-sell" : "")
-          }
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Current Signal
-            </span>
-            <SignalBadge signal={p.last_signal} size="sm" />
-          </div>
-          <div className="font-mono text-4xl font-extrabold tabular-nums">
-            <AnimatedNumber value={p.last_confidence} decimals={1} suffix="%" />
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Confidence · P(up) {(p.last_prob_up * 100).toFixed(1)}%
-          </div>
-        </Card>
+    <div className="flex flex-col gap-4">
+      <div className="surface-panel overflow-hidden rounded-2xl">
+        <iframe
+          key={symbol}
+          title="TradingView chart"
+          src={`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(symbol)}&interval=D&theme=dark&style=1&locale=en&hide_top_toolbar=0&withdateranges=1`}
+          className="h-[520px] w-full border-0"
+        />
 
-        <StatTile
-          label="Ensemble Accuracy"
-          value={<AnimatedNumber value={p.ensemble.accuracy * 100} decimals={1} suffix="%" />}
-          hint={`Filtered: ${(p.ensemble.filtered_accuracy * 100).toFixed(1)}%`}
-        />
-        <StatTile
-          label="Best Model"
-          value={p.ensemble.best_model}
-          hint={`${p.ensemble.models_used.length} models in ensemble`}
-        />
-        <StatTile
-          label="Signals Fired"
-          value={<AnimatedNumber value={p.n_signals} />}
-          hint={`${p.rows_used.toLocaleString()} rows trained`}
-          tone={toneTone === "default" ? "default" : toneTone}
-        />
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="surface-panel rounded-xl p-4"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold">Price &amp; Signals</div>
-          <div className="text-xs text-muted-foreground">
-            Trained {p.trained_at ? new Date(p.trained_at).toLocaleString() : "—"}
-          </div>
+        <div className="flex flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
+          <SignalItem label="Live Price">
+            {live.data ? `$${live.data.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}` : "—"}
+          </SignalItem>
+          <Divider />
+          <SignalItem label="Next Session Signal">
+            {predict.data ? <SignalBadge signal={predict.data.last_signal} size="sm" /> : "—"}
+          </SignalItem>
+          <Divider />
+          <SignalItem label="Take Profit">
+            {active.data?.tp ? `$${active.data.tp.toFixed(4)}` : "—"}
+          </SignalItem>
+          <Divider />
+          <SignalItem label="Stop Loss">
+            {active.data?.sl ? `$${active.data.sl.toFixed(4)}` : "—"}
+          </SignalItem>
+          <Divider />
+          <SignalItem label="Risk-Reward">
+            {active.data?.tp && active.data?.sl && active.data?.entry
+              ? (Math.abs(active.data.tp - active.data.entry) / Math.max(Math.abs(active.data.entry - active.data.sl), 0.0001)).toFixed(2)
+              : "—"}
+          </SignalItem>
+          <Divider />
+          <SignalItem label="Model Accuracy">
+            {predict.data ? `${(predict.data.ensemble.accuracy * 100).toFixed(1)}%` : "—"}
+          </SignalItem>
         </div>
-        {ohlcv.isLoading && <LoadingPanel label="Loading chart…" rows={3} />}
-        {ohlcv.isError && <ErrorPanel message={(ohlcv.error as Error).message} />}
-        {ohlcv.data && <PriceChart data={ohlcv.data} />}
-      </motion.div>
+      </div>
+
+      <div className="surface-panel rounded-2xl p-4">
+        <div className="mb-3 text-[0.82rem] font-bold uppercase tracking-[0.04em] text-signal-buy">
+          Recent Signals — Last 20
+        </div>
+        {predict.isLoading && <LoadingPanel label="Loading signals…" rows={3} />}
+        {predict.isError && <ErrorPanel message={(predict.error as Error).message} />}
+        {predict.data && (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Date</TableHead>
+                <TableHead>Signal</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Confidence</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {predict.data.signal_history.slice(0, 20).map((r, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {r.date ? new Date(r.date).toLocaleString() : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <SignalBadge signal={r.signal} size="sm" />
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {r.price !== null ? `$${r.price.toFixed(4)}` : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{r.confidence.toFixed(1)}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
   );
 }

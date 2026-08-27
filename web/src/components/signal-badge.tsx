@@ -1,22 +1,11 @@
 import { cn } from "@/lib/utils";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 
-const CONFIG = {
-  BUY: {
-    label: "BUY",
-    icon: ArrowUpRight,
-    className: "bg-signal-buy/12 text-signal-buy border-signal-buy/25",
-  },
-  SELL: {
-    label: "SELL",
-    icon: ArrowDownRight,
-    className: "bg-signal-sell/12 text-signal-sell border-signal-sell/25",
-  },
-  HOLD: {
-    label: "HOLD",
-    icon: Minus,
-    className: "bg-signal-hold/10 text-signal-hold border-signal-hold/20",
-  },
+const EMOJI = { BUY: "🟢", SELL: "🔴", HOLD: "⚪" } as const;
+
+const TEXT_COLOR = {
+  BUY: "text-signal-buy",
+  SELL: "text-signal-sell",
+  HOLD: "text-signal-hold",
 } as const;
 
 export function SignalBadge({
@@ -28,21 +17,37 @@ export function SignalBadge({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const c = CONFIG[signal];
-  const Icon = c.icon;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border font-semibold tracking-wide",
-        c.className,
-        size === "sm" && "px-2 py-0.5 text-[11px] gap-0.5",
-        size === "md" && "px-2.5 py-1 text-xs",
-        size === "lg" && "px-3.5 py-1.5 text-sm",
+        "stat-pop inline-flex items-center gap-1.5 font-extrabold leading-none",
+        TEXT_COLOR[signal],
+        size === "sm" && "text-xs gap-1",
+        size === "md" && "text-base",
+        size === "lg" && "text-[2.6rem]",
         className
       )}
     >
-      <Icon className={cn(size === "sm" ? "size-3" : size === "lg" ? "size-4" : "size-3.5")} />
-      {c.label}
+      <span className={cn("status-dot", signal.toLowerCase())} />
+      {signal}
     </span>
   );
 }
+
+/** The full hero card treatment from the original (§6): tinted bg + 2px colored border. */
+export function SignalHeroCard({ signal, children }: { signal: "BUY" | "SELL" | "HOLD"; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl p-5",
+        signal === "BUY" && "glow-buy",
+        signal === "SELL" && "glow-sell",
+        signal === "HOLD" && "bg-card border-2 border-border"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export { EMOJI as SIGNAL_EMOJI };

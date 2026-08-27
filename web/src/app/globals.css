@@ -83,49 +83,57 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/*
+ * Colors below are the EXACT hex values from the original Streamlit app
+ * (legacy-streamlit/app.py's inline CSS), not a reinterpretation — this is
+ * a same-theme port, not a redesign. See C_UP/C_DOWN/C_GOLD/C_GREY/C_DIM
+ * constants and the .tilt-card/.signal-card/.status-dot rules in app.py.
+ */
 .dark {
-  --background: oklch(0.12 0.012 275);
-  --foreground: oklch(0.96 0.005 275);
-  --card: oklch(0.16 0.014 275);
-  --card-foreground: oklch(0.96 0.005 275);
-  --popover: oklch(0.155 0.015 275);
-  --popover-foreground: oklch(0.96 0.005 275);
-  --primary: oklch(0.82 0.14 180);
-  --primary-foreground: oklch(0.14 0.02 200);
-  --secondary: oklch(0.22 0.015 275);
-  --secondary-foreground: oklch(0.9 0.01 275);
-  --muted: oklch(0.2 0.014 275);
-  --muted-foreground: oklch(0.65 0.02 270);
-  --accent: oklch(0.24 0.02 275);
-  --accent-foreground: oklch(0.96 0.005 275);
-  --destructive: oklch(0.68 0.19 15);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.82 0.14 180 / 50%);
-  --chart-1: oklch(0.82 0.14 180);
-  --chart-2: oklch(0.68 0.19 15);
-  --chart-3: oklch(0.75 0.15 90);
-  --chart-4: oklch(0.65 0.2 290);
-  --chart-5: oklch(0.7 0.15 230);
-  --sidebar: oklch(0.11 0.012 275);
-  --sidebar-foreground: oklch(0.9 0.01 275);
-  --sidebar-primary: oklch(0.82 0.14 180);
-  --sidebar-primary-foreground: oklch(0.14 0.02 200);
-  --sidebar-accent: oklch(0.2 0.015 275);
-  --sidebar-accent-foreground: oklch(0.96 0.005 275);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.82 0.14 180 / 50%);
+  --background: #070812;
+  --foreground: #e2e8f0;
+  --card: #10121c;
+  --card-foreground: #e2e8f0;
+  --popover: #10121c;
+  --popover-foreground: #e2e8f0;
+  --primary: #2dd4bf;
+  --primary-foreground: #05201c;
+  --secondary: #161b2c;
+  --secondary-foreground: #e2e8f0;
+  --muted: #161b2c;
+  --muted-foreground: #94a3b8;
+  --accent: #1e2333;
+  --accent-foreground: #e2e8f0;
+  --destructive: #fb7185;
+  --border: #1e2333;
+  --input: #1e2333;
+  --ring: rgba(45, 212, 191, 0.5);
+  --chart-1: #2dd4bf;
+  --chart-2: #fb7185;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #38bdf8;
+  --sidebar: #08090f;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #05201c;
+  --sidebar-accent: #161b2c;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: rgba(45, 212, 191, 0.5);
 
   /* Signal semantics — kept consistent everywhere a BUY/SELL/HOLD renders */
-  --signal-buy: oklch(0.82 0.14 180);
-  --signal-sell: oklch(0.7 0.19 15);
-  --signal-hold: oklch(0.7 0.02 270);
+  --signal-buy: #2dd4bf;
+  --signal-sell: #fb7185;
+  --signal-hold: #64748b;
+  --signal-gold: #f59e0b;
 }
 
 @theme inline {
   --color-signal-buy: var(--signal-buy);
   --color-signal-sell: var(--signal-sell);
   --color-signal-hold: var(--signal-hold);
+  --color-signal-gold: var(--signal-gold);
 }
 
 @layer base {
@@ -141,14 +149,80 @@
 }
 
 @layer utilities {
+  /* .tilt-card, ported 1:1 */
   .surface-panel {
-    background: linear-gradient(160deg, var(--card), oklch(0.13 0.012 275));
-    border: 1px solid var(--border);
+    background: linear-gradient(160deg, #161b2c 0%, #10121c 100%);
+    border: 1px solid #1e2333;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .surface-panel:hover {
+    transform: translateY(-4px);
+    border-color: #2dd4bf;
+    box-shadow: 0 16px 32px rgba(45, 212, 191, 0.22);
   }
   .glow-buy {
-    box-shadow: 0 0 0 1px oklch(0.82 0.14 180 / 20%), 0 8px 24px -12px oklch(0.82 0.14 180 / 35%);
+    background: #0f2420;
+    border: 2px solid #2dd4bf;
   }
   .glow-sell {
-    box-shadow: 0 0 0 1px oklch(0.7 0.19 15 / 20%), 0 8px 24px -12px oklch(0.7 0.19 15 / 35%);
+    background: #241521;
+    border: 2px solid #fb7185;
   }
+  .app-background {
+    background:
+      radial-gradient(circle at 12% 8%, rgba(45, 212, 191, 0.12), transparent 42%),
+      radial-gradient(circle at 88% 15%, rgba(45, 212, 191, 0.08), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(245, 158, 11, 0.07), transparent 45%),
+      #070812;
+  }
+  .sidebar-background {
+    background:
+      radial-gradient(220px 220px at 90% -4%, rgba(139, 124, 246, 0.16), transparent 70%),
+      radial-gradient(240px 200px at -10% 65%, rgba(45, 212, 191, 0.1), transparent 70%),
+      linear-gradient(160deg, #10142a 0%, #08090f 55%);
+  }
+}
+
+@keyframes fillBar {
+  from { width: 0; }
+  to { width: var(--tw); }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(45, 212, 191, 0); }
+}
+@keyframes pulseDotRed {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(251, 113, 133, 0); }
+}
+@keyframes pulseDotGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
+}
+.stat-pop {
+  animation: popIn 0.5s cubic-bezier(0.26, 1.4, 0.4, 1) both;
+}
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.status-dot.buy {
+  background: #2dd4bf;
+  animation: pulseDot 1.6s infinite;
+}
+.status-dot.sell {
+  background: #fb7185;
+  animation: pulseDotRed 1.6s infinite;
+}
+.status-dot.hold {
+  background: #f59e0b;
+  animation: pulseDotGold 1.6s infinite;
 }

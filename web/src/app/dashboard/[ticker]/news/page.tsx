@@ -1,71 +1,70 @@
 "use client";
 
-import { use, useState } from "react";
+import { use } from "react";
 import { useNews, useCalendar } from "@/hooks/use-news";
 import { LoadingPanel, ErrorPanel, EmptyPanel } from "@/components/state-views";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-
-function Tabs({ value, onChange }: { value: "news" | "calendar"; onChange: (v: "news" | "calendar") => void }) {
-  return (
-    <div className="inline-flex rounded-lg border border-border bg-secondary/40 p-1">
-      {(["news", "calendar"] as const).map((t) => (
-        <button
-          key={t}
-          onClick={() => onChange(t)}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors",
-            value === t ? "bg-accent text-foreground" : "text-muted-foreground"
-          )}
-        >
-          {t === "news" ? "Crypto News" : "Economic Calendar"}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { StatTile } from "@/components/stat-tile";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function NewsPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker: raw } = use(params);
   const ticker = decodeURIComponent(raw);
-  const [tab, setTab] = useState<"news" | "calendar">("news");
   const news = useNews(ticker);
   const calendar = useCalendar();
 
-  return (
-    <div className="flex flex-col gap-4">
-      <Tabs value={tab} onChange={setTab} />
+  const positive = news.data?.crypto_news.filter((n) => typeof n.score === "number" && n.score > 0.1).length ?? 0;
+  const negative = news.data?.crypto_news.filter((n) => typeof n.score === "number" && n.score < -0.1).length ?? 0;
+  const total = news.data?.crypto_news.length ?? 0;
+  const avgScore = total
+    ? (news.data!.crypto_news.reduce((s, n) => s + (typeof n.score === "number" ? n.score : 0), 0) / total).toFixed(2)
+    : "0.00";
 
-      {tab === "news" && (
-        <>
-          {news.isLoading && <LoadingPanel label="Loading sentiment feed…" />}
-          {news.isError && <ErrorPanel message={(news.error as Error).message} />}
-          {news.data && news.data.crypto_news.length === 0 && (
-            <EmptyPanel title="No fresh news for this ticker" hint="Try the economic calendar tab, or check back later." />
-          )}
-          <div className="flex flex-col gap-2">
-            {news.data?.crypto_news.map((item, i) => (
-              <div key={i} className="surface-panel rounded-xl p-4">
+  return (
+    <Tabs defaultValue="news">
+      <TabsList>
+        <TabsTrigger value="news">📰 Crypto News &amp; Sentiment</TabsTrigger>
+        <TabsTrigger value="calendar">📅 ForexFactory Economic Calendar</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="news" className="mt-4 flex flex-col gap-4">
+        {news.isLoading && <LoadingPanel label="Loading sentiment feed…" />}
+        {news.isError && <ErrorPanel message={(news.error as Error).message} />}
+        {news.data && (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatTile label="Articles" value={total} />
+            <StatTile label="Positive" value={positive} tone="buy" />
+            <StatTile label="Negative" value={negative} tone="sell" />
+            <StatTile label="Sentiment" value={avgScore} />
+          </div>
+        )}
+        {news.data && news.data.crypto_news.length === 0 && (
+          <EmptyPanel title="No fresh news for this ticker" hint="Try the economic calendar tab, or check back later." />
+        )}
+        <div className="flex flex-col gap-2">
+          {news.data?.crypto_news.map((item, i) => {
+            const score = typeof item.score === "number" ? item.score : 0;
+            const border = score > 0.1 ? "border-l-signal-buy" : score < -0.1 ? "border-l-signal-sell" : "border-l-signal-hold";
+            return (
+              <div key={i} className={`surface-panel rounded-2xl border-l-4 p-4 ${border}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-sm font-medium">{String(item.title ?? "Untitled")}</div>
-                  {typeof item.score === "number" && (
-                    <Badge variant={item.score > 0.1 ? "default" : item.score < -0.1 ? "destructive" : "secondary"}>
-                      {item.score > 0.1 ? "Bullish" : item.score < -0.1 ? "Bearish" : "Neutral"}
-                    </Badge>
-                  )}
+                  <Badge variant={score > 0.1 ? "default" : score < -0.1 ? "destructive" : "secondary"}>
+                    {score > 0.1 ? "Bullish" : score < -0.1 ? "Bearish" : "Neutral"}
+                  </Badge>
                 </div>
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            );
+          })}
+        </div>
+      </TabsContent>
 
-      {tab === "calendar" && (
-        <>
-          {calendar.isLoading && <LoadingPanel label="Loading economic calendar…" />}
-          {calendar.isError && <ErrorPanel message={(calendar.error as Error).message} />}
-          {calendar.data && calendar.data.events.length === 0 && <EmptyPanel title="No upcoming events" />}
-          <div className="surface-panel overflow-hidden rounded-xl">
+      <TabsContent value="calendar" className="mt-4">
+        {calendar.isLoading && <LoadingPanel label="Loading economic calendar…" />}
+        {calendar.isError && <ErrorPanel message={(calendar.error as Error).message} />}
+        {calendar.data && calendar.data.events.length === 0 && <EmptyPanel title="No upcoming events" />}
+        {calendar.data && calendar.data.events.length > 0 && (
+          <div className="surface-panel overflow-hidden rounded-2xl">
             <table className="w-full text-sm">
               <thead className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
@@ -79,7 +78,7 @@ export default function NewsPage({ params }: { params: Promise<{ ticker: string 
                 </tr>
               </thead>
               <tbody>
-                {calendar.data?.events.slice(0, 100).map((e, i) => (
+                {calendar.data.events.slice(0, 100).map((e, i) => (
                   <tr key={i} className="border-b border-border/50 last:border-0">
                     <td className="px-4 py-2 text-muted-foreground">{e.date}</td>
                     <td className="px-4 py-2 text-muted-foreground">{e.time}</td>
@@ -93,8 +92,8 @@ export default function NewsPage({ params }: { params: Promise<{ ticker: string 
               </tbody>
             </table>
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }

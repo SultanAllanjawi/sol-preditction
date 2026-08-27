@@ -29,8 +29,10 @@ export default function PredictionsPage({ params }: { params: Promise<{ ticker: 
           hint={`Actual: $${pp.actual[pp.actual.length - 1]?.toFixed(4) ?? "—"}`}
         />
       </div>
-      <div className="surface-panel rounded-xl p-4">
-        <div className="mb-3 text-sm font-semibold">Predicted vs Actual Close</div>
+      <div className="surface-panel rounded-2xl p-4">
+        <div className="mb-3 text-[0.82rem] font-bold uppercase tracking-[0.04em] text-signal-buy">
+          Predicted vs Actual Close
+        </div>
         <LineChart
           categories={pp.dates}
           series={[

@@ -4,14 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// Exact order/labels from the original app.py: st.tabs(["📡 Live Chart", "📈 Price & Signals",
+// "🎯 Predicted vs Actual", "📊 Model Performance", "📜 Signal History", "📰 News & Sentiment",
+// "🔀 Multi-Asset Scanner", "📈 Backtest P&L"])
 const TABS = [
-  { slug: "overview", label: "Overview" },
-  { slug: "predictions", label: "Predicted vs Actual" },
-  { slug: "performance", label: "Model Performance" },
-  { slug: "history", label: "Signal History" },
-  { slug: "backtest", label: "Backtest P&L" },
-  { slug: "news", label: "News & Sentiment" },
-  { slug: "scanner", label: "Scanner" },
+  { slug: "overview", label: "📡 Live Chart" },
+  { slug: "price-signals", label: "📈 Price & Signals" },
+  { slug: "predictions", label: "🎯 Predicted vs Actual" },
+  { slug: "performance", label: "📊 Model Performance" },
+  { slug: "history", label: "📜 Signal History" },
+  { slug: "news", label: "📰 News & Sentiment" },
+  { slug: "scanner", label: "🔀 Multi-Asset Scanner" },
+  { slug: "backtest", label: "📈 Backtest P&L" },
 ] as const;
 
 export function DashboardTabs({ ticker }: { ticker: string }) {
