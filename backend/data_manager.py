@@ -84,6 +84,14 @@ HDR = {
 CRYPTO_BASES = set(BINANCE_MAP.keys())
 
 
+def _log_fetch_fail(source: str, ticker: str, detail: str):
+    """Every data source below swallows its own exceptions/bad-status responses so one
+    flaky source doesn't blow up the whole fallback chain — but that means failures were
+    previously invisible. Print (not raise) so `get_data()` can keep trying other sources
+    while the actual cause still shows up in logs instead of a bare 'got 0 rows' at the end."""
+    print(f"  [fetch] {source} failed for {ticker}: {detail}")
+
+
 def is_crypto(ticker: str) -> bool:
     t = ticker.upper()
     return t in CRYPTO_BASES or t.replace("-USD","") in CRYPTO_BASES or t.endswith("-USD")
@@ -182,14 +190,17 @@ class DataManager:
             r = requests.get("https://api.binance.com/api/v3/klines",
                 params={"symbol":sym,"interval":"1h","limit":1000},
                 headers=HDR, timeout=15)
-            if r.status_code != 200: return None
+            if r.status_code != 200:
+                _log_fetch_fail("binance_hourly", self.ticker, f"HTTP {r.status_code}: {r.text[:200]}")
+                return None
             rows = [{"Date": datetime.fromtimestamp(k[0]/1000, tz=timezone.utc).replace(tzinfo=None),
                      "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
                      "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
             df = pd.DataFrame(rows)
             df["Change_Pct"] = df["Close"].pct_change() * 100
             return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-        except Exception:
+        except Exception as e:
+            _log_fetch_fail("binance_hourly", self.ticker, f"{type(e).__name__}: {e}")
             return None
 
     # ── Daily fetch (all sources) ───────────────────────────────────
@@ -236,7 +247,9 @@ class DataManager:
                 r = requests.get(f"{base}/api/v3/klines",
                     params={"symbol":sym,"interval":"1d","limit":1000},
                     headers=HDR, timeout=15)
-                if r.status_code != 200: continue
+                if r.status_code != 200:
+                    _log_fetch_fail("binance_daily", self.ticker, f"{base} HTTP {r.status_code}: {r.text[:200]}")
+                    continue
                 rows = [{"Date":datetime.fromtimestamp(k[0]/1000,tz=timezone.utc).date(),
                          "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
                          "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
@@ -244,7 +257,8 @@ class DataManager:
                 df["Date"] = pd.to_datetime(df["Date"])
                 df["Change_Pct"] = df["Close"].pct_change()*100
                 return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-            except Exception:
+            except Exception as e:
+                _log_fetch_fail("binance_daily", self.ticker, f"{base} {type(e).__name__}: {e}")
                 continue
         return None
 
@@ -253,9 +267,13 @@ class DataManager:
         try:
             r = requests.get("https://min-api.cryptocompare.com/data/v2/histoday",
                 params={"fsym":sym,"tsym":"USD","limit":2000}, headers=HDR, timeout=15)
-            if r.status_code!=200: return None
+            if r.status_code!=200:
+                _log_fetch_fail("cryptocompare", self.ticker, f"HTTP {r.status_code}: {r.text[:200]}")
+                return None
             data = r.json()
-            if data.get("Response")!="Success": return None
+            if data.get("Response")!="Success":
+                _log_fetch_fail("cryptocompare", self.ticker, f"API error: {data.get('Message')}")
+                return None
             rows=[{"Date":datetime.fromtimestamp(d["time"],tz=timezone.utc).date(),
                    "Open":float(d["open"]),"High":float(d["high"]),
                    "Low":float(d["low"]),"Close":float(d["close"]),
@@ -264,14 +282,18 @@ class DataManager:
             df=pd.DataFrame(rows); df["Date"]=pd.to_datetime(df["Date"])
             df["Change_Pct"]=df["Close"].pct_change()*100
             return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-        except Exception: return None
+        except Exception as e:
+            _log_fetch_fail("cryptocompare", self.ticker, f"{type(e).__name__}: {e}")
+            return None
 
     def _yahoo(self):
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
-                if r.status_code!=200: continue
+                if r.status_code!=200:
+                    _log_fetch_fail("yahoo", self.ticker, f"{base} HTTP {r.status_code}: {r.text[:200]}")
+                    continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
                 q=res["indicators"]["quote"][0]
                 dates=[datetime.fromtimestamp(t,tz=timezone.utc).date() for t in ts]
@@ -283,7 +305,9 @@ class DataManager:
                 df["Change_Pct"]=df["Close"].pct_change()*100
                 df=df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
                 if len(df)>=30: return df
-            except Exception: continue
+            except Exception as e:
+                _log_fetch_fail("yahoo", self.ticker, f"{base} {type(e).__name__}: {e}")
+                continue
         return None
 
 
@@ -366,7 +390,9 @@ class DataManager:
             r=requests.get(f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart",
                 params={"vs_currency":"usd","days":"365","interval":"daily"},
                 headers=HDR,timeout=15)
-            if r.status_code!=200: return None
+            if r.status_code!=200:
+                _log_fetch_fail("coingecko", self.ticker, f"HTTP {r.status_code}: {r.text[:200]}")
+                return None
             prices=r.json().get("prices",[]); vols=r.json().get("total_volumes",[])
             vmap={ts:v/1e6 for ts,v in vols}
             rows=[{"Date":datetime.fromtimestamp(ts/1000,tz=timezone.utc).date(),
@@ -377,7 +403,9 @@ class DataManager:
             df["Low"]=df[["Close","Open"]].min(axis=1)*0.985
             df["Change_Pct"]=df["Close"].pct_change()*100
             return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-        except Exception: return None
+        except Exception as e:
+            _log_fetch_fail("coingecko", self.ticker, f"{type(e).__name__}: {e}")
+            return None
 
     # ── CSV parse ───────────────────────────────────────────────────
     def _parse_csv(self, f):
