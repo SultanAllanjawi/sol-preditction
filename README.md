@@ -1,124 +1,77 @@
-# 🔮 SOL/USD Auto-Updating Prediction Dashboard
+# Signal Engine
 
-A Streamlit web app that automatically fetches live Solana prices every day,
-retrains ML models, and generates buy/sell signals with 7-day outlooks.
+AI-driven trading signals for crypto, US equities, and Dubai Financial Market stocks — a
+real 4-model ensemble (RNN + Random Forest + Gradient Boosting + XGBoost) trained on live
+market data, served through a FastAPI backend to a Next.js dashboard.
 
----
-
-## 📁 File Structure
-
-```
-solana_app/
-├── app.py              ← Main Streamlit dashboard
-├── data_manager.py     ← Auto-fetches live prices from CoinGecko
-├── feature_engine.py   ← 60+ technical indicator features
-├── model_engine.py     ← Trains RNN, LSTM, BiLSTM, GRU, CNN-LSTM, ARIMAX, GB
-├── requirements.txt    ← Python dependencies
-├── README.md           ← This file
-└── data/               ← Auto-created, stores cached price data
-    └── sol_prices.csv  ← Updated automatically every 24h
-```
-
----
-
-## 🚀 Deploy to Streamlit Cloud (Free — 3 steps)
-
-### Step 1 — Push to GitHub
-1. Create a free GitHub account at github.com
-2. Create a new repository called `sol-prediction`
-3. Upload all files from this folder to the repository root
-
-### Step 2 — Connect to Streamlit Cloud
-1. Go to **share.streamlit.io** (free)
-2. Sign in with GitHub
-3. Click **New app**
-4. Select your `sol-prediction` repository
-5. Main file path: `app.py`
-6. Click **Deploy**
-
-### Step 3 — Done ✅
-Your app will be live at:
-`https://[your-username]-sol-prediction-app.streamlit.app`
-
-It will automatically:
-- Refresh data every 24 hours from CoinGecko
-- Retrain all models on the latest data
-- Update tomorrow's signal and 7-day outlook
-
----
-
-## 🔄 How Auto-Updating Works
+This replaces the original Streamlit app (kept for reference in [`legacy-streamlit/`](legacy-streamlit))
+with a two-service architecture built for a Vercel + Railway deploy:
 
 ```
-Every 24 hours:
-┌─────────────────────────────────────────────────────────────┐
-│ 1. DataManager fetches latest SOL prices from CoinGecko API │
-│ 2. New rows are appended to data/sol_prices.csv             │
-│ 3. 60+ features are recalculated on the updated dataset     │
-│ 4. All models retrain on the full history                   │
-│ 5. New predictions are generated for tomorrow               │
-│ 6. Dashboard updates automatically                          │
-└─────────────────────────────────────────────────────────────┘
+/backend   FastAPI service — data fetch, feature engineering, the model ensemble, backtesting,
+           portfolio/signal persistence. Deploys to Railway (or any host that runs a Dockerfile).
+/web       Next.js 14 dashboard — deploys to Vercel. Talks to /backend over HTTPS/JSON.
 ```
 
-The `@st.cache_data(ttl=86400)` decorator in `app.py` controls the 24h refresh.
-Change `ttl=3600` for hourly refresh if you want more frequent updates.
+Every number on the dashboard is real: live prices from Binance/CoinGecko/Yahoo, models trained
+on that live data, and a backtest that walks actual subsequent price action rather than
+simulating outcomes.
 
----
+## Local development
 
-## 💻 Run Locally
+**Backend**
 
 ```bash
-# Install dependencies
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate   # or .venv/bin/activate on macOS/Linux
 pip install -r requirements.txt
-
-# Optional: place your existing CSV for faster startup
-# (put Solana_Historical_Data.csv in the same folder)
-
-# Run the app
-streamlit run app.py
+uvicorn main:app --reload --port 8010
 ```
 
-The app opens at http://localhost:8501
+Copy `.env.example` to `.env` if you need to change `CORS_ORIGINS` or `TRAIN_TTL_MINUTES`
+(defaults work for local dev against `http://localhost:3000`).
 
----
+**Frontend**
 
-## 📊 What the Dashboard Shows
+```bash
+cd web
+npm install
+cp .env.example .env.local   # set NEXT_PUBLIC_API_URL to your backend's URL
+npm run dev
+```
 
-| Section | Content |
-|---|---|
-| **Top metrics** | Model accuracy, P(UP tomorrow), confidence, signal count |
-| **Tomorrow Signal** | BUY / SELL / HOLD with entry, target, stop loss, R/R ratio |
-| **7-Day Outlook** | Day-by-day signals for the next week |
-| **Price & Signals chart** | Full price chart with BUY/SELL arrows, RSI, MACD |
-| **Predicted vs Actual** | Model price prediction accuracy on test set |
-| **Model Performance** | Accuracy, ROC curves, F1, confusion matrices |
-| **Signal History** | Full log of all historical BUY/SELL signals |
+Open the printed localhost URL. The first request for any ticker takes ~10-20s (training the
+ensemble live); a background scheduler in the backend keeps `tickers.py`'s `DEFAULT_TRACKED`
+list warm so those tickers are instant.
 
----
+## Deploying
 
-## ⚙️ Customisation
+**Backend → Railway**
+1. New Railway project → Deploy from GitHub → set the root directory to `backend/`.
+2. Railway auto-detects the `Dockerfile`. Add a persistent volume mounted at `/app/data` so
+   cached OHLCV data and portfolio/signal history survive redeploys.
+3. Set env var `CORS_ORIGINS` to your Vercel domain (comma-separated if you have a preview + prod URL).
+4. Note the deployed URL (e.g. `https://your-app.up.railway.app`).
 
-### Change confidence threshold
-In the sidebar, drag the **Signal Confidence** slider.
-Higher = fewer but more reliable signals.
+**Frontend → Vercel**
+1. New Vercel project → import this repo → set **Root Directory** to `web/`.
+2. Set env var `NEXT_PUBLIC_API_URL` to the Railway backend URL from above.
+3. Deploy. Vercel auto-detects Next.js — no other config needed.
 
-### Change models
-Edit `model_engine.py` → add/remove models from `dl_builders` dict.
+## What's real vs. what to know
 
-### Change features
-Edit `feature_engine.py` → add indicators, then update `FEATURE_COLS` list.
+- **Models**: identical to the original engine (`backend/model_engine.py`, unmodified) — a
+  2-seed-averaged numpy RNN, RandomForest, GradientBoosting, and XGBoost, weighted into an
+  ensemble that excludes any model scoring under 55% accuracy.
+- **Backtest** (`backend/backtest.py`): rewritten from the original's random-coin-flip simulation
+  (which never looked at real subsequent prices) to a deterministic walk-forward test against
+  actual High/Low data for TP/SL touches.
+- **Not financial advice.** Signals reflect historical model accuracy, not a guarantee of future
+  performance — no model predicts markets perfectly.
 
-### Change refresh frequency
-In `app.py`, line with `@st.cache_data(ttl=86400)`:
-- `ttl=3600`  → refresh every hour
-- `ttl=86400` → refresh every 24 hours (default)
+## Repo layout
 
----
-
-## ⚠️ Disclaimer
-
-This dashboard is for **educational and research purposes only**.
-It does not constitute financial advice. Always manage your own risk.
-Past prediction accuracy does not guarantee future results.
-Cryptocurrency markets are highly volatile and unpredictable.
+- `backend/` — FastAPI app, routers per concern (`predict`, `market`, `news`, `portfolio`, `signals`, `scanner`), `pipeline.py` (fetch→features→train), `cache.py` (TTL cache + retrain scheduler), `backtest.py`.
+- `web/` — Next.js App Router, `src/app/dashboard/[ticker]/*` for the per-ticker tabs, `src/app/portfolio` for the trade tracker, `src/lib/api.ts` for the typed backend client, `src/hooks/*` for TanStack Query hooks.
+- `legacy-streamlit/` — the original Streamlit app, kept for reference only.

@@ -60,18 +60,22 @@ TICKER_INFO = {
 }
 
 # ── UAE DFM/ADX → Yahoo Finance ticker translation ──────────────────
+# NOTE: Yahoo Finance simply does not carry live chart data for FAB.ADX,
+# ALDAR.ADX or ADCB.ADX (verified directly against their API — every symbol
+# variant either 404s or resolves to an unrelated/stale instrument). Those
+# three are CSV-upload-only; see UAE_NO_AUTO_FETCH below.
 UAE_YAHOO_MAP = {
     "EMAAR.DFM" : "EMAAR.AE",
-    "ENBD.DFM"  : "ENBD.AE",
+    "ENBD.DFM"  : "EMIRATESNBD.AE",   # NOT "ENBD.AE" — that symbol is delisted/404 on Yahoo
     "DIB.DFM"   : "DIB.AE",
     "DU.DFM"    : "DU.AE",
     "DEWA.DFM"  : "DEWA.AE",
     "SALIK.DFM" : "SALIK.AE",
-    "FAB.ADX"   : "FAB.AE",
-    "ALDAR.ADX" : "ALDAR.AE",
-    "ADCB.ADX"  : "ADCB.AE",
     "MASQ.DFM"  : "MASQ.AE",
 }
+
+# UAE tickers with no working free auto-fetch source — CSV upload required.
+UAE_NO_AUTO_FETCH = {"FAB.ADX", "ALDAR.ADX", "ADCB.ADX"}
 
 HDR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -114,19 +118,27 @@ class DataManager:
                 pass
 
         cached = self._load_cached()
+        # A cache that's suspiciously short (e.g. saved during a transient API
+        # failure that fell through to a weak fallback) should never be trusted
+        # just because it's < 5 minutes old — treat it as stale too.
+        _cache_too_small = cached is not None and len(cached) < 200
 
         # 2. Fetch fresh
-        if self._is_stale() or cached is None:
+        if self._is_stale() or cached is None or _cache_too_small:
             if is_crypto(self.ticker) and prefer_hourly:
                 fresh = self._fetch_hourly_binance()      # 41 days of 1h
                 if fresh is not None and len(fresh) >= 100:
                     # Also get daily for longer history (for features like SMA50/200)
                     daily = self._fetch_daily()
                     if daily is not None and len(daily) >= 30:
-                        # Combine: daily for old data, hourly for recent 41 days
-                        cutoff = fresh.index.min() if hasattr(fresh.index, 'min') else fresh['Date'].min()
+                        # Combine: daily for old data, hourly for recent 41 days.
+                        # Cutoff must come from the CLEANED (DatetimeIndex) frame — the raw
+                        # `fresh` frame still has a plain RangeIndex at this point, and
+                        # RangeIndex.min() silently returns an int (0) that then fails to
+                        # compare against real dates below.
                         fresh_clean = self._clean(fresh)
                         daily_clean = self._clean(daily)
+                        cutoff = fresh_clean.index.min()
                         # Keep daily rows older than hourly data
                         if 'Date' in daily_clean.columns:
                             old_daily = daily_clean[daily_clean['Date'] < cutoff]
@@ -182,36 +194,59 @@ class DataManager:
 
     # ── Daily fetch (all sources) ───────────────────────────────────
     def _fetch_daily(self):
+        """Tries sources in priority order, but — critically — a source that returns SOME
+        data isn't necessarily returning ENOUGH data. Accepting the first non-empty result
+        unconditionally (the old behavior) meant a source that succeeded with a short/partial
+        response (e.g. a transient truncation) got treated as final, and richer fallbacks were
+        never even attempted. Now: keep the first result that clears a healthy row-count floor,
+        and otherwise remember the longest partial result and keep trying other sources before
+        giving up and returning that best-effort partial."""
         t = self.ticker.upper()
         clean = t.replace("-USD","")
+        MIN_ROWS = 200
         # UAE stocks — route to dedicated multi-source fetcher
         if self.ticker in UAE_YAHOO_MAP:
             return self._yahoo_uae()
+        best = None
+        def _consider(df):
+            nonlocal best
+            if df is None: return None
+            if len(df) >= MIN_ROWS: return df  # good enough — short-circuit
+            if best is None or len(df) > len(best): best = df
+            return None
         if t in BINANCE_MAP or clean in BINANCE_MAP:
-            df = self._binance_daily()
-            if df is not None: return df
-            df = self._cryptocompare()
-            if df is not None: return df
-        df = self._yahoo()
-        if df is not None: return df
-        return self._coingecko()
+            r = _consider(self._binance_daily())
+            if r is not None: return r
+            r = _consider(self._cryptocompare())
+            if r is not None: return r
+        r = _consider(self._yahoo())
+        if r is not None: return r
+        r = _consider(self._coingecko())
+        if r is not None: return r
+        return best  # every source gave a short result — return the longest one rather than None
 
     def _binance_daily(self):
         sym = BINANCE_MAP.get(self.ticker, BINANCE_MAP.get(self.ticker.replace("-USD","")))
         if not sym: return None
-        try:
-            r = requests.get("https://api.binance.com/api/v3/klines",
-                params={"symbol":sym,"interval":"1d","limit":1000},
-                headers=HDR, timeout=15)
-            if r.status_code != 200: return None
-            rows = [{"Date":datetime.fromtimestamp(k[0]/1000,tz=timezone.utc).date(),
-                     "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
-                     "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
-            df = pd.DataFrame(rows)
-            df["Date"] = pd.to_datetime(df["Date"])
-            df["Change_Pct"] = df["Close"].pct_change()*100
-            return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-        except Exception: return None
+        # Try api.binance.com first, then the public market-data mirror — same reasoning as
+        # get_order_book: cloud-hosted apps sometimes get blocked/rate-limited on one but not
+        # the other, and this is the single most important fetch in the whole app.
+        for base in ("https://api.binance.com", "https://data-api.binance.vision"):
+            try:
+                r = requests.get(f"{base}/api/v3/klines",
+                    params={"symbol":sym,"interval":"1d","limit":1000},
+                    headers=HDR, timeout=15)
+                if r.status_code != 200: continue
+                rows = [{"Date":datetime.fromtimestamp(k[0]/1000,tz=timezone.utc).date(),
+                         "Open":float(k[1]),"High":float(k[2]),"Low":float(k[3]),
+                         "Close":float(k[4]),"Volume":float(k[5])} for k in r.json()]
+                df = pd.DataFrame(rows)
+                df["Date"] = pd.to_datetime(df["Date"])
+                df["Change_Pct"] = df["Close"].pct_change()*100
+                return df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+            except Exception:
+                continue
+        return None
 
     def _cryptocompare(self):
         sym = self.ticker.replace("-USD","").upper()
@@ -234,7 +269,7 @@ class DataManager:
     def _yahoo(self):
         for base in ["https://query1.finance.yahoo.com","https://query2.finance.yahoo.com"]:
             try:
-                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=max",
+                r = requests.get(f"{base}/v8/finance/chart/{self.ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code!=200: continue
                 res=r.json()["chart"]["result"][0]; ts=res["timestamp"]
@@ -253,40 +288,23 @@ class DataManager:
 
 
     def _yahoo_uae(self):
-        """Fetch UAE DFM/ADX stocks using yfinance library (handles auth)."""
+        """Fetch UAE DFM stocks straight from Yahoo Finance's chart endpoint.
+
+        IMPORTANT: use range=5y/10y, never range=max — Yahoo silently drops to
+        MONTHLY granularity ("dataGranularity":"1mo") when range=max is combined
+        with interval=1d, which was quietly starving newer listings (e.g. SALIK,
+        DEWA, both IPO'd 2022) of enough rows to clear the pipeline's minimums.
+        Raw requests go first because they're verified to work with nothing but
+        a User-Agent — no crumb/cookie dance — whereas the yfinance library adds
+        a layer (cookies, crumb-fetching, curl_cffi) that is one more thing that
+        can silently fail on a given host."""
         yf_ticker = UAE_YAHOO_MAP.get(self.ticker, self.ticker)
 
-        # Method 1: yfinance library (handles Yahoo cookies/crumb automatically)
-        try:
-            import yfinance as _yf
-            _raw = _yf.download(yf_ticker, period="max", interval="1d",
-                                progress=False, auto_adjust=True)
-            if _raw is not None and len(_raw) >= 30:
-                _raw = _raw.reset_index()
-                # Handle MultiIndex columns from yfinance
-                if hasattr(_raw.columns, 'levels'):
-                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
-                df = pd.DataFrame()
-                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
-                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
-                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
-                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
-                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
-                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
-                df = df.dropna(subset=["Close"])
-                df["Change_Pct"] = df["Close"].pct_change() * 100
-                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
-                if len(df) >= 30:
-                    return df
-        except Exception as _e:
-            pass  # fall through to raw requests
-
-        # Method 2: Raw requests with session (fallback)
         for base in ["https://query1.finance.yahoo.com",
                      "https://query2.finance.yahoo.com"]:
             try:
                 r = requests.get(
-                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=max",
+                    f"{base}/v8/finance/chart/{yf_ticker}?interval=1d&range=10y",
                     headers=HDR, timeout=15)
                 if r.status_code != 200: continue
                 result = r.json()["chart"]["result"][0]
@@ -312,79 +330,33 @@ class DataManager:
                     return df
             except Exception:
                 continue
-        return None
 
-
-    def _investing_com_uae(self) -> pd.DataFrame | None:
-        """
-        Fetch DFM/ADX stock data from Investing.com.
-        Uses their public chart data endpoint — no API key needed.
-        """
-        inv_map = {
-            "EMAAR.DFM": "2352",   # Investing.com internal ID for Emaar
-            "ENBD.DFM" : "28218",
-            "DIB.DFM"  : "28221",
-            "DU.DFM"   : "28222",
-            "DEWA.DFM" : "1192118",
-            "SALIK.DFM": "1271890",
-            "FAB.ADX"  : "28215",
-            "ALDAR.ADX": "28216",
-            "ADCB.ADX" : "28219",
-            "MASQ.DFM" : "28220",
-        }
-        inv_id = inv_map.get(self.ticker)
-        if not inv_id:
-            return None
-
-        # Investing.com chart data endpoint
-        headers = {
-            "User-Agent"  : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer"     : "https://www.investing.com/",
-            "X-Requested-With": "XMLHttpRequest",
-            "Accept"      : "application/json, text/javascript, */*; q=0.01",
-        }
+        # Fallback: yfinance library (handles cookies/crumb itself)
         try:
-            import time as _t
-            end_ts   = int(_t.time())
-            start_ts = end_ts - 5 * 365 * 24 * 3600  # 5 years back
-
-            r = requests.get(
-                f"https://api.investing.com/api/financialdata/{inv_id}/historical/chart/",
-                params={
-                    "period"    : "MAX",
-                    "startDate" : start_ts,
-                    "endDate"   : end_ts,
-                    "pointscount": 1200,
-                },
-                headers=headers, timeout=15
-            )
-            if r.status_code == 200:
-                data = r.json().get("data", [])
-                if data:
-                    rows = []
-                    for pt in data:
-                        # pt = [timestamp_ms, open, high, low, close, volume]
-                        try:
-                            rows.append({
-                                "Date"  : datetime.fromtimestamp(pt[0]/1000, tz=timezone.utc).date(),
-                                "Open"  : float(pt[1]),
-                                "High"  : float(pt[2]),
-                                "Low"   : float(pt[3]),
-                                "Close" : float(pt[4]),
-                                "Volume": float(pt[5]) / 1e6 if len(pt) > 5 else 1.0,
-                            })
-                        except Exception:
-                            continue
-                    if rows:
-                        df = pd.DataFrame(rows)
-                        df["Date"] = pd.to_datetime(df["Date"])
-                        df["Change_Pct"] = df["Close"].pct_change() * 100
-                        return (df.sort_values("Date")
-                                  .drop_duplicates("Date")
-                                  .reset_index(drop=True))
+            import yfinance as _yf
+            _raw = _yf.download(yf_ticker, period="10y", interval="1d",
+                                progress=False, auto_adjust=True)
+            if _raw is not None and len(_raw) >= 30:
+                _raw = _raw.reset_index()
+                # Handle MultiIndex columns from yfinance
+                if hasattr(_raw.columns, 'levels'):
+                    _raw.columns = [c[0] if isinstance(c, tuple) else c for c in _raw.columns]
+                df = pd.DataFrame()
+                df["Date"]   = pd.to_datetime(_raw.get("Date", _raw.get("Datetime", _raw.index)))
+                df["Open"]   = pd.to_numeric(_raw.get("Open",  _raw.get("open",  None)), errors="coerce")
+                df["High"]   = pd.to_numeric(_raw.get("High",  _raw.get("high",  None)), errors="coerce")
+                df["Low"]    = pd.to_numeric(_raw.get("Low",   _raw.get("low",   None)), errors="coerce")
+                df["Close"]  = pd.to_numeric(_raw.get("Close", _raw.get("close", None)), errors="coerce")
+                df["Volume"] = pd.to_numeric(_raw.get("Volume",_raw.get("volume",None)), errors="coerce").fillna(0) / 1e6
+                df = df.dropna(subset=["Close"])
+                df["Change_Pct"] = df["Close"].pct_change() * 100
+                df = df.sort_values("Date").drop_duplicates("Date").reset_index(drop=True)
+                if len(df) >= 30:
+                    return df
         except Exception:
             pass
         return None
+
 
     def _coingecko(self):
         t=self.ticker.replace("-USD","").upper()
@@ -582,6 +554,155 @@ class DataManager:
                     if p: return float(p)
             except Exception: pass
         return None
+
+    @staticmethod
+    def get_order_book(ticker: str, limit: int = 10) -> dict | None:
+        """Live order book depth from Binance. Crypto only. Returns {'bids':[[price,qty]...],'asks':[[price,qty]...]}.
+        Tries api.binance.com first, then the public market-data mirror data-api.binance.vision —
+        cloud-hosted apps sometimes get blocked/rate-limited on one but not the other."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        d = None
+        for base in ("https://api.binance.com", "https://data-api.binance.vision"):
+            try:
+                r = requests.get(f"{base}/api/v3/depth",
+                    params={"symbol": sym, "limit": limit}, headers=HDR, timeout=10)
+                if r.status_code == 200:
+                    d = r.json()
+                    break
+            except Exception:
+                continue
+        if d is None: return None
+        try:
+            return {
+                "bids": [[float(p), float(q)] for p, q in d.get("bids", [])],
+                "asks": [[float(p), float(q)] for p, q in d.get("asks", [])],
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_24h_stats(ticker: str) -> dict | None:
+        """24h ticker stats from Binance: change %, volume, quote volume, trade count. Crypto only."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/ticker/24hr",
+                params={"symbol": sym}, headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            d = r.json()
+            return {
+                "price_change_pct": float(d.get("priceChangePercent", 0) or 0),
+                "volume_base": float(d.get("volume", 0) or 0),
+                "volume_quote": float(d.get("quoteVolume", 0) or 0),
+                "trade_count": int(d.get("count", 0) or 0),
+                "high": float(d.get("highPrice", 0) or 0),
+                "low": float(d.get("lowPrice", 0) or 0),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_market_cap(ticker: str) -> dict | None:
+        """Market cap + 24h volume/change from CoinGecko's free public API. Crypto only."""
+        t = ticker.upper()
+        coin = COINGECKO_MAP.get(t, COINGECKO_MAP.get(t.replace("-USD","")))
+        if not coin: return None
+        try:
+            r = requests.get("https://api.coingecko.com/api/v3/simple/price",
+                params={"ids": coin, "vs_currencies": "usd", "include_market_cap": "true",
+                        "include_24hr_vol": "true", "include_24hr_change": "true"},
+                headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            d = r.json().get(coin, {})
+            if not d: return None
+            return {
+                "market_cap": float(d.get("usd_market_cap", 0) or 0),
+                "volume_24h": float(d.get("usd_24h_vol", 0) or 0),
+                "change_24h": float(d.get("usd_24h_change", 0) or 0),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_fear_greed_index() -> dict | None:
+        """Crypto Fear & Greed Index — a market-wide (not per-asset) sentiment gauge. Free, no key needed."""
+        try:
+            r = requests.get("https://api.alternative.me/fng/", params={"limit": 1}, timeout=8)
+            if r.status_code != 200: return None
+            item = r.json().get("data", [{}])[0]
+            return {
+                "value": int(item.get("value", 50)),
+                "classification": item.get("value_classification", "Neutral"),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_fear_greed_history(days: int = 14) -> list[int] | None:
+        """Real Fear & Greed values for the last N days, oldest first — for a sparkline, not fake noise."""
+        try:
+            r = requests.get("https://api.alternative.me/fng/", params={"limit": days}, timeout=8)
+            if r.status_code != 200: return None
+            items = r.json().get("data", [])
+            if not items: return None
+            return [int(i.get("value", 50)) for i in reversed(items)]
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_market_chart(ticker: str, days: int = 14) -> dict | None:
+        """Real historical market cap + volume series from CoinGecko, oldest first. Crypto only."""
+        t = ticker.upper()
+        coin = COINGECKO_MAP.get(t, COINGECKO_MAP.get(t.replace("-USD","")))
+        if not coin: return None
+        try:
+            r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart",
+                params={"vs_currency": "usd", "days": days}, headers=HDR, timeout=10)
+            if r.status_code != 200: return None
+            d = r.json()
+            return {
+                "market_caps": [float(p[1]) for p in d.get("market_caps", [])],
+                "volumes":     [float(p[1]) for p in d.get("total_volumes", [])],
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_price_history_lite(ticker: str, days: int = 14) -> list[float] | None:
+        """Lightweight recent daily closes for a small sparkline — not the full model dataset."""
+        sym = BINANCE_MAP.get(ticker.upper(), BINANCE_MAP.get(ticker.upper().replace("-USD","")))
+        if not sym: return None
+        try:
+            r = requests.get("https://api.binance.com/api/v3/klines",
+                params={"symbol": sym, "interval": "1d", "limit": days}, headers=HDR, timeout=8)
+            if r.status_code != 200: return None
+            return [float(k[4]) for k in r.json()]  # close prices, oldest first
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_active_wallets(ticker: str) -> dict | None:
+        """Active on-chain addresses. Only Bitcoin has a free, no-key, reliable public source
+        (blockchain.info). No honest equivalent exists for other chains without a paid API key,
+        and it has no meaning at all for stocks/commodities — so this returns None for anything
+        that isn't BTC, and callers should show an explicit 'not available' state rather than a
+        fabricated number."""
+        t = ticker.upper().replace("-USD", "")
+        if t != "BTC":
+            return None
+        try:
+            r = requests.get("https://api.blockchain.info/charts/n-unique-addresses",
+                params={"timespan": "14days", "format": "json", "cors": "true"}, timeout=8)
+            if r.status_code != 200: return None
+            vals = r.json().get("values", [])
+            if not vals: return None
+            return {
+                "active_addresses": int(vals[-1]["y"]),
+                "history": [int(v["y"]) for v in vals],  # real daily series, oldest first
+            }
+        except Exception:
+            return None
 
     @staticmethod
     def get_ticker_name(ticker: str) -> str:

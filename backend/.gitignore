@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Runtime cache: live-fetched OHLCV, metadata, portfolio/signal state.
+# Keep the original seed DFM CSVs that ship with the repo.
+data/*
+!data/*_DFM.csv

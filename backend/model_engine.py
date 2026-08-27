@@ -16,7 +16,7 @@ Changes vs v5:
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import (
@@ -113,6 +113,12 @@ class ModelEngine:
     def _prepare(self):
         d=self.df; sp=int(len(d)*self.split)
         if len(d)<100: raise RuntimeError(f"Not enough data: {len(d)} rows. Need ≥100.")
+        if len(d)-sp <= SEQ_LEN:
+            raise RuntimeError(
+                f"Not enough test-period data after the 80/20 split: only {len(d)-sp} rows, "
+                f"need >{SEQ_LEN}. This usually means the data source returned a short/partial "
+                f"history (e.g. an API rate-limit or fallback) — try Force Refresh Data."
+            )
         self.tr=d.iloc[:sp]; self.te=d.iloc[sp:]
         feat=[c for c in FEATURE_COLS if c in d.columns]
         self.feat_cols=feat
@@ -126,7 +132,13 @@ class ModelEngine:
             arr[_mask] = np.take(_med, np.where(_mask)[1])
         X_tr = np.clip(X_tr, -1e6, 1e6)
         X_te = np.clip(X_te, -1e6, 1e6)
-        self.sc=MinMaxScaler()
+        # RobustScaler (median/IQR), not MinMaxScaler (literal min/max) — financial features
+        # have fat-tailed outlier days (a single huge volume spike or price swing), and
+        # MinMax lets that one outlier compress every normal day into a tiny sliver near
+        # the middle of the range. RobustScaler ignores the extremes when setting scale,
+        # and its zero-centered output is generally easier for the RNN to learn from than
+        # MinMax's non-centered [0,1] range. Same cost — one fit_transform either way.
+        self.sc=RobustScaler()
         self.X_tr=self.sc.fit_transform(X_tr); self.X_te=self.sc.transform(X_te)
         self.y_tr=self.tr["Target"].values.astype(int)
         self.y_te=self.te["Target"].values.astype(int)
@@ -172,25 +184,28 @@ class ModelEngine:
                     _mask = ~np.isfinite(_arr[:, _col])
                     if _mask.any():
                         _arr[_mask, _col] = np.nanmedian(_arr[:, _col]) if np.isfinite(_arr[:, _col]).any() else 0.0
-            # Old proven config: lr=5e-4, epochs=80, batch=64, 3 seeds
-            # This matches the config that gave 60%+ consistently
-            _best_rp=None; _best_ra=0.0
-            for _seed in [42, 7, 13]:
+            # 2 seeds, AVERAGED — not picked. Picking a single "winner" seed (whether by
+            # test accuracy, which is cherry-picking, or by validation accuracy, which is
+            # honest but still winner-take-all) means one unlucky bad initialization can
+            # swing the reported number by double digits run to run. Averaging every seed's
+            # predicted probability is standard variance reduction (the same principle
+            # Random Forest is built on) — it never looks at the test set to make a choice,
+            # because there is no choice being made; every seed contributes.
+            _probs=[]
+            for _seed in (42, 7):
                 np.random.seed(_seed)
-                _rnn=VanillaRNN(nf,64,5e-4)
+                _rnn=VanillaRNN(nf,96,5e-4)
                 _rnn.fit(_Xtr2,self.ytr2,_Xval,self.yval,
-                         self.CW,epochs=80,batch=64,patience=12,verbose=False)
-                _rp_try=np.clip(_rnn.predict_proba(_Xte_s),0.01,0.99)
-                _ra_try=accuracy_score(y_te,(_rp_try>0.5).astype(int))
-                if _ra_try>_best_ra:
-                    _best_ra=_ra_try; _best_rp=_rp_try
+                         self.CW,epochs=60,batch=64,patience=12,verbose=False)
+                _probs.append(_rnn.predict_proba(_Xte_s))
             np.random.seed(None)
-            rp=_best_rp; ra=_best_ra
+            rp=np.clip(np.mean(_probs,axis=0),0.01,0.99)
+            ra=accuracy_score(y_te,(rp>0.5).astype(int))
             rf=f1_score(y_te,(rp>0.5).astype(int),zero_division=0)
             ru=roc_auc_score(y_te,rp) if len(np.unique(y_te))>1 else 0.5
             model_data["Vanilla RNN"]={"proba":rp,"pred":(rp>0.5).astype(int),"acc":ra,"f1":rf,"auc":ru}
             all_p["Vanilla RNN"]=rp; all_a["Vanilla RNN"]=ra
-            print(f"  RNN: {ra*100:.2f}% (best of 3 seeds)")
+            print(f"  RNN: {ra*100:.2f}%")
         except Exception as e:
             print(f"  RNN failed: {e}")
             all_p["Vanilla RNN"]=np.full(len(y_te),0.5); all_a["Vanilla RNN"]=0.5
@@ -235,15 +250,24 @@ class ModelEngine:
             import xgboost as xgb
             scale_pw = self.CW[1]/self.CW[0]
             xgb_m = xgb.XGBClassifier(
-                n_estimators=100, max_depth=4, learning_rate=0.08,
+                n_estimators=150, max_depth=4, learning_rate=0.08,
                 subsample=0.8, colsample_bytree=0.8,
                 scale_pos_weight=scale_pw,
                 eval_metric="logloss", verbosity=0,
                 random_state=42, n_jobs=-1,
                 tree_method="hist",
+                early_stopping_rounds=20,  # stop once held-out logloss stops improving — regularizes instead of just fitting more trees
             )
-            xgb_m.fit(self.X_tr, self.y_tr,
-                      eval_set=[(self.X_te, self.y_te)],
+            # Early stopping must watch a validation slice, never the test set — otherwise
+            # the tree count itself gets picked based on the exact data we grade against,
+            # which is the same leak as picking an RNN seed by test accuracy. Carve the
+            # last 15% of the TRAINING period (still strictly before the test period) off
+            # as that validation slice.
+            _val_n = max(50, int(len(self.X_tr) * 0.15))
+            _xtr_fit, _ytr_fit = self.X_tr[:-_val_n], self.y_tr[:-_val_n]
+            _xtr_val, _ytr_val = self.X_tr[-_val_n:], self.y_tr[-_val_n:]
+            xgb_m.fit(_xtr_fit, _ytr_fit,
+                      eval_set=[(_xtr_val, _ytr_val)],
                       verbose=False)
             xp = xgb_m.predict_proba(self.X_te)[:,1][SEQ_LEN:]
             xa = accuracy_score(y_te,(xp>0.5).astype(int))
