@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: signal-engine-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: CORS_ORIGINS
+        value: http://localhost:3000
+      - key: TRAIN_TTL_MINUTES
+        value: "180"
